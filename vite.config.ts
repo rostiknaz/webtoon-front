@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import path from "path";
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,8 +14,14 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
-    cloudflare()
+    cloudflare(),
+    tailwindcss()
     // ...
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   base: '/',
 })
