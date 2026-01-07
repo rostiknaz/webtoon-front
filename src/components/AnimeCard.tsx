@@ -1,5 +1,6 @@
 import { Play, Star, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "@tanstack/react-router";
 
 interface AnimeCardProps {
   anime: {
@@ -15,7 +16,11 @@ interface AnimeCardProps {
 
 const AnimeCard = ({ anime }: AnimeCardProps) => {
   return (
-    <div className="group relative flex-shrink-0 w-[180px] md:w-[200px] cursor-pointer">
+    <Link
+      to="/serials/$serialId"
+      params={{ serialId: String(anime.id) }}
+      className="group relative flex-shrink-0 w-[180px] md:w-[200px] cursor-pointer"
+    >
       {/* Poster Container */}
       <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card shadow-card transition-all duration-300 group-hover:shadow-hover group-hover:scale-[1.02]">
         {/* Image */}
@@ -69,7 +74,7 @@ const AnimeCard = ({ anime }: AnimeCardProps) => {
           {anime.episodes} Episodes
         </p>
       </div>
-    </div>
+    </Link>
   );
 };
 

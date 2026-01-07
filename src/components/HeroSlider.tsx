@@ -5,8 +5,10 @@ import { Play, Plus, Star, Info, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
 
 interface FeaturedAnime {
+  id: number;
   title: string;
   description: string;
   rating: number;
@@ -156,10 +158,12 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                         : "opacity-0 translate-y-4"
                     )}
                   >
-                    <Button size="lg" className="gap-2 glow-primary">
-                      <Play className="h-5 w-5 fill-current" />
-                      Watch Now
-                    </Button>
+                    <Link to="/serials/$serialId" params={{ serialId: String(anime.id) }}>
+                      <Button size="lg" className="gap-2 glow-primary">
+                        <Play className="h-5 w-5 fill-current" />
+                        Watch Now
+                      </Button>
+                    </Link>
                     <Button size="lg" variant="secondary" className="gap-2">
                       <Plus className="h-5 w-5" />
                       Add to List

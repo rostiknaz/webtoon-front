@@ -13,6 +13,12 @@ import getSeriesMetadataQueryOptions from "@/queryOptions/seriesQueryOptions.ts"
 import {EpisodeSidebar} from "@/components/EpisodeSidebar.tsx";
 import {useState} from "react";
 import {SerialNotFoundError} from "@/types.ts";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 export const Route = createFileRoute('/serials/$serialId')({
     loader: ({ context: { queryClient }, params: { serialId } }) => {
@@ -53,48 +59,68 @@ function SerialPage() {
 
   const { data } = useSuspenseQuery(getSeriesMetadataQueryOptions(serialId));
   const [activeIndex, setActiveIndex] = useState(0);
+  const [prevIndex, setPrevIndex] = useState(0);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   if (!data) return null;
 
   const episode = data.episodes[activeIndex];
+  const isMovingForward = activeIndex > prevIndex;
+
+  const handleEpisodeSelect = (index: number) => {
+    setPrevIndex(activeIndex);
+    setActiveIndex(index);
+    setIsDrawerOpen(false); // Close drawer after selecting episode on mobile
+  };
 
   return (
-      <div style={styles.container}>
-          <div className="left">
+      <div className="flex h-screen bg-background text-foreground">
+          {/* Video Player - Full screen */}
+          <div className="flex-1 relative overflow-hidden bg-black">
               <AnimatePresence mode="wait">
                   <motion.div
                       key={episode._id}
-                      initial={{ y: 300, opacity: 0 }}
+                      initial={{ y: isMovingForward ? 300 : -300, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -300, opacity: 0 }}
+                      exit={{ y: isMovingForward ? -300 : 300, opacity: 0 }}
                       transition={{ duration: 0.35, ease: 'easeOut' }}
-                      style={{ height: '100%' }}
+                      className="h-full"
                   >
-                      <VideoPlayer episode={episode} />
+                      <VideoPlayer
+                          episode={episode}
+                          seriesTitle={data.title}
+                          onOpenEpisodes={() => setIsDrawerOpen(true)}
+                      />
                   </motion.div>
               </AnimatePresence>
           </div>
-          <div className="right">
-              <EpisodeSidebar activeIndex={activeIndex} episodes= {data.episodes} onSelect= {(i: number) => setActiveIndex(i)} />
+
+          {/* Desktop: Sidebar */}
+          <div className="hidden md:block w-96 lg:w-[420px] border-l border-border bg-card overflow-y-auto">
+              <EpisodeSidebar
+                  series={data}
+                  activeIndex={activeIndex}
+                  episodes={data.episodes}
+                  onSelect={handleEpisodeSelect}
+              />
           </div>
+
+          {/* Mobile: Drawer */}
+          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+              <DrawerContent className="max-h-[90vh] flex flex-col" aria-describedby={undefined}>
+                  <DrawerHeader className="sr-only">
+                      <DrawerTitle>Episodes</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="overflow-y-auto flex-1">
+                      <EpisodeSidebar
+                          series={data}
+                          activeIndex={activeIndex}
+                          episodes={data.episodes}
+                          onSelect={handleEpisodeSelect}
+                      />
+                  </div>
+              </DrawerContent>
+          </Drawer>
       </div>
   );
 }
-const styles = {
-    container: {
-        display: 'flex',
-        height: '100vh',
-        background: '#000',
-        color: '#fff',
-    },
-    left: {
-        flex: 1,
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    right: {
-        width: 320,
-        borderLeft: '1px solid #1f2937',
-        overflowY: 'auto',
-    },
-};

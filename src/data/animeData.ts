@@ -2,6 +2,7 @@ import heroAnime from "@/assets/hero-anime.jpg";
 
 export const featuredAnimeList = [
     {
+        id: 25,
         title: "Demon Slayer: Kimetsu no Yaiba",
         description:
             "A family is attacked by demons and only two members survive - Tanjiro and his sister Nezuko, who is turning into a demon slowly. Tanjiro sets out to become a demon slayer to avenge his family and cure his sister.",
@@ -12,6 +13,7 @@ export const featuredAnimeList = [
         image: heroAnime,
     },
     {
+        id: 1,
         title: "Attack on Titan: The Final Season",
         description:
             "After uncovering the truth about the Titans and the world beyond the walls, Eren Jaeger and the Survey Corps face their ultimate battle as the fate of humanity hangs in the balance.",
@@ -22,6 +24,7 @@ export const featuredAnimeList = [
         image: "https://images.unsplash.com/photo-1541675154750-0444c7d51e8e?w=1920&q=80",
     },
     {
+        id: 2,
         title: "Jujutsu Kaisen",
         description:
             "A boy swallows a cursed talisman - the finger of a demon - and becomes cursed himself. He enters a shaman school to be able to locate the demon's other body parts and thus exorcise himself.",
@@ -32,6 +35,7 @@ export const featuredAnimeList = [
         image: "https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1920&q=80",
     },
     {
+        id: 7,
         title: "Frieren: Beyond Journey's End",
         description:
             "An elf mage reflects on the decade-long journey that changed her perspective on life, death, and the fleeting nature of time after the hero party defeats the Demon King.",
