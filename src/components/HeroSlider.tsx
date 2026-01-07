@@ -67,8 +67,8 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                   )}
                 />
                 {/* Gradient Overlays */}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/30" />
-                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-background/60 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-r from-background/50 via-transparent to-transparent" />
               </div>
 
               {/* Content */}
@@ -138,7 +138,7 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                   {/* Description */}
                   <p
                     className={cn(
-                      "text-muted-foreground text-base md:text-lg mb-8 line-clamp-3 transition-all duration-700 delay-300",
+                      "text-foreground/90 text-base md:text-lg mb-8 line-clamp-3 transition-all duration-700 delay-300 drop-shadow-lg",
                       selectedIndex === index && isAnimating
                         ? "opacity-100 translate-y-0"
                         : "opacity-0 translate-y-4"
