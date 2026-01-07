@@ -8,6 +8,7 @@ const episodeSchema = z.object({
     duration: z.number().optional(), // in seconds
     isLocked: z.boolean(),
     hlsUrl: z.string().url().optional(), // only if unlocked
+    videoId: z.string().optional(), // Cloudflare Stream video ID
     releaseDate: z.string().optional(),
     views: z.number().optional(),
 });
