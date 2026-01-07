@@ -8,11 +8,11 @@ import {
 import {useEffect} from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { VideoPlayer } from '../../components/VideoPlayer';
-import getSeriesMetadataQueryOptions from "../../queryOptions/seriesQueryOptions.ts";
-import {EpisodeSidebar} from "../../components/EpisodeSidebar.tsx";
+import { VideoPlayer } from '@/components/VideoPlayer';
+import getSeriesMetadataQueryOptions from "@/queryOptions/seriesQueryOptions.ts";
+import {EpisodeSidebar} from "@/components/EpisodeSidebar.tsx";
 import {useState} from "react";
-import {SerialNotFoundError} from "../../types.ts";
+import {SerialNotFoundError} from "@/types.ts";
 
 export const Route = createFileRoute('/serials/$serialId')({
     loader: ({ context: { queryClient }, params: { serialId } }) => {
