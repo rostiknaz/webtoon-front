@@ -26,17 +26,13 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
         // Show controls
         setShowControls(true);
 
-        // Set new timeout to hide controls after 3 seconds
+        // Set new timeout to hide controls after 5 seconds
         hideTimeoutRef.current = setTimeout(() => {
             setShowControls(false);
-        }, 3000);
+        }, 5000);
     }).current;
 
-    const handleMouseMove = () => {
-        resetHideTimer();
-    };
-
-    const handleClick = () => {
+    const handleInteraction = () => {
         resetHideTimer();
     };
 
@@ -74,7 +70,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
         }
 
         // Use the uploaded test video as fallback
-        return "0d0460cec39afe9f9f1a0473f06300d1";
+        return "e173ed29029287118d810abce2ea35c5";
     };
 
     const videoId = getVideoId();
@@ -82,34 +78,47 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
     return (
         <div
             className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center"
-            onMouseMove={handleMouseMove}
-            onClick={handleClick}
+            onMouseMove={handleInteraction}
         >
             {/* TikTok-style Vertical Video Player - 9:16 aspect ratio */}
-            <div className="relative w-full h-full max-w-[55vh]">
+            <div className="stream-container relative w-full h-full md:max-w-[55vh]">
                 <Stream
                     src={videoId}
                     controls={true}
-                    autoplay={false}
+                    autoplay={true}
                     muted={false}
                     loop={false}
                     preload="auto"
-                    responsive={true}
+                    responsive={false}
                     height="100%"
                     width="100%"
+                />
+
+                {/* Transparent overlay to capture touch events */}
+                <div
+                    className="absolute inset-0 z-10"
+                    onClick={handleInteraction}
+                    onTouchEnd={handleInteraction}
+                    style={{ pointerEvents: showControls ? 'none' : 'auto' }}
                 />
             </div>
 
             {/* TikTok-style Floating Action Buttons (Mobile & Desktop) */}
-            <div className={`absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
-                showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}>
+            <div
+                className={`absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
+                    showControls ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ pointerEvents: showControls ? 'auto' : 'none' }}
+            >
                 {/* Like Button */}
                 <div className="flex flex-col items-center gap-1">
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setIsLiked(!isLiked)}
+                        onClick={() => {
+                            setIsLiked(!isLiked);
+                            resetHideTimer();
+                        }}
                         className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
                             isLiked ? 'text-red-500' : 'text-white'
                         }`}
@@ -126,7 +135,10 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={onOpenEpisodes}
+                        onClick={() => {
+                            onOpenEpisodes();
+                            resetHideTimer();
+                        }}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white md:hidden"
                     >
                         <List className="h-6 w-6" />
@@ -141,6 +153,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
                     <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => resetHideTimer()}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
                     >
                         <Share2 className="h-6 w-6" />
@@ -150,9 +163,12 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
             </div>
 
             {/* Top Info Bar */}
-            <div className={`absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
-                showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}>
+            <div
+                className={`absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
+                    showControls ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ pointerEvents: showControls ? 'auto' : 'none' }}
+            >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link to="/">
