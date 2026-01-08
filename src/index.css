@@ -218,26 +218,17 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* Cloudflare Stream player styling - ensure full height coverage */
+/* HLS Video player styling - ensure full height coverage */
 .stream-container {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.stream-container > div {
-  height: 100% !important;
-  flex: 1;
-}
-
-.stream-container iframe {
-  height: 100% !important;
-  width: 100% !important;
-  object-fit: cover;
+  align-items: center;
+  justify-content: center;
 }
 
 .stream-container video {
-  object-fit: cover !important;
-  width: 100% !important;
-  height: 100% !important;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
 }

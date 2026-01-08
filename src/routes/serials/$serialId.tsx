@@ -73,6 +73,15 @@ function SerialPage() {
     setIsDrawerOpen(false); // Close drawer after selecting episode on mobile
   };
 
+  const handlePlayNext = () => {
+    // Check if there's a next episode and it's not locked
+    const nextIndex = activeIndex + 1;
+    if (nextIndex < data.episodes.length && !data.episodes[nextIndex].isLocked) {
+      setPrevIndex(activeIndex);
+      setActiveIndex(nextIndex);
+    }
+  };
+
   return (
       <div className="flex h-screen bg-background text-foreground">
           {/* Video Player - Full screen */}
@@ -90,6 +99,7 @@ function SerialPage() {
                           episode={episode}
                           seriesTitle={data.title}
                           onOpenEpisodes={() => setIsDrawerOpen(true)}
+                          onPlayNext={handlePlayNext}
                       />
                   </motion.div>
               </AnimatePresence>

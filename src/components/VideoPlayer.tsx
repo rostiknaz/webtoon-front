@@ -3,12 +3,15 @@ import { ArrowLeft, Heart, List, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { Stream } from "@cloudflare/stream-react";
+import Hls from "hls.js";
 
-export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode: Episode; seriesTitle: string; onOpenEpisodes: () => void }) {
+export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }: { episode: Episode; seriesTitle: string; onOpenEpisodes: () => void; onPlayNext: () => void }) {
     const [isLiked, setIsLiked] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const hideTimeoutRef = useRef<number | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<Hls | null>(null);
+    const videoStatesRef = useRef<Map<string, { currentTime: number; wasPlaying: boolean }>>(new Map());
 
     const formatNumber = (num?: number) => {
         if (!num) return "0";
@@ -55,25 +58,172 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [episode._id]);
 
-    // Extract Cloudflare Stream video ID
-    // Priority: 1) episode.videoId, 2) extract from hlsUrl, 3) fallback to test video
-    const getVideoId = () => {
-        // Check if videoId is directly provided
+    // Get HLS URL for the episode
+    // Priority: 1) hlsUrl directly, 2) construct from videoId, 3) fallback
+    const getHlsUrl = () => {
+        // Construct Cloudflare Stream URL from videoId
         if (episode.videoId) {
-            return episode.videoId;
+            // return `https://customer-m033z5x00ks6nunl.cloudflarestream.com/${episode.videoId}/manifest/video.m3u8`;
+            return `https://customer-9u10nm8oora2n5zb.cloudflarestream.com/${episode.videoId}/manifest/video.m3u8`;
         }
 
-        // Try to extract from Cloudflare Stream URL
-        if (episode.hlsUrl) {
-            const match = episode.hlsUrl.match(/cloudflarestream\.com\/([^\/]+)\//);
-            if (match) return match[1];
-        }
+        // Use hlsUrl if directly provided
+        // if (episode.hlsUrl) {
+        //     return episode.hlsUrl;
+        // }
 
-        // Use the uploaded test video as fallback
-        return "e173ed29029287118d810abce2ea35c5";
+        // Fallback to test video
+        return "https://customer-9u10nm8oora2n5zb.cloudflarestream.com/e173ed29029287118d810abce2ea35c5/manifest/video.m3u8";
     };
 
-    const videoId = getVideoId();
+    const hlsUrl = getHlsUrl();
+
+    // Initialize HLS and handle episode changes
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Save current video state before switching
+        const saveCurrentState = () => {
+            if (video && !video.paused) {
+                videoStatesRef.current.set(episode._id, {
+                    currentTime: video.currentTime,
+                    wasPlaying: !video.paused,
+                });
+            }
+        };
+
+        // Check if HLS is supported
+        if (Hls.isSupported()) {
+            // Reuse existing HLS instance or create new one
+            if (!hlsRef.current) {
+                hlsRef.current = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 90,
+                });
+
+                // Attach media element
+                hlsRef.current.attachMedia(video);
+
+                // Handle HLS errors
+                hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.error('Network error encountered, trying to recover');
+                                hlsRef.current?.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.error('Media error encountered, trying to recover');
+                                hlsRef.current?.recoverMediaError();
+                                break;
+                            default:
+                                console.error('Fatal error, destroying HLS instance');
+                                hlsRef.current?.destroy();
+                                hlsRef.current = null;
+                                break;
+                        }
+                    }
+                });
+            }
+
+            // Load the new source
+            hlsRef.current.loadSource(hlsUrl);
+
+            // Restore video state if returning to a previously played episode
+            const savedState = videoStatesRef.current.get(episode._id);
+            if (savedState) {
+                video.currentTime = savedState.currentTime;
+                if (savedState.wasPlaying) {
+                    // Try to play, mute if autoplay fails
+                    video.play().catch(() => {
+                        // video.muted = true;
+                        video.play().catch(err => console.error('Autoplay failed even when muted:', err));
+                    });
+                }
+            } else {
+                // New episode - try autoplay unmuted first, fall back to muted
+                video.play().catch(() => {
+                    video.muted = true;
+                    video.play().catch(err => console.error('Autoplay failed even when muted:', err));
+                });
+            }
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            video.src = hlsUrl;
+
+            const savedState = videoStatesRef.current.get(episode._id);
+            if (savedState) {
+                video.currentTime = savedState.currentTime;
+                if (savedState.wasPlaying) {
+                    // Try to play, mute if autoplay fails
+                    video.play().catch(() => {
+                        video.muted = true;
+                        video.play().catch(err => console.error('Autoplay failed even when muted:', err));
+                    });
+                }
+            } else {
+                // New episode - try autoplay unmuted first, fall back to muted
+                video.play().catch(() => {
+                    video.muted = true;
+                    video.play().catch(err => console.error('Autoplay failed even when muted:', err));
+                });
+            }
+        }
+
+        // Cleanup function - save state but don't destroy HLS instance
+        return () => {
+            saveCurrentState();
+        };
+    }, [episode._id, hlsUrl]);
+
+    // Sync custom controls with native video player controls
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Video events that indicate user is interacting with native controls
+        const videoInteractionEvents = [
+            'play',
+            'pause',
+            'playing',
+            'seeking',
+            'seeked',
+            'volumechange',
+            'loadedmetadata',
+            'canplay',
+            'waiting',
+            'stalled',
+        ];
+
+        // Show custom controls when user interacts with native controls
+        const handleVideoInteraction = () => {
+            resetHideTimer();
+        };
+
+        // Attach event listeners to video element
+        videoInteractionEvents.forEach(event => {
+            video.addEventListener(event, handleVideoInteraction);
+        });
+
+        // Cleanup
+        return () => {
+            videoInteractionEvents.forEach(event => {
+                video.removeEventListener(event, handleVideoInteraction);
+            });
+        };
+    }, [resetHideTimer]);
+
+    // Cleanup HLS instance on unmount
+    useEffect(() => {
+        return () => {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div
@@ -82,25 +232,28 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes }: { episode:
         >
             {/* TikTok-style Vertical Video Player - 9:16 aspect ratio */}
             <div className="stream-container relative w-full h-full md:max-w-[55vh]">
-                <Stream
-                    src={videoId}
-                    controls={true}
-                    autoplay={true}
-                    muted={false}
-                    loop={false}
+                <video
+                    ref={videoRef}
+                    controls
+                    playsInline
                     preload="auto"
-                    responsive={false}
-                    height="100%"
-                    width="100%"
+                    onEnded={onPlayNext}
+                    onClick={handleInteraction}
+                    onTouchStart={handleInteraction}
+                    onMouseMove={handleInteraction}
+                    onPlay={handleInteraction}
+                    onPause={handleInteraction}
+                    className="w-full h-full object-contain relative z-20"
                 />
 
-                {/* Transparent overlay to capture touch events */}
-                <div
-                    className="absolute inset-0 z-10"
-                    onClick={handleInteraction}
-                    onTouchEnd={handleInteraction}
-                    style={{ pointerEvents: showControls ? 'none' : 'auto' }}
-                />
+                {/*/!* Transparent overlay to capture touch events when controls are hidden *!/*/}
+                {/*{!showControls && (*/}
+                {/*    <div*/}
+                {/*        className="absolute inset-0 z-10"*/}
+                {/*        onClick={handleInteraction}*/}
+                {/*        onTouchEnd={handleInteraction}*/}
+                {/*    />*/}
+                {/*)}*/}
             </div>
 
             {/* TikTok-style Floating Action Buttons (Mobile & Desktop) */}
