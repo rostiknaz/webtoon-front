@@ -3,15 +3,22 @@ import { ArrowLeft, Heart, List, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import Hls from "hls.js";
+import Player from "xgplayer";
+import "xgplayer/dist/index.min.css";
 
-export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }: { episode: Episode; seriesTitle: string; onOpenEpisodes: () => void; onPlayNext: () => void }) {
+interface VideoPlayerProps {
+    episode: Episode;
+    seriesTitle: string;
+    onOpenEpisodes: () => void;
+    onPlayNext: () => void;
+}
+
+export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }: VideoPlayerProps) {
     const [isLiked, setIsLiked] = useState(false);
-    const [showControls, setShowControls] = useState(true);
-    const hideTimeoutRef = useRef<number | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const hlsRef = useRef<Hls | null>(null);
-    const videoStatesRef = useRef<Map<string, { currentTime: number; wasPlaying: boolean }>>(new Map());
+    const [showMobileControls, setShowMobileControls] = useState(false);
+    const playerRef = useRef<Player | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const hideTimerRef = useRef<number | null>(null);
 
     const formatNumber = (num?: number) => {
         if (!num) return "0";
@@ -20,257 +27,111 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
         return num.toString();
     };
 
-    const resetHideTimer = useRef(() => {
-        // Clear existing timeout
-        if (hideTimeoutRef.current) {
-            clearTimeout(hideTimeoutRef.current);
+    const handleMobileTouch = () => {
+        // Clear existing timer
+        if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
         }
 
         // Show controls
-        setShowControls(true);
+        setShowMobileControls(true);
 
-        // Set new timeout to hide controls after 5 seconds
-        hideTimeoutRef.current = setTimeout(() => {
-            setShowControls(false);
-        }, 5000);
-    }).current;
-
-    const handleInteraction = () => {
-        resetHideTimer();
+        // Set timer to hide after 3 seconds
+        hideTimerRef.current = setTimeout(() => {
+            setShowMobileControls(false);
+        }, 3000);
     };
 
+    // Cleanup timer on unmount
     useEffect(() => {
-        // Initialize hide timer on mount
-        resetHideTimer();
-
-        // Cleanup on unmount
         return () => {
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Reset timer when episode changes
-    useEffect(() => {
-        resetHideTimer();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [episode._id]);
-
     // Get HLS URL for the episode
-    // Priority: 1) hlsUrl directly, 2) construct from videoId, 3) fallback
     const getHlsUrl = () => {
-        // Construct Cloudflare Stream URL from videoId
         if (episode.videoId) {
-            // return `https://customer-m033z5x00ks6nunl.cloudflarestream.com/${episode.videoId}/manifest/video.m3u8`;
             return `https://customer-9u10nm8oora2n5zb.cloudflarestream.com/${episode.videoId}/manifest/video.m3u8`;
         }
-
-        // Use hlsUrl if directly provided
-        // if (episode.hlsUrl) {
-        //     return episode.hlsUrl;
-        // }
-
-        // Fallback to test video
         return "https://customer-9u10nm8oora2n5zb.cloudflarestream.com/e173ed29029287118d810abce2ea35c5/manifest/video.m3u8";
     };
 
-    const hlsUrl = getHlsUrl();
-
-    // Initialize HLS and handle episode changes
+    // Initialize xgplayer once
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
+        if (!containerRef.current) return;
 
-        // Save current video state before switching
-        const saveCurrentState = () => {
-            if (video && !video.paused) {
-                videoStatesRef.current.set(episode._id, {
-                    currentTime: video.currentTime,
-                    wasPlaying: !video.paused,
-                });
-            }
-        };
+        const hlsUrl = getHlsUrl();
 
-        // Check if HLS is supported
-        if (Hls.isSupported()) {
-            // Reuse existing HLS instance or create new one
-            if (!hlsRef.current) {
-                hlsRef.current = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: false,
-                    backBufferLength: 90,
-                });
+        // Create player only if it doesn't exist
+        if (!playerRef.current) {
+            playerRef.current = new Player({
+                el: containerRef.current,
+                url: hlsUrl,
+                autoplay: true,
+                playsinline: true,
+                fitVideoSize: 'fixWidth',
+                cssFullscreen: true,
+                'x5-video-player-type': 'h5',
+                'x5-video-orientation': 'portrait',
+                'webkit-playsinline': true,
+                fluid: true,
+                videoInit: true,
+            });
 
-                // Attach media element
-                hlsRef.current.attachMedia(video);
-
-                // Handle HLS errors
-                hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-                    if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                console.error('Network error encountered, trying to recover');
-                                hlsRef.current?.startLoad();
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                console.error('Media error encountered, trying to recover');
-                                hlsRef.current?.recoverMediaError();
-                                break;
-                            default:
-                                console.error('Fatal error, destroying HLS instance');
-                                hlsRef.current?.destroy();
-                                hlsRef.current = null;
-                                break;
-                        }
-                    }
-                });
-            }
-
-            // Load the new source
-            hlsRef.current.loadSource(hlsUrl);
-
-            // Restore video state if returning to a previously played episode
-            const savedState = videoStatesRef.current.get(episode._id);
-            if (savedState) {
-                video.currentTime = savedState.currentTime;
-                if (savedState.wasPlaying) {
-                    // Try to play, mute if autoplay fails
-                    video.play().catch(() => {
-                        // video.muted = true;
-                        video.play().catch(err => console.error('Autoplay failed even when muted:', err));
-                    });
-                }
-            } else {
-                // New episode - try autoplay unmuted first, fall back to muted
-                video.play().catch(() => {
-                    video.muted = true;
-                    video.play().catch(err => console.error('Autoplay failed even when muted:', err));
-                });
-            }
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS support (Safari)
-            video.src = hlsUrl;
-
-            const savedState = videoStatesRef.current.get(episode._id);
-            if (savedState) {
-                video.currentTime = savedState.currentTime;
-                if (savedState.wasPlaying) {
-                    // Try to play, mute if autoplay fails
-                    video.play().catch(() => {
-                        video.muted = true;
-                        video.play().catch(err => console.error('Autoplay failed even when muted:', err));
-                    });
-                }
-            } else {
-                // New episode - try autoplay unmuted first, fall back to muted
-                video.play().catch(() => {
-                    video.muted = true;
-                    video.play().catch(err => console.error('Autoplay failed even when muted:', err));
-                });
-            }
+            // Listen to player events
+            playerRef.current.on('ended', () => {
+                onPlayNext();
+            });
         }
 
-        // Cleanup function - save state but don't destroy HLS instance
+        // Cleanup on unmount
         return () => {
-            saveCurrentState();
-        };
-    }, [episode._id, hlsUrl]);
-
-    // Sync custom controls with native video player controls
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        // Video events that indicate user is interacting with native controls
-        const videoInteractionEvents = [
-            'play',
-            'pause',
-            'playing',
-            'seeking',
-            'seeked',
-            'volumechange',
-            'loadedmetadata',
-            'canplay',
-            'waiting',
-            'stalled',
-        ];
-
-        // Show custom controls when user interacts with native controls
-        const handleVideoInteraction = () => {
-            resetHideTimer();
-        };
-
-        // Attach event listeners to video element
-        videoInteractionEvents.forEach(event => {
-            video.addEventListener(event, handleVideoInteraction);
-        });
-
-        // Cleanup
-        return () => {
-            videoInteractionEvents.forEach(event => {
-                video.removeEventListener(event, handleVideoInteraction);
-            });
-        };
-    }, [resetHideTimer]);
-
-    // Cleanup HLS instance on unmount
-    useEffect(() => {
-        return () => {
-            if (hlsRef.current) {
-                hlsRef.current.destroy();
-                hlsRef.current = null;
+            if (playerRef.current) {
+                playerRef.current.destroy();
+                playerRef.current = null;
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Update video source when episode changes
+    useEffect(() => {
+        if (playerRef.current) {
+            const hlsUrl = getHlsUrl();
+            playerRef.current.src = hlsUrl;
+            playerRef.current.play();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [episode._id]);
 
     return (
         <div
-            className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center"
-            onMouseMove={handleInteraction}
+            className="video-player-container relative w-full h-full bg-black overflow-hidden flex items-center justify-center"
+            onClick={handleMobileTouch}
+            data-mobile-controls-visible={showMobileControls}
         >
-            {/* TikTok-style Vertical Video Player - 9:16 aspect ratio */}
-            <div className="stream-container relative w-full h-full md:max-w-[55vh]">
-                <video
-                    ref={videoRef}
-                    controls
-                    playsInline
-                    preload="auto"
-                    onEnded={onPlayNext}
-                    onClick={handleInteraction}
-                    onTouchStart={handleInteraction}
-                    onMouseMove={handleInteraction}
-                    onPlay={handleInteraction}
-                    onPause={handleInteraction}
-                    className="w-full h-full object-contain relative z-20"
+            {/* xgplayer Video Container - Fixed width for desktop */}
+            <div className="relative h-full w-full md:w-auto md:aspect-[9/16]">
+                <div
+                    ref={containerRef}
+                    className="w-full h-full"
                 />
-
-                {/*/!* Transparent overlay to capture touch events when controls are hidden *!/*/}
-                {/*{!showControls && (*/}
-                {/*    <div*/}
-                {/*        className="absolute inset-0 z-10"*/}
-                {/*        onClick={handleInteraction}*/}
-                {/*        onTouchEnd={handleInteraction}*/}
-                {/*    />*/}
-                {/*)}*/}
             </div>
 
-            {/* TikTok-style Floating Action Buttons (Mobile & Desktop) */}
-            <div
-                className={`absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
-                    showControls ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{ pointerEvents: showControls ? 'auto' : 'none' }}
-            >
+            {/* TikTok-style Floating Action Buttons */}
+            <div className="custom-controls absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-4 z-50" onClick={(e) => e.stopPropagation()}>
                 {/* Like Button */}
                 <div className="flex flex-col items-center gap-1">
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation();
                             setIsLiked(!isLiked);
-                            resetHideTimer();
+                            handleMobileTouch(); // Reset timer
                         }}
                         className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
                             isLiked ? 'text-red-500' : 'text-white'
@@ -288,9 +149,9 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation();
                             onOpenEpisodes();
-                            resetHideTimer();
                         }}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white md:hidden"
                     >
@@ -306,7 +167,10 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => resetHideTimer()}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleMobileTouch(); // Reset timer
+                        }}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
                     >
                         <Share2 className="h-6 w-6" />
@@ -316,12 +180,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
             </div>
 
             {/* Top Info Bar */}
-            <div
-                className={`absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
-                    showControls ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{ pointerEvents: showControls ? 'auto' : 'none' }}
-            >
+            <div className="custom-controls absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link to="/">

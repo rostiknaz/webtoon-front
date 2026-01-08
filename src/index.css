@@ -218,17 +218,58 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* HLS Video player styling - ensure full height coverage */
-.stream-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
+/* xgplayer styling for TikTok-style vertical video */
+.xgplayer {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
 }
 
-.stream-container video {
-  object-fit: contain;
-  width: 100%;
-  height: 100%;
+.xgplayer video {
+  object-fit: contain !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.xgplayer-controls {
+  z-index: 30 !important;
+}
+
+/* Desktop: Fixed width container for vertical video */
+@media (min-width: 768px) {
+  .xgplayer {
+    aspect-ratio: 9 / 16 !important;
+    width: auto !important;
+    height: 100% !important;
+  }
+}
+
+/* Auto-hide custom controls - CSS only */
+.video-player-container .custom-controls {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+/* Desktop: Show on hover */
+@media (hover: hover) and (pointer: fine) {
+  .video-player-container:hover .custom-controls,
+  .video-player-container:focus-within .custom-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Always show controls when interacting with them */
+  .custom-controls:hover {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
+/* Mobile: Show on tap (controlled by data attribute) */
+@media (hover: none) and (pointer: coarse) {
+  .video-player-container[data-mobile-controls-visible="true"] .custom-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
