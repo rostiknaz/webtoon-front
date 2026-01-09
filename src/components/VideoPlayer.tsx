@@ -122,7 +122,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
             </div>
 
             {/* TikTok-style Floating Action Buttons */}
-            <div className="custom-controls absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-4 z-50" onClick={(e) => e.stopPropagation()}>
+            <div className="custom-controls absolute bottom-24 md:bottom-32 right-4 flex flex-col gap-4 z-50" onClick={(e) => e.stopPropagation()}>
                 {/* Like Button */}
                 <div className="flex flex-col items-center gap-1">
                     <Button
