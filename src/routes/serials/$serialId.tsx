@@ -83,7 +83,7 @@ function SerialPage() {
   };
 
   return (
-      <div className="flex h-full bg-background text-foreground">
+      <div className="serial-page-container flex bg-background text-foreground">
           {/* Video Player - Full screen */}
           <div className="flex-1 relative overflow-hidden bg-black">
               <AnimatePresence mode="wait">

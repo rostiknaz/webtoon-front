@@ -157,33 +157,12 @@
   border-color: var(--color-border);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-}
-
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Fix mobile viewport height issues with address bar */
-@supports (-webkit-touch-callout: none) {
-  body {
-    height: -webkit-fill-available;
-  }
-}
-
-#root {
-  height: 100%;
-  overflow: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -297,5 +276,24 @@ h1, h2, h3, h4, h5, h6 {
   /* Add safe area padding for iOS notch/home indicator */
   .video-player-container .custom-controls {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Serial page: Fixed viewport, no scrolling */
+.serial-page-container {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* iOS Safari fix for address bar */
+@supports (-webkit-touch-callout: none) {
+  .serial-page-container {
+    height: -webkit-fill-available;
   }
 }
