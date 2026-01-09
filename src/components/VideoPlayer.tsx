@@ -18,7 +18,6 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
     const [showMobileControls, setShowMobileControls] = useState(false);
     const playerRef = useRef<Player | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const hideTimerRef = useRef<number | null>(null);
 
     const formatNumber = (num?: number) => {
         if (!num) return "0";
@@ -27,29 +26,16 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
         return num.toString();
     };
 
-    const handleMobileTouch = () => {
-        // Clear existing timer
-        if (hideTimerRef.current) {
-            clearTimeout(hideTimerRef.current);
+    const handleVideoClick = () => {
+        if (!playerRef.current) return;
+
+        // Toggle play/pause
+        if (playerRef.current.paused) {
+            playerRef.current.play();
+        } else {
+            playerRef.current.pause();
         }
-
-        // Show controls
-        setShowMobileControls(true);
-
-        // Set timer to hide after 3 seconds
-        hideTimerRef.current = setTimeout(() => {
-            setShowMobileControls(false);
-        }, 3000);
     };
-
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (hideTimerRef.current) {
-                clearTimeout(hideTimerRef.current);
-            }
-        };
-    }, []);
 
     // Get HLS URL for the episode
     const getHlsUrl = () => {
@@ -70,20 +56,65 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
             playerRef.current = new Player({
                 el: containerRef.current,
                 url: hlsUrl,
+
+                // Autoplay settings
                 autoplay: true,
+
+                // Playback behavior
+                loop: false,
+                defaultPlaybackRate: 1,
+
+                // Mobile/iOS compatibility
                 playsinline: true,
-                fitVideoSize: 'fixWidth',
-                cssFullscreen: true,
                 'x5-video-player-type': 'h5',
                 'x5-video-orientation': 'portrait',
                 'webkit-playsinline': true,
+
+                // Click handling - disable defaults to avoid conflicts
+                closeVideoClick: true,
+                closeVideoDblclick: true,
+
+                // Focus management - better for continuous playback
+                closePauseVideoFocus: true,
+                closePlayVideoFocus: true,
+
+                // Layout & sizing
+                fitVideoSize: 'fixWidth',
+                cssFullscreen: true,
                 fluid: true,
+
+                // UI enhancements
+                miniprogress: true,
                 videoInit: true,
+
+                // Control bar timing (matches 3-second custom timer)
+                inactive: 3000,
+                leavePlayerTime: 3000,
+
+                // Mobile gestures
+                mobile: {
+                    gestureX: true,
+                    gestureY: true,
+                    pressRate: 2,
+                    disableGesture: false,
+                },
+
+                // Keyboard shortcuts
+                keyShortcut: true,
             });
 
             // Listen to player events
             playerRef.current.on('ended', () => {
                 onPlayNext();
+            });
+
+            // Handle custom controls visibility with player focus/blur events
+            playerRef.current.on('focus', () => {
+                setShowMobileControls(true);
+            });
+
+            playerRef.current.on('blur', () => {
+                setShowMobileControls(false);
             });
         }
 
@@ -110,8 +141,8 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
     return (
         <div
             className="video-player-container relative w-full h-full bg-black overflow-hidden flex items-center justify-center"
-            onClick={handleMobileTouch}
             data-mobile-controls-visible={showMobileControls}
+            onClick={handleVideoClick}
         >
             {/* xgplayer Video Container - Fixed width for desktop */}
             <div className="relative h-full w-full md:w-auto md:aspect-[9/16]">
@@ -128,11 +159,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsLiked(!isLiked);
-                            handleMobileTouch(); // Reset timer
-                        }}
+                        onClick={() => setIsLiked(!isLiked)}
                         className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
                             isLiked ? 'text-red-500' : 'text-white'
                         }`}
@@ -149,10 +176,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenEpisodes();
-                        }}
+                        onClick={onOpenEpisodes}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white md:hidden"
                     >
                         <List className="h-6 w-6" />
@@ -167,10 +191,6 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleMobileTouch(); // Reset timer
-                        }}
                         className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
                     >
                         <Share2 className="h-6 w-6" />
