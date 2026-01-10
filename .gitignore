@@ -7,10 +7,40 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build outputs
 dist
 dist-ssr
 *.local
+
+# Environment variables
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Cloudflare
+.wrangler
+wrangler.toml.local
+
+# Database (local development)
+*.db
+*.db-shm
+*.db-wal
+.turso
+
+# Playwright
+playwright-report
+test-results
+playwright/.cache
+
+# TanStack Router
+.tanstack
+
+# Claude Code
+.claude
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +52,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# OS
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache

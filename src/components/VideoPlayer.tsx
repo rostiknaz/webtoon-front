@@ -15,9 +15,10 @@ interface VideoPlayerProps {
 
 export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }: VideoPlayerProps) {
     const [isLiked, setIsLiked] = useState(false);
-    const [showMobileControls, setShowMobileControls] = useState(false);
+    const [showMobileControls, setShowMobileControls] = useState(true);
     const playerRef = useRef<Player | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const hideControlsTimerRef = useRef<number | null>(null);
 
     const formatNumber = (num?: number) => {
         if (!num) return "0";
@@ -36,6 +37,15 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
             playerRef.current.pause();
         }
     };
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (hideControlsTimerRef.current) {
+                clearTimeout(hideControlsTimerRef.current);
+            }
+        };
+    }, []);
 
     // Get HLS URL for the episode
     const getHlsUrl = () => {
@@ -80,16 +90,16 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
 
                 // Layout & sizing
                 fitVideoSize: 'fixWidth',
-                cssFullscreen: true,
-                fluid: true,
+                cssFullscreen: false,
+                fluid: false,
 
                 // UI enhancements
                 miniprogress: true,
                 videoInit: true,
 
                 // Control bar timing (matches 3-second custom timer)
-                inactive: 3000,
-                leavePlayerTime: 3000,
+                // inactive: 3000,
+                // leavePlayerTime: 3000,
 
                 // Mobile gestures
                 mobile: {
@@ -108,13 +118,28 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                 onPlayNext();
             });
 
-            // Handle custom controls visibility with player focus/blur events
-            playerRef.current.on('focus', () => {
+            // Handle custom controls visibility based on play/pause state
+            playerRef.current.on('pause', () => {
+                // Clear any pending hide timer
+                if (hideControlsTimerRef.current) {
+                    clearTimeout(hideControlsTimerRef.current);
+                    hideControlsTimerRef.current = null;
+                }
+                // Always show controls when paused
                 setShowMobileControls(true);
             });
 
-            playerRef.current.on('blur', () => {
-                setShowMobileControls(false);
+            playerRef.current.on('play', () => {
+                // Clear any existing timer
+                if (hideControlsTimerRef.current) {
+                    clearTimeout(hideControlsTimerRef.current);
+                }
+                // Show controls immediately on play
+                setShowMobileControls(true);
+                // Hide after 3 seconds
+                hideControlsTimerRef.current = setTimeout(() => {
+                    setShowMobileControls(false);
+                }, 3000);
             });
         }
 

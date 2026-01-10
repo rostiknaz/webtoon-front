@@ -4,5 +4,24 @@
   "assets": {
     "directory": "./dist/",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webtoon-db",
+      "database_id": "3eb45b23-733f-4ed1-9990-fbb1a9c82179"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "6ac46c8bceac4b5381918fb93e7be2f6",
+      "preview_id": "a5475886a2df43b6be8b0b28d678c497"
+    },
+    {
+      "binding": "SESSIONS",
+      "id": "1c765a896d1e437ab928c400a3fd0c19",
+      "preview_id": "2d98116b6bae4d3796cb5e65b486be83"
+    }
+  ]
 }
