@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import getSeriesMetadataQueryOptions from "@/queryOptions/seriesQueryOptions.ts";
 import {EpisodeSidebar} from "@/components/EpisodeSidebar.tsx";
+import {AuthDrawer} from "@/components/AuthDrawer.tsx";
 import {useState} from "react";
 import {SerialNotFoundError} from "@/types.ts";
 import {
@@ -61,6 +62,7 @@ function SerialPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
 
   if (!data) return null;
 
@@ -80,6 +82,16 @@ function SerialPage() {
       setPrevIndex(activeIndex);
       setActiveIndex(nextIndex);
     }
+  };
+
+  const handleLockedEpisodeClick = () => {
+    setIsDrawerOpen(false); // Close episodes drawer if open
+    setIsAuthDrawerOpen(true); // Open auth drawer
+  };
+
+  const handleAuthSuccess = () => {
+    // Refresh the page or refetch data after successful authentication
+    window.location.reload();
   };
 
   return (
@@ -112,6 +124,7 @@ function SerialPage() {
                   activeIndex={activeIndex}
                   episodes={data.episodes}
                   onSelect={handleEpisodeSelect}
+                  onLockedClick={handleLockedEpisodeClick}
               />
           </div>
 
@@ -127,10 +140,18 @@ function SerialPage() {
                           activeIndex={activeIndex}
                           episodes={data.episodes}
                           onSelect={handleEpisodeSelect}
+                          onLockedClick={handleLockedEpisodeClick}
                       />
                   </div>
               </DrawerContent>
           </Drawer>
+
+          {/* Auth Drawer */}
+          <AuthDrawer
+              open={isAuthDrawerOpen}
+              onOpenChange={setIsAuthDrawerOpen}
+              onSuccess={handleAuthSuccess}
+          />
       </div>
   );
 }

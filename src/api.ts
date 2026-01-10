@@ -1,160 +1,137 @@
 // src/api.ts
-import { seriesMetadataSchema } from './types';
+import {
+    seriesCoreMetadataSchema,
+    seriesAccessSchema,
+    seriesStatsSchema,
+    seriesMetadataSchema,
+    SerialNotFoundError,
+    type SeriesMetadata,
+    type Episode,
+} from './types';
 
-export const getSeriesMetadata = async (seriesId: string) => {
-    // simulate network latency
-    await new Promise((r) => setTimeout(r, 300));
+/**
+ * Fetch series core metadata (long cache - 24 hours)
+ * Static data: title, description, episodes list, etc.
+ */
+export const getSeriesCoreMetadata = async (seriesId: string) => {
+    const response = await fetch(`/api/series/${seriesId}`, {
+        headers: { 'Content-Type': 'application/json' },
+    });
 
-    const data = {
-        _id: seriesId,
-        title: 'Midnight Confessions',
-        description: 'A gripping vertical short-form drama series that explores the complexities of modern relationships through late-night text messages. Follow Emma and Jake as their digital conversations reveal secrets, desires, and unexpected twists that will keep you on the edge of your seat.',
-        thumbnail: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
-        coverImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1920&q=80',
-        rating: 8.7,
-        totalViews: 2450000,
-        year: 2024,
-        status: 'ongoing' as const,
-        genres: ['Drama', 'Romance', 'Mystery', 'Thriller'],
-        cast: ['Emma Stone', 'Jake Gyllenhaal', 'Sarah Johnson'],
-        director: 'Michael Chen',
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new SerialNotFoundError(`Series not found: ${seriesId}`);
+        }
+        throw new Error(`Failed to fetch series: ${response.statusText}`);
+    }
 
-        user: {
-            isAuthenticated: true,
-            hasSubscription: false,
-        },
+    const data = await response.json();
+    return seriesCoreMetadataSchema.parse(data);
+};
 
-        episodes: [
-            {
-                _id: 'ep-1',
-                episodeNumber: 1,
-                title: 'The First Message',
-                thumbnail: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300&q=80',
-                duration: 90,
-                isLocked: false,
-                videoId: 'e173ed29029287118d810abce2ea35c5',
-                hlsUrl: 'https://customer-m033z5x00ks6nunl.cloudflarestream.com/0d0460cec39afe9f9f1a0473f06300d1/manifest/video.m3u8',
-                releaseDate: '2024-01-01',
-                views: 450000,
-            },
-            {
-                _id: 'ep-2',
-                episodeNumber: 2,
-                title: 'Seen at 2:14 AM',
-                thumbnail: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=300&q=80',
-                duration: 85,
-                isLocked: false,
-                videoId: 'b9b6b4f8b735d37919dcfebeda242dba',
-                hlsUrl: 'https://cdn.example.com/series/1/ep2/master.m3u8',
-                releaseDate: '2024-01-02',
-                views: 420000,
-            },
-            {
-                _id: 'ep-3',
-                episodeNumber: 3,
-                title: 'Typing…',
-                thumbnail: 'https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=300&q=80',
-                duration: 95,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep3/master.m3u8',
-                releaseDate: '2024-01-03',
-                views: 390000,
-            },
-            {
-                _id: 'ep-4',
-                episodeNumber: 4,
-                title: 'Deleted Messages',
-                thumbnail: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=300&q=80',
-                duration: 88,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep4/master.m3u8',
-                releaseDate: '2024-01-04',
-                views: 370000,
-            },
-            {
-                _id: 'ep-5',
-                episodeNumber: 5,
-                title: 'Who Is Watching?',
-                thumbnail: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=300&q=80',
-                duration: 92,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep5/master.m3u8',
-                releaseDate: '2024-01-05',
-                views: 340000,
-            },
-            {
-                _id: 'ep-6',
-                episodeNumber: 6,
-                title: 'The Screenshot',
-                thumbnail: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=300&q=80',
-                duration: 87,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep6/master.m3u8',
-                releaseDate: '2024-01-06',
-                views: 320000,
-            },
-            {
-                _id: 'ep-7',
-                episodeNumber: 7,
-                title: 'No Caller ID',
-                thumbnail: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=300&q=80',
-                duration: 93,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep7/master.m3u8',
-                releaseDate: '2024-01-07',
-                views: 300000,
-            },
-            {
-                _id: 'ep-8',
-                episodeNumber: 8,
-                title: 'Online Again',
-                thumbnail: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=300&q=80',
-                duration: 90,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep8/master.m3u8',
-                releaseDate: '2024-01-08',
-                views: 280000,
-            },
-            {
-                _id: 'ep-9',
-                episodeNumber: 9,
-                title: 'The Profile Picture',
-                thumbnail: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=300&q=80',
-                duration: 91,
-                isLocked: false,
-                hlsUrl: 'https://cdn.example.com/series/1/ep9/master.m3u8',
-                releaseDate: '2024-01-09',
-                views: 260000,
-            },
-            {
-                _id: 'ep-10',
-                episodeNumber: 10,
-                title: 'Voice Note',
-                thumbnail: 'https://images.unsplash.com/photo-1518709594023-6eab9bab7b23?w=300&q=80',
-                duration: 94,
-                isLocked: true,
-                releaseDate: '2024-01-10',
-            },
-            {
-                _id: 'ep-11',
-                episodeNumber: 11,
-                title: 'Read Receipts',
-                thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=300&q=80',
-                duration: 89,
-                isLocked: true,
-                releaseDate: '2024-01-11',
-            },
-            {
-                _id: 'ep-12',
-                episodeNumber: 12,
-                title: 'Last Seen',
-                thumbnail: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=80',
-                duration: 96,
-                isLocked: true,
-                releaseDate: '2024-01-12',
-            },
-        ]
-    };
+/**
+ * Fetch series access info (medium cache - 1 hour per subscription level)
+ * User-specific: isLocked, hlsUrl based on subscription
+ */
+export const getSeriesAccess = async (seriesId: string) => {
+    const response = await fetch(`/api/series/${seriesId}/access`, {
+        credentials: 'include', // Include cookies for auth
+        headers: { 'Content-Type': 'application/json' },
+    });
 
-    return seriesMetadataSchema.parse(data);
-}
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new SerialNotFoundError(`Series not found: ${seriesId}`);
+        }
+        throw new Error(`Failed to fetch series access: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return seriesAccessSchema.parse(data);
+};
+
+/**
+ * Fetch series statistics (short cache - 1 minute)
+ * Dynamic data: views, likes
+ */
+export const getSeriesStats = async (seriesId: string) => {
+    const response = await fetch(`/api/series/${seriesId}/stats`, {
+        headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new SerialNotFoundError(`Series not found: ${seriesId}`);
+        }
+        throw new Error(`Failed to fetch series stats: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return seriesStatsSchema.parse(data);
+};
+
+/**
+ * Fetch complete series metadata by combining all 3 endpoints
+ * This is the main function used by components
+ */
+export const getSeriesMetadata = async (seriesId: string): Promise<SeriesMetadata> => {
+    try {
+        // Fetch all 3 endpoints in parallel
+        const [coreData, accessData, statsData] = await Promise.all([
+            getSeriesCoreMetadata(seriesId),
+            getSeriesAccess(seriesId),
+            getSeriesStats(seriesId),
+        ]);
+
+        // Merge episodes data from all 3 sources
+        const episodesMap = new Map<string, Episode>();
+
+        // Start with core metadata
+        coreData.episodes.forEach((ep) => {
+            episodesMap.set(ep._id, {
+                ...ep,
+                isLocked: false, // Will be updated from access data
+                hlsUrl: undefined,
+                views: 0, // Will be updated from stats
+                likes: 0,
+            });
+        });
+
+        // Merge access data (isLocked, hlsUrl)
+        accessData.episodes.forEach((ep) => {
+            const existing = episodesMap.get(ep._id);
+            if (existing) {
+                existing.isLocked = ep.isLocked;
+                existing.hlsUrl = ep.hlsUrl;
+            }
+        });
+
+        // Merge stats data (views, likes)
+        statsData.episodes.forEach((ep) => {
+            const existing = episodesMap.get(ep._id);
+            if (existing) {
+                existing.views = ep.views;
+                existing.likes = ep.likes;
+            }
+        });
+
+        // Build combined response
+        const combinedData: SeriesMetadata = {
+            ...coreData,
+            totalViews: statsData.totalViews,
+            totalLikes: statsData.totalLikes,
+            episodes: Array.from(episodesMap.values()).sort(
+                (a, b) => a.episodeNumber - b.episodeNumber
+            ),
+            user: accessData.user,
+        };
+
+        return seriesMetadataSchema.parse(combinedData);
+    } catch (error) {
+        if (error instanceof SerialNotFoundError) {
+            throw error;
+        }
+        console.error('Failed to fetch series metadata:', error);
+        throw new Error('Failed to load series data');
+    }
+};

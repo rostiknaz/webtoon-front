@@ -73,7 +73,7 @@ export async function checkSubscription(): Promise<boolean> {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as { hasSubscription: boolean };
       return data.hasSubscription;
     }
 

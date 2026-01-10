@@ -8,9 +8,10 @@ interface EpisodeSidebarProps {
     episodes: Episode[];
     activeIndex: number;
     onSelect: (i: number) => void;
+    onLockedClick?: () => void;
 }
 
-export function EpisodeSidebar({ series, episodes, activeIndex, onSelect }: EpisodeSidebarProps) {
+export function EpisodeSidebar({ series, episodes, activeIndex, onSelect, onLockedClick }: EpisodeSidebarProps) {
     const formatDuration = (seconds?: number) => {
         if (!seconds) return "N/A";
         const mins = Math.floor(seconds / 60);
@@ -99,17 +100,14 @@ export function EpisodeSidebar({ series, episodes, activeIndex, onSelect }: Epis
                         {episodes.map((ep, i) => (
                             <button
                                 key={ep._id}
-                                onClick={() => !ep.isLocked && onSelect(i)}
-                                disabled={ep.isLocked}
+                                onClick={() => ep.isLocked ? onLockedClick?.() : onSelect(i)}
                                 className={cn(
-                                    "w-full p-3 rounded-lg border transition-all duration-200 text-left",
+                                    "w-full p-3 rounded-lg border transition-all duration-200 text-left cursor-pointer",
                                     "hover:shadow-md",
                                     i === activeIndex
                                         ? "bg-primary/10 border-primary shadow-md"
                                         : "bg-secondary/50 border-border hover:border-primary/50",
-                                    ep.isLocked
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "cursor-pointer"
+                                    ep.isLocked && "opacity-70"
                                 )}
                             >
                                 <div className="flex items-start gap-3">

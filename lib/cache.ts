@@ -36,7 +36,11 @@ interface CacheOptions {
  * Generic cache wrapper with get/set/delete operations
  */
 export class CacheManager {
-  constructor(private kv: KVNamespace) {}
+  private kv: KVNamespace;
+
+  constructor(kv: KVNamespace) {
+    this.kv = kv;
+  }
 
   /**
    * Get cached data with automatic JSON parsing
