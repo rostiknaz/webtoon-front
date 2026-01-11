@@ -18,11 +18,10 @@ import { cloudflareClient } from 'better-auth-cloudflare/client';
  * - authClient.signOut() - Sign out current user
  */
 export const authClient = createAuthClient({
-  // Use current origin for production (Worker serves both API and frontend)
-  // In development, use localhost:5174 to match dev server
-  baseURL: import.meta.env.DEV
-    ? 'http://localhost:5174'
-    : window.location.origin,
+  // Use current origin for both dev and production
+  // The Worker serves both frontend and API from the same origin,
+  // so window.location.origin always points to the correct base URL
+  baseURL: window.location.origin,
   plugins: [
     cloudflareClient(),
   ],
