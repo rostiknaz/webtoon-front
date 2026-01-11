@@ -18,7 +18,11 @@ import { cloudflareClient } from 'better-auth-cloudflare/client';
  * - authClient.signOut() - Sign out current user
  */
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_BETTER_AUTH_URL || 'http://localhost:5173',
+  // Use current origin for production (Worker serves both API and frontend)
+  // In development, use localhost:5174 to match dev server
+  baseURL: import.meta.env.DEV
+    ? 'http://localhost:5174'
+    : window.location.origin,
   plugins: [
     cloudflareClient(),
   ],
