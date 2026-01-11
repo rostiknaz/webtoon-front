@@ -97,16 +97,30 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                 miniprogress: true,
                 videoInit: true,
 
-                // Control bar timing (matches 3-second custom timer)
-                // inactive: 3000,
-                // leavePlayerTime: 3000,
-
                 // Mobile gestures
                 mobile: {
                     gestureX: true,
                     gestureY: true,
                     pressRate: 2,
                     disableGesture: false,
+                },
+
+                // ===== ADAPTIVE BITRATE STREAMING =====
+                quality: 'auto',           // Enable adaptive bitrate (1080p, 720p, 480p)
+                defaultQuality: 720,       // Start with 720p for balance
+                preload: 'metadata',       // Only load metadata, not entire video
+
+                // HLS configuration for better adaptive streaming
+                // Note: These settings optimize for Cloudflare Stream
+                hls: {
+                    debug: false,
+                    maxBufferLength: 30,           // Buffer 30 seconds ahead
+                    maxMaxBufferLength: 120,       // Max 2 minutes buffer
+                    abrBandWidthFactor: 0.95,      // Use 95% of estimated bandwidth
+                    abrBandWidthUpFactor: 0.7,     // Conservative when upgrading quality
+                    startLevel: -1,                // Auto-detect initial quality
+                    capLevelToPlayerSize: true,    // Don't load 1080p for small players
+                    enableWorker: true,            // Use web worker for better performance
                 },
 
                 // Keyboard shortcuts
