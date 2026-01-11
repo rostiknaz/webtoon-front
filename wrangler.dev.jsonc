@@ -1,5 +1,5 @@
 {
-  "name": "webtoon-front",
+  "name": "webtoon-front-dev",
   "compatibility_date": "2026-01-05",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -7,14 +7,13 @@
     "binding": "ASSETS"
   },
   "main": "./worker/index.ts",
-  // Production environment variables
+  // Development environment variables
   "vars": {
-    "BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
-    "VITE_BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
+    "BETTER_AUTH_URL": "http://localhost:5174",
+    "VITE_BETTER_AUTH_URL": "http://localhost:5174",
     "CLOUDFLARE_STREAM_CUSTOMER_CODE": "9u10nm8oora2n5zb",
     "CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID": "b9b6b4f8b735d37919dcfebeda242dba"
   },
-  // Production database bindings
   "d1_databases": [
     {
       "binding": "DB",
@@ -22,15 +21,16 @@
       "database_id": "3eb45b23-733f-4ed1-9990-fbb1a9c82179"
     }
   ],
-  // Production KV namespaces
   "kv_namespaces": [
     {
       "binding": "CACHE",
-      "id": "6ac46c8bceac4b5381918fb93e7be2f6"
+      "id": "6ac46c8bceac4b5381918fb93e7be2f6",
+      "preview_id": "a5475886a2df43b6be8b0b28d678c497"
     },
     {
       "binding": "SESSIONS",
-      "id": "1c765a896d1e437ab928c400a3fd0c19"
+      "id": "1c765a896d1e437ab928c400a3fd0c19",
+      "preview_id": "2d98116b6bae4d3796cb5e65b486be83"
     }
   ]
 }

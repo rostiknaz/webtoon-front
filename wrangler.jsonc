@@ -1,5 +1,5 @@
 {
-  "name": "webtoon-front-dev",
+  "name": "webtoon-front",
   "compatibility_date": "2026-01-05",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -7,10 +7,10 @@
     "binding": "ASSETS"
   },
   "main": "./worker/index.ts",
-  // Development environment variables
+  // Production environment variables (default for CI/CD)
   "vars": {
-    "BETTER_AUTH_URL": "http://localhost:5173",
-    "VITE_BETTER_AUTH_URL": "http://localhost:5173",
+    "BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
+    "VITE_BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
     "CLOUDFLARE_STREAM_CUSTOMER_CODE": "9u10nm8oora2n5zb",
     "CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID": "b9b6b4f8b735d37919dcfebeda242dba"
   },
