@@ -4,9 +4,8 @@ import { ErrorComponent, useRouter } from '@tanstack/react-router'
 import {
     useQueryErrorResetBoundary,
     useSuspenseQuery,
-    useQueryClient,
 } from '@tanstack/react-query'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { VideoPlayer } from '@/components/VideoPlayer';
@@ -65,36 +64,18 @@ function SerialPage() {
   const { serialId } = Route.useParams();
   const session = authClient.useSession();
   const subscription = useSubscription();
-  const queryClient = useQueryClient();
 
   const isAuthenticated = !!session.data?.user;
   const hasSubscription = subscription.data?.hasSubscription ?? false;
 
   // Fetch series data with subscription status
+  // Query key includes hasSubscription, so React Query automatically uses the right cache
   const { data } = useSuspenseQuery(getSeriesMetadataQueryOptions(serialId, hasSubscription));
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
-
-  // Track previous subscription status to detect actual changes
-  const prevHasSubscription = useRef<boolean | null>(null);
-
-  // Refetch series data only when subscription status actually changes
-  useEffect(() => {
-    // Skip on first render - use loader's cached data
-    if (prevHasSubscription.current === null) {
-      prevHasSubscription.current = hasSubscription;
-      return;
-    }
-
-    // Only invalidate if subscription status actually changed
-    if (prevHasSubscription.current !== hasSubscription) {
-      prevHasSubscription.current = hasSubscription;
-      queryClient.invalidateQueries({ queryKey: ['serial', serialId] });
-    }
-  }, [hasSubscription, serialId, queryClient]);
 
   if (!data) return null;
 

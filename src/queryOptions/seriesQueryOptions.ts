@@ -6,11 +6,10 @@ export default function getSeriesMetadataQueryOptions(
     hasSubscription: boolean = false
 ) {
     return queryOptions({
-        // Keep query key stable - don't include subscription status
-        // This prevents duplicate keys when subscription changes
-        queryKey: ["serial", serialId],
+        // Include subscription in query key to create separate cache entries
+        // This prevents invalidation logic - React Query naturally uses the right cache
+        queryKey: ["serial", serialId, hasSubscription],
         queryFn: () => getSeriesMetadata(serialId, hasSubscription),
-        // Don't refetch on mount - we handle refetching via useEffect in component
         refetchOnMount: false,
     })
 }
