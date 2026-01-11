@@ -30,8 +30,9 @@ export function useSubscription() {
     staleTime: 5 * 60 * 1000,
     // Don't refetch on mount if we have cached data
     refetchOnMount: false,
-    // Refetch on window focus to catch subscription changes
-    refetchOnWindowFocus: true,
+    // Don't refetch on window focus - reduces unnecessary API calls
+    // Subscription changes are rare and handled explicitly (after purchase)
+    refetchOnWindowFocus: false,
     // Retry once on failure
     retry: 1,
     // Provide default value when not authenticated

@@ -78,20 +78,22 @@ function SerialPage() {
   const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
-  // Track first render to prevent unnecessary refetch on mount
-  const isFirstRender = useRef(true);
+  // Track previous subscription status to detect actual changes
+  const prevHasSubscription = useRef<boolean | null>(null);
 
-  // Refetch series data when subscription status changes (skip first render)
+  // Refetch series data only when subscription status actually changes
   useEffect(() => {
-    // Skip invalidation on first render to avoid duplicate API calls
-    // The loader already fetched the data, so we use that cached data on mount
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
+    // Skip on first render - use loader's cached data
+    if (prevHasSubscription.current === null) {
+      prevHasSubscription.current = hasSubscription;
       return;
     }
 
-    // Only invalidate when subscription status actually changes
-    queryClient.invalidateQueries({ queryKey: ['serial', serialId] });
+    // Only invalidate if subscription status actually changed
+    if (prevHasSubscription.current !== hasSubscription) {
+      prevHasSubscription.current = hasSubscription;
+      queryClient.invalidateQueries({ queryKey: ['serial', serialId] });
+    }
   }, [hasSubscription, serialId, queryClient]);
 
   if (!data) return null;
