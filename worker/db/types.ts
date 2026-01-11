@@ -6,6 +6,7 @@
 
 import type { DB } from './index';
 import type { AppEnv as BaseAppEnv } from '../lib/types';
+import type { Auth } from 'better-auth';
 
 /**
  * Extended Hono environment with Drizzle instance
@@ -22,5 +23,6 @@ export type AppEnvWithDB = {
   Bindings: BaseAppEnv['Bindings'];
   Variables: {
     db: DB;
+    auth: Auth;
   };
 };

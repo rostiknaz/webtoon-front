@@ -6,7 +6,7 @@
 
 import { Hono } from 'hono';
 import { createCacheLayer } from '../../lib/cache';
-import { getUserSession, checkUserSubscription } from '../lib/auth';
+import { getUserSubscription } from '../db/services/subscription.service';
 import { kvCache, buildCacheKey } from '../middleware/cache';
 import {
   getSeriesById,
@@ -93,13 +93,42 @@ series.get(
 series.get('/:id/access', async (c) => {
   const seriesId = c.req.param('id');
 
-  // Get user session and subscription
-  const session = await getUserSession(c.req.raw, c.env);
-  const userId =
-    session && typeof session === 'object' && 'user_id' in session
-      ? (session.user_id as string)
-      : null;
-  const hasSubscription = userId ? await checkUserSubscription(userId, c.env) : false;
+  // Get user session from Better Auth
+  const auth = c.get('auth');
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
+  const userId = session?.user?.id || null;
+
+  // Check subscription status
+  let hasSubscription = false;
+  if (userId) {
+    const cache = createCacheLayer(c.env.CACHE);
+    let cachedSub = await cache.subscriptions.getUserSubscription(userId);
+
+    if (cachedSub) {
+      hasSubscription = cachedSub.hasAccess;
+    } else {
+      // Cache miss - query D1
+      const db = c.get('db');
+      const dbSub = await getUserSubscription(db, userId);
+      hasSubscription = !!dbSub &&
+        ['active', 'trial'].includes(dbSub.status) &&
+        (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+
+      // Cache for 1 hour
+      if (dbSub) {
+        await cache.subscriptions.setUserSubscription(userId, {
+          status: dbSub.status,
+          planId: dbSub.planId,
+          planFeatures: dbSub.planFeatures,
+          currentPeriodEnd: dbSub.currentPeriodEnd || 0,
+          hasAccess: hasSubscription,
+          cachedAt: Date.now(),
+        });
+      }
+    }
+  }
 
   // Cache key based on subscription level (not per-user)
   const cacheKey = buildCacheKey(

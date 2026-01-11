@@ -41,28 +41,27 @@ async function seed() {
       .insert(plans)
       .values([
         {
-          id: 'plan_free',
-          name: 'Free',
-          description: 'Access to free episodes only',
-          price: 0,
+          id: 'plan_1week',
+          name: '1 Week',
+          description: 'Perfect for trying out premium content',
+          price: 7.99,
           currency: 'USD',
-          billingPeriod: 'monthly',
+          billingPeriod: 'weekly',
           trialDays: 0,
           features: JSON.stringify({
-            episodeAccess: 'limited',
-            adFree: false,
-            downloadable: false,
-            earlyAccess: false,
+            episodeAccess: 'all',
+            adFree: true,
+            downloadable: true,
+            earlyAccess: true,
           }),
-          solidgateProductId: 'plan_free',
+          solidgateProductId: 'solidgate_product_1week',
           isActive: true,
         },
         {
-          id: 'plan_monthly',
-          name: 'Premium Monthly',
-          description:
-            'Unlimited access to all episodes, ad-free experience, and early access to new content',
-          price: 9.99,
+          id: 'plan_4weeks',
+          name: '4 Weeks',
+          description: 'Save 58% compared to weekly - just $3.37/week',
+          price: 13.49,
           currency: 'USD',
           billingPeriod: 'monthly',
           trialDays: 7,
@@ -72,16 +71,16 @@ async function seed() {
             downloadable: true,
             earlyAccess: true,
           }),
-          solidgateProductId: 'solidgate_product_monthly',
+          solidgateProductId: 'solidgate_product_4weeks',
           isActive: true,
         },
         {
-          id: 'plan_yearly',
-          name: 'Premium Yearly',
-          description: 'All premium features + 2 months free. Best value!',
-          price: 99.99,
+          id: 'plan_12weeks',
+          name: '12 Weeks',
+          description: 'Best value - save 74% compared to weekly at just $2.08/week',
+          price: 24.99,
           currency: 'USD',
-          billingPeriod: 'yearly',
+          billingPeriod: 'quarterly',
           trialDays: 7,
           features: JSON.stringify({
             episodeAccess: 'all',
@@ -89,7 +88,24 @@ async function seed() {
             downloadable: true,
             earlyAccess: true,
           }),
-          solidgateProductId: 'solidgate_product_yearly',
+          solidgateProductId: 'solidgate_product_12weeks',
+          isActive: true,
+        },
+        {
+          id: 'plan_24weeks',
+          name: '24 Weeks',
+          description: 'Ultimate savings - save 78% compared to weekly at $1.75/week',
+          price: 41.99,
+          currency: 'USD',
+          billingPeriod: 'biannual',
+          trialDays: 7,
+          features: JSON.stringify({
+            episodeAccess: 'all',
+            adFree: true,
+            downloadable: true,
+            earlyAccess: true,
+          }),
+          solidgateProductId: 'solidgate_product_24weeks',
           isActive: true,
         },
       ])
@@ -256,7 +272,7 @@ async function seed() {
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('\n📊 Summary:');
-    console.log('  - 3 subscription plans');
+    console.log('  - 4 subscription plans (1 week, 4 weeks, 12 weeks, 24 weeks)');
     console.log('  - 1 sample series: "Midnight Confessions"');
     console.log('  - 12 sample episodes (9 free, 3 premium)');
     console.log('\n💡 Next steps:');

@@ -1,11 +1,16 @@
 {
   "name": "webtoon-front",
   "compatibility_date": "2026-01-05",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",
     "binding": "ASSETS"
   },
   "main": "./worker/index.ts",
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:5173",
+    "VITE_BETTER_AUTH_URL": "http://localhost:5173"
+  },
   "d1_databases": [
     {
       "binding": "DB",

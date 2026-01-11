@@ -13,6 +13,11 @@ import type { Context, Next } from 'hono';
 import type { AppEnv } from '../lib/types';
 
 /**
+ * Export schema for Better Auth adapter
+ */
+export { schema };
+
+/**
  * Create Drizzle client from D1 binding
  *
  * Called per-request to ensure fresh connection.

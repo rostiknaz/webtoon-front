@@ -115,4 +115,56 @@ export type EpisodeStats = z.infer<typeof episodeStatsSchema>;
 export type SeriesMetadata = z.infer<typeof seriesMetadataSchema>;
 export type Episode = z.infer<typeof episodeSchema>;
 
+// ==================== Subscription Schemas ====================
+
+export const planFeaturesSchema = z.object({
+    episodeAccess: z.string(),
+    adFree: z.boolean(),
+    downloadable: z.boolean(),
+    earlyAccess: z.boolean(),
+});
+
+export const planSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    price: z.number(),
+    currency: z.string(),
+    billingPeriod: z.string(),
+    trialDays: z.number(),
+    features: planFeaturesSchema,
+});
+
+export const subscriptionPlansResponseSchema = z.object({
+    plans: z.array(planSchema),
+});
+
+export const subscriptionCheckResponseSchema = z.object({
+    hasSubscription: z.boolean(),
+});
+
+export const subscriptionStatusResponseSchema = z.object({
+    hasSubscription: z.boolean(),
+    subscription: z.object({
+        planId: z.string(),
+        planName: z.string(),
+        status: z.string(),
+        currentPeriodStart: z.string(),
+        currentPeriodEnd: z.string(),
+    }).optional(),
+});
+
+export const subscribeResponseSchema = z.object({
+    success: z.boolean(),
+});
+
+// ==================== Type Exports ====================
+
+export type PlanFeatures = z.infer<typeof planFeaturesSchema>;
+export type Plan = z.infer<typeof planSchema>;
+export type SubscriptionPlansResponse = z.infer<typeof subscriptionPlansResponseSchema>;
+export type SubscriptionCheckResponse = z.infer<typeof subscriptionCheckResponseSchema>;
+export type SubscriptionStatusResponse = z.infer<typeof subscriptionStatusResponseSchema>;
+export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;
+
 export class SerialNotFoundError extends Error {}

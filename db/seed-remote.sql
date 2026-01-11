@@ -2,9 +2,10 @@
 -- Subscription Plans
 INSERT OR IGNORE INTO plans (id, name, description, price, currency, billing_period, trial_days, features, solidgate_product_id, is_active)
 VALUES
-  ('plan_free', 'Free', 'Access to free episodes only', 0, 'USD', 'monthly', 0, '{"episodeAccess":"limited","adFree":false,"downloadable":false,"earlyAccess":false}', 'plan_free', 1),
-  ('plan_monthly', 'Premium Monthly', 'Unlimited access to all episodes, ad-free experience, and early access to new content', 9.99, 'USD', 'monthly', 7, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_monthly', 1),
-  ('plan_yearly', 'Premium Yearly', 'All premium features + 2 months free. Best value!', 99.99, 'USD', 'yearly', 7, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_yearly', 1);
+  ('plan_1week', '1 Week', 'Perfect for trying out premium content', 7.99, 'USD', 'weekly', 0, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_1week', 1),
+  ('plan_4weeks', '4 Weeks', 'Save 58% compared to weekly - just $3.37/week', 13.49, 'USD', 'monthly', 7, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_4weeks', 1),
+  ('plan_12weeks', '12 Weeks', 'Best value - save 74% compared to weekly at just $2.08/week', 24.99, 'USD', 'quarterly', 7, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_12weeks', 1),
+  ('plan_24weeks', '24 Weeks', 'Ultimate savings - save 78% compared to weekly at $1.75/week', 41.99, 'USD', 'biannual', 7, '{"episodeAccess":"all","adFree":true,"downloadable":true,"earlyAccess":true}', 'solidgate_product_24weeks', 1);
 
 -- Midnight Confessions Series
 INSERT INTO series (id, title, description, thumbnail_url, genre, author, status, created_at, updated_at)
