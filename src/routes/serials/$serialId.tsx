@@ -6,7 +6,7 @@ import {
     useSuspenseQuery,
     useQueryClient,
 } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { VideoPlayer } from '@/components/VideoPlayer';
@@ -78,8 +78,19 @@ function SerialPage() {
   const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
-  // Refetch series data when subscription status changes
+  // Track first render to prevent unnecessary refetch on mount
+  const isFirstRender = useRef(true);
+
+  // Refetch series data when subscription status changes (skip first render)
   useEffect(() => {
+    // Skip invalidation on first render to avoid duplicate API calls
+    // The loader already fetched the data, so we use that cached data on mount
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Only invalidate when subscription status actually changes
     queryClient.invalidateQueries({ queryKey: ['serial', serialId] });
   }, [hasSubscription, serialId, queryClient]);
 
