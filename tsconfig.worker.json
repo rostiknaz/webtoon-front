@@ -26,5 +26,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["lib/**/*", "functions/**/*", "db/**/*"]
+  "include": ["lib/**/*", "functions/**/*", "worker/**/*", "db/schema.ts"]
 }

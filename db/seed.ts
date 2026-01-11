@@ -1,5 +1,5 @@
 /**
- * Database Seed Script
+ * Database Seed Script with Drizzle ORM
  *
  * Populates the database with initial data:
  * - Subscription plans
@@ -10,112 +10,119 @@
  * - Remote: npm run db:seed:remote
  */
 
+import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
+import { plans, series, episodes } from './schema';
+import { sql } from 'drizzle-orm';
 
-// @ts-ignore - process is available in Node.js runtime via tsx
-const DATABASE_URL = process.env.DATABASE_URL || '.wrangler/state/v3/d1/miniflare-D1DatabaseObject/d92f4d3dda6d00f0624e5f92a013bc9e140a3dfd7f2719743e3a6571bf66d016.sqlite';
+// Determine database URL based on environment
+const isRemote = process.env.DATABASE_URL === 'remote';
+const DATABASE_URL = isRemote
+  ? process.env.CLOUDFLARE_D1_URL || ''
+  : process.env.DATABASE_URL ||
+    '.wrangler/state/v3/d1/miniflare-D1DatabaseObject/d92f4d3dda6d00f0624e5f92a013bc9e140a3dfd7f2719743e3a6571bf66d016.sqlite';
 
 async function seed() {
   console.log('🌱 Seeding database...');
+  console.log(`📍 Target: ${isRemote ? 'Remote (Cloudflare D1)' : 'Local (SQLite)'}`);
 
-  const db = createClient({
-    url: `file:${DATABASE_URL}`,
+  // Create database client
+  const client = createClient({
+    url: isRemote ? DATABASE_URL : `file:${DATABASE_URL}`,
   });
+
+  const db = drizzle(client, { schema: { plans, series, episodes } });
 
   try {
     // Seed subscription plans
-    console.log('📦 Creating subscription plans...');
+    console.log('\n📦 Creating subscription plans...');
 
-    await db.execute({
-      sql: `INSERT OR IGNORE INTO plans (id, name, description, price, currency, billing_period, trial_days, features, solidgate_product_id, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        'plan_free',
-        'Free',
-        'Access to free episodes only',
-        0,
-        'USD',
-        'monthly',
-        0,
-        JSON.stringify({
-          episodeAccess: 'limited',
-          adFree: false,
-          downloadable: false,
-          earlyAccess: false,
-        }),
-        'plan_free',
-        1,
-      ],
-    });
-
-    await db.execute({
-      sql: `INSERT OR IGNORE INTO plans (id, name, description, price, currency, billing_period, trial_days, features, solidgate_product_id, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        'plan_monthly',
-        'Premium Monthly',
-        'Unlimited access to all episodes, ad-free experience, and early access to new content',
-        9.99,
-        'USD',
-        'monthly',
-        7,
-        JSON.stringify({
-          episodeAccess: 'all',
-          adFree: true,
-          downloadable: true,
-          earlyAccess: true,
-        }),
-        'solidgate_product_monthly', // Replace with actual Solidgate product ID
-        1,
-      ],
-    });
-
-    await db.execute({
-      sql: `INSERT OR IGNORE INTO plans (id, name, description, price, currency, billing_period, trial_days, features, solidgate_product_id, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        'plan_yearly',
-        'Premium Yearly',
-        'All premium features + 2 months free. Best value!',
-        99.99,
-        'USD',
-        'yearly',
-        7,
-        JSON.stringify({
-          episodeAccess: 'all',
-          adFree: true,
-          downloadable: true,
-          earlyAccess: true,
-        }),
-        'solidgate_product_yearly', // Replace with actual Solidgate product ID
-        1,
-      ],
-    });
+    await db
+      .insert(plans)
+      .values([
+        {
+          id: 'plan_free',
+          name: 'Free',
+          description: 'Access to free episodes only',
+          price: 0,
+          currency: 'USD',
+          billingPeriod: 'monthly',
+          trialDays: 0,
+          features: JSON.stringify({
+            episodeAccess: 'limited',
+            adFree: false,
+            downloadable: false,
+            earlyAccess: false,
+          }),
+          solidgateProductId: 'plan_free',
+          isActive: true,
+        },
+        {
+          id: 'plan_monthly',
+          name: 'Premium Monthly',
+          description:
+            'Unlimited access to all episodes, ad-free experience, and early access to new content',
+          price: 9.99,
+          currency: 'USD',
+          billingPeriod: 'monthly',
+          trialDays: 7,
+          features: JSON.stringify({
+            episodeAccess: 'all',
+            adFree: true,
+            downloadable: true,
+            earlyAccess: true,
+          }),
+          solidgateProductId: 'solidgate_product_monthly',
+          isActive: true,
+        },
+        {
+          id: 'plan_yearly',
+          name: 'Premium Yearly',
+          description: 'All premium features + 2 months free. Best value!',
+          price: 99.99,
+          currency: 'USD',
+          billingPeriod: 'yearly',
+          trialDays: 7,
+          features: JSON.stringify({
+            episodeAccess: 'all',
+            adFree: true,
+            downloadable: true,
+            earlyAccess: true,
+          }),
+          solidgateProductId: 'solidgate_product_yearly',
+          isActive: true,
+        },
+      ])
+      .onConflictDoNothing();
 
     console.log('✅ Subscription plans created');
 
-    // Seed sample series (optional)
-    console.log('📺 Creating sample series...');
+    // Seed sample series
+    console.log('\n📺 Creating sample series...');
 
     const seriesId = crypto.randomUUID();
-    await db.execute({
-      sql: `INSERT OR IGNORE INTO series (id, title, description, thumbnail_url, genre, author, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        seriesId,
-        'Midnight Confessions',
-        'A gripping vertical short-form drama series that explores the complexities of modern relationships through late-night text messages. Follow Emma and Jake as their digital conversations reveal secrets, desires, and unexpected twists that will keep you on the edge of your seat.',
-        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
-        'Drama, Romance, Mystery, Thriller',
-        'Michael Chen',
-        'ongoing',
-      ],
-    });
+    await db
+      .insert(series)
+      .values({
+        id: seriesId,
+        title: 'Midnight Confessions',
+        description:
+          'A gripping vertical short-form drama series that explores the complexities of modern relationships through late-night text messages. Follow Emma and Jake as their digital conversations reveal secrets, desires, and unexpected twists that will keep you on the edge of your seat.',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
+        genre: 'Drama, Romance, Mystery, Thriller',
+        author: 'Michael Chen',
+        status: 'ongoing',
+        totalViews: 0,
+        totalLikes: 0,
+      })
+      .onConflictDoNothing();
+
+    console.log('✅ Sample series created');
 
     // Seed sample episodes
-    console.log('🎬 Creating sample episodes...');
+    console.log('\n🎬 Creating sample episodes...');
 
-    const episodes = [
+    const episodeData = [
       {
         number: 1,
         title: 'The First Message',
@@ -182,7 +189,7 @@ async function seed() {
       {
         number: 8,
         title: 'Online Again',
-        description: 'After days of silence, they\'re back online.',
+        description: "After days of silence, they're back online.",
         thumbnail: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=300&q=80',
         videoId: 'b9b6b4f8b735d37919dcfebeda242dba',
         duration: 90,
@@ -209,7 +216,7 @@ async function seed() {
       {
         number: 11,
         title: 'Read Receipts',
-        description: 'The truth about who\'s been reading the messages. [Premium]',
+        description: "The truth about who's been reading the messages. [Premium]",
         thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=300&q=80',
         videoId: 'b9b6b4f8b735d37919dcfebeda242dba',
         duration: 89,
@@ -226,28 +233,28 @@ async function seed() {
       },
     ];
 
-    for (const ep of episodes) {
-      const episodeId = crypto.randomUUID();
-      await db.execute({
-        sql: `INSERT OR IGNORE INTO episodes (id, serial_id, episode_number, title, description, thumbnail_url, video_id, duration, is_paid, published_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())`,
-        args: [
-          episodeId,
-          seriesId,
-          ep.number,
-          ep.title,
-          ep.description,
-          ep.thumbnail,
-          ep.videoId,
-          ep.duration,
-          ep.isPaid ? 1 : 0,
-        ],
-      });
-    }
+    // Insert episodes using Drizzle
+    const episodeValues = episodeData.map((ep) => ({
+      id: crypto.randomUUID(),
+      serialId: seriesId,
+      episodeNumber: ep.number,
+      title: ep.title,
+      description: ep.description,
+      thumbnailUrl: ep.thumbnail,
+      videoId: ep.videoId,
+      duration: ep.duration,
+      isPaid: ep.isPaid,
+      views: 0,
+      likes: 0,
+      isLocked: false,
+      publishedAt: sql`unixepoch()`,
+    }));
 
-    console.log('✅ Sample content created');
+    await db.insert(episodes).values(episodeValues).onConflictDoNothing();
 
-    console.log('🎉 Database seeded successfully!');
+    console.log('✅ Sample episodes created');
+
+    console.log('\n🎉 Database seeded successfully!');
     console.log('\n📊 Summary:');
     console.log('  - 3 subscription plans');
     console.log('  - 1 sample series: "Midnight Confessions"');
@@ -257,12 +264,11 @@ async function seed() {
     console.log('  2. Upload real video content to Cloudflare Stream');
     console.log('  3. Update video_id in episodes table');
     console.log('  4. Create real series content\n');
-
   } catch (error) {
     console.error('❌ Seed failed:', error);
     throw error;
   } finally {
-    db.close();
+    client.close();
   }
 }
 
