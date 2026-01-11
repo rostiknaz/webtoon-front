@@ -30,7 +30,31 @@ const app = new Hono<AppEnvWithDB>();
 /**
  * Global middleware
  */
-app.use('*', cors());
+// CORS configuration for Better Auth
+app.use('*', cors({
+  origin: (origin) => {
+    // Allow requests from the same origin (Worker serves both API and frontend)
+    // and from localhost for development
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://webtoon-front.rostiknaz.workers.dev',
+    ];
+
+    // If origin matches allowed origins, return it
+    if (origin && allowedOrigins.includes(origin)) {
+      return origin;
+    }
+
+    // For same-origin requests (no Origin header), allow them
+    return allowedOrigins[2]; // Default to production URL
+  },
+  credentials: true, // Allow cookies for Better Auth sessions
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposeHeaders: ['Set-Cookie'],
+  maxAge: 86400, // 24 hours
+}));
 app.use('*', drizzleMiddleware());
 
 /**
