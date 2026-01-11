@@ -4,7 +4,7 @@ import AnimeCard from "./AnimeCard";
 import { useRef } from "react";
 
 interface Anime {
-  id: number;
+  id: string;
   title: string;
   image: string;
   rating: number;

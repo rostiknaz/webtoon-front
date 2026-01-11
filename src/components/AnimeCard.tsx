@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 
 interface AnimeCardProps {
   anime: {
-    id: number;
+    id: string;
     title: string;
     image: string;
     rating: number;
@@ -18,7 +18,7 @@ const AnimeCard = ({ anime }: AnimeCardProps) => {
   return (
     <Link
       to="/serials/$serialId"
-      params={{ serialId: String(anime.id) }}
+      params={{ serialId: anime.id }}
       className="group relative flex-shrink-0 w-[180px] md:w-[200px] cursor-pointer"
     >
       {/* Poster Container */}
