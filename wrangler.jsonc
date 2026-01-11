@@ -1,5 +1,5 @@
 {
-  "name": "webtoon-front-dev",
+  "name": "webtoon-front",
   "compatibility_date": "2026-01-05",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
