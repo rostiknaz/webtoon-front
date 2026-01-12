@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { authClient } from '@/lib/auth.client';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { checkSubscription } from '@/api';
 
 /**
@@ -18,7 +18,7 @@ import { checkSubscription } from '@/api';
  * - Returns loading state and subscription data
  */
 export function useSubscription() {
-  const session = authClient.useSession();
+  const session = useOptimizedSession();
   const isAuthenticated = !!session.data?.user;
 
   return useQuery({

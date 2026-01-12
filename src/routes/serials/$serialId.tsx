@@ -5,7 +5,7 @@ import {
     useQueryErrorResetBoundary,
     useSuspenseQuery,
 } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { VideoPlayer } from '@/components/VideoPlayer';
@@ -21,14 +21,12 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
-import { authClient } from '@/lib/auth.client';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { useSubscription } from '@/hooks/useSubscription';
 
 export const Route = createFileRoute('/serials/$serialId')({
     loader: ({ context: { queryClient }, params: { serialId } }) => {
-        // Loader runs before component mount, so we don't have subscription status yet
-        // We'll refetch with subscription status in the component
-        return queryClient.ensureQueryData(getSeriesMetadataQueryOptions(serialId, false))
+        return queryClient.ensureQueryData(getSeriesMetadataQueryOptions(serialId))
     },
     errorComponent: SerialErrorComponent,
     component: SerialPage
@@ -62,15 +60,28 @@ function SerialErrorComponent({ error }: ErrorComponentProps) {
 
 function SerialPage() {
   const { serialId } = Route.useParams();
-  const session = authClient.useSession();
+  const session = useOptimizedSession();
   const subscription = useSubscription();
 
   const isAuthenticated = !!session.data?.user;
   const hasSubscription = subscription.data?.hasSubscription ?? false;
 
-  // Fetch series data with subscription status
-  // Query key includes hasSubscription, so React Query automatically uses the right cache
-  const { data } = useSuspenseQuery(getSeriesMetadataQueryOptions(serialId, hasSubscription));
+  // Fetch series data - query key does NOT include hasSubscription to prevent flicker
+  const { data } = useSuspenseQuery(getSeriesMetadataQueryOptions(serialId));
+
+  // Compute episode locked status at render time based on current subscription status
+  // This avoids query key changes and cache misses when subscription status changes
+  const episodes = useMemo(() => {
+    if (!data) return [];
+    return data.episodes.map(ep => ({
+      ...ep,
+      // Override isLocked based on current subscription status
+      isLocked: ep.isPaid && !hasSubscription,
+      // Compute HLS URL based on access
+      hlsUrl: (ep.isPaid && !hasSubscription) ? undefined : ep.hlsUrl,
+    }));
+  }, [data, hasSubscription]);
+
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -79,7 +90,7 @@ function SerialPage() {
 
   if (!data) return null;
 
-  const episode = data.episodes[activeIndex];
+  const episode = episodes[activeIndex];
   const isMovingForward = activeIndex > prevIndex;
 
   const handleEpisodeSelect = (index: number) => {
@@ -91,7 +102,7 @@ function SerialPage() {
   const handlePlayNext = () => {
     // Check if there's a next episode and it's not locked
     const nextIndex = activeIndex + 1;
-    if (nextIndex < data.episodes.length && !data.episodes[nextIndex].isLocked) {
+    if (nextIndex < episodes.length && !episodes[nextIndex].isLocked) {
       setPrevIndex(activeIndex);
       setActiveIndex(nextIndex);
     }
@@ -169,7 +180,7 @@ function SerialPage() {
               <EpisodeSidebar
                   series={data}
                   activeIndex={activeIndex}
-                  episodes={data.episodes}
+                  episodes={episodes}
                   onSelect={handleEpisodeSelect}
                   onLockedClick={handleLockedEpisodeClick}
               />
@@ -188,7 +199,7 @@ function SerialPage() {
                       <EpisodeSidebar
                           series={data}
                           activeIndex={activeIndex}
-                          episodes={data.episodes}
+                          episodes={episodes}
                           onSelect={handleEpisodeSelect}
                           onLockedClick={handleLockedEpisodeClick}
                       />

@@ -5,7 +5,7 @@
  */
 
 import { eq, sql } from 'drizzle-orm';
-import { series, episodes, userLikes } from '../../../db/schema';
+import { series, episodes } from '../../../db/schema';
 import type { DB } from '../index';
 
 /**
@@ -150,7 +150,7 @@ export async function getEpisodesForAccess(
  * @returns Series statistics with episode breakdown
  */
 export async function getSeriesStats(db: DB, seriesId: string) {
-  const [seriesData, episodesData, likesData] = await Promise.all([
+  const [seriesData, episodesData] = await Promise.all([
     // Get series total views
     db
       .select({ totalViews: series.totalViews })
@@ -169,18 +169,14 @@ export async function getSeriesStats(db: DB, seriesId: string) {
       .from(episodes)
       .where(eq(episodes.serialId, seriesId))
       .orderBy(episodes.episodeNumber),
-
-    // Get total user likes (from user_likes table)
-    db
-      .select({ count: sql<number>`COUNT(*)`.as('total_likes') })
-      .from(userLikes)
-      .innerJoin(episodes, eq(userLikes.episodeId, episodes.id))
-      .where(eq(episodes.serialId, seriesId)),
   ]);
+
+  // Calculate total likes from episode counters (anonymous likes)
+  const totalLikes = episodesData.reduce((sum, ep) => sum + (ep.likes ?? 0), 0);
 
   return {
     totalViews: seriesData[0]?.totalViews ?? 0,
-    totalLikes: likesData[0]?.count ?? 0,
+    totalLikes,
     episodes: episodesData.map((ep) => ({
       id: ep.id,
       episodeNumber: ep.episodeNumber,
@@ -188,4 +184,40 @@ export async function getSeriesStats(db: DB, seriesId: string) {
       likes: ep.likes ?? 0,
     })),
   };
+}
+
+/**
+ * Increment likes counter for an episode (anonymous)
+ */
+export async function incrementEpisodeLikes(db: DB, episodeId: string): Promise<number> {
+  await db
+    .update(episodes)
+    .set({ likes: sql`${episodes.likes} + 1` })
+    .where(eq(episodes.id, episodeId));
+
+  const result = await db
+    .select({ likes: episodes.likes })
+    .from(episodes)
+    .where(eq(episodes.id, episodeId))
+    .limit(1);
+
+  return result[0]?.likes ?? 0;
+}
+
+/**
+ * Decrement likes counter for an episode (anonymous)
+ */
+export async function decrementEpisodeLikes(db: DB, episodeId: string): Promise<number> {
+  await db
+    .update(episodes)
+    .set({ likes: sql`MAX(0, ${episodes.likes} - 1)` })
+    .where(eq(episodes.id, episodeId));
+
+  const result = await db
+    .select({ likes: episodes.likes })
+    .from(episodes)
+    .where(eq(episodes.id, episodeId))
+    .limit(1);
+
+  return result[0]?.likes ?? 0;
 }

@@ -79,7 +79,8 @@ export const episodeSchema = z.object({
     likes: z.number().optional(),
 });
 
-// Combined series metadata (merged from all 3 endpoints)
+// Combined series metadata (merged from core data and stats)
+// Note: isLocked and hlsUrl are computed on the client based on subscription status
 export const seriesMetadataSchema = z.object({
     _id: z.string(),
     title: z.string().min(1),
@@ -95,10 +96,6 @@ export const seriesMetadataSchema = z.object({
     cast: z.array(z.string()).optional(),
     director: z.string().optional(),
     episodes: z.array(episodeSchema),
-    user: z.object({
-        isAuthenticated: z.boolean(),
-        hasSubscription: z.boolean(),
-    }).optional(),
 });
 
 // ==================== Type Exports ====================

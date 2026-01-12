@@ -15,10 +15,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import seriesRoutes from './routes/series';
+import episodesRoutes from './routes/episodes';
 import plansRoutes from './routes/plans';
 import webhooksRoutes from './routes/webhooks';
 import subscriptionRoutes from './routes/subscription';
-import { drizzleMiddleware } from './db/index';
+import { drizzleMiddleware } from './db';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
 import { createCacheLayer } from '../lib/cache';
@@ -125,6 +126,7 @@ app.all('/api/auth/*', async (c) => {
  * Mount API routes
  */
 app.route('/api/series', seriesRoutes);
+app.route('/api/episodes', episodesRoutes);
 app.route('/api/plans', plansRoutes);
 app.route('/api/webhooks', webhooksRoutes);
 app.route('/api/subscription', subscriptionRoutes);

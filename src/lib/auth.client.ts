@@ -2,7 +2,7 @@
  * Better Auth Client Configuration
  *
  * Provides authentication state and methods for React components.
- * Use authClient.useSession() to access authentication state.
+ * Use useOptimizedSession() hook for session state (avoids API calls for guests).
  */
 
 import { createAuthClient } from 'better-auth/react';
@@ -12,7 +12,7 @@ import { cloudflareClient } from 'better-auth-cloudflare/client';
  * Auth client instance with Cloudflare plugin
  *
  * Usage:
- * - authClient.useSession() - Get current session state
+ * - useOptimizedSession() - Get current session state (preferred, skips API for guests)
  * - authClient.signIn.email() - Sign in with email/password
  * - authClient.signUp.email() - Create account
  * - authClient.signOut() - Sign out current user

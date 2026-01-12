@@ -193,7 +193,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
 
             {/* TikTok-style Floating Action Buttons */}
             <div className="custom-controls absolute bottom-24 md:bottom-32 right-4 flex flex-col gap-4 z-50" onClick={(e) => e.stopPropagation()}>
-                {/* Like Button */}
+                {/* Like Button - UI only for now, API ready for future */}
                 <div className="flex flex-col items-center gap-1">
                     <Button
                         variant="ghost"
@@ -206,7 +206,7 @@ export function VideoPlayer({ episode, seriesTitle, onOpenEpisodes, onPlayNext }
                         <Heart className={`h-6 w-6 ${isLiked ? 'fill-current' : ''}`} />
                     </Button>
                     <span className="text-white text-xs font-semibold drop-shadow-lg">
-                        {formatNumber(episode.views ? Math.floor(episode.views / 10) : 45000)}
+                        {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
                     </span>
                 </div>
 
