@@ -4,15 +4,6 @@
       "type": "http",
       "url": "https://mcp.cloudflare.com/"
     },
-    "drizzle": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@defrex/drizzle-mcp"
-      ],
-      "env": {}
-    },
     "playwright": {
       "type": "stdio",
       "command": "npx",
