@@ -21,7 +21,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
-import { useOptimizedSession } from '@/hooks/useOptimizedSession';
+import { authClient } from '@/lib/auth.client';
 import { useSubscription } from '@/hooks/useSubscription';
 
 export const Route = createFileRoute('/serials/$serialId')({
@@ -60,7 +60,7 @@ function SerialErrorComponent({ error }: ErrorComponentProps) {
 
 function SerialPage() {
   const { serialId } = Route.useParams();
-  const session = useOptimizedSession();
+  const session = authClient.useSession();
   const subscription = useSubscription();
 
   const isAuthenticated = !!session.data?.user;
