@@ -26,8 +26,8 @@ export function useSubscription() {
     queryFn: checkSubscription,
     // Only run query if user is authenticated
     enabled: isAuthenticated,
-    // Cache for 5 minutes
-    staleTime: 5 * 60 * 1000,
+    // Cache for 10 minutes (matches KV cache TTL for consistency)
+    staleTime: 10 * 60 * 1000,
     // Don't refetch on mount if we have cached data
     refetchOnMount: false,
     // Don't refetch on window focus - reduces unnecessary API calls

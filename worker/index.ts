@@ -21,6 +21,8 @@ import subscriptionRoutes from './routes/subscription';
 import { drizzleMiddleware } from './db/index';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
+import { createCacheLayer } from '../lib/cache';
+import { getUserSubscription } from './db/services/subscription.service';
 
 /**
  * Create Hono app instance with environment bindings
@@ -83,7 +85,40 @@ app.use('*', async (c, next) => {
  */
 app.all('/api/auth/*', async (c) => {
   const auth = c.get('auth');
-  return auth.handler(c.req.raw);
+  const response = await auth.handler(c.req.raw);
+
+  // Cache warming: Pre-fetch subscription data on successful login
+  const path = new URL(c.req.url).pathname;
+  if (path.includes('/sign-in/') && response.status === 200) {
+    // Login successful - warm the subscription cache in background
+    const responseClone = response.clone();
+    const data = await responseClone.json().catch(() => null);
+
+    if (data?.user?.id) {
+      const userId = data.user.id;
+      const db = c.get('db');
+      const cache = createCacheLayer(c.env.CACHE);
+
+      // Fetch and cache subscription in background (don't await)
+      getUserSubscription(db, userId).then((dbSub) => {
+        if (dbSub) {
+          const hasAccess = ['active', 'trial'].includes(dbSub.status) &&
+            (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+
+          cache.subscriptions.setUserSubscription(userId, {
+            status: dbSub.status,
+            planId: dbSub.planId,
+            planFeatures: dbSub.planFeatures,
+            currentPeriodEnd: dbSub.currentPeriodEnd || 0,
+            hasAccess,
+            cachedAt: Date.now(),
+          }).catch(err => console.error('Cache warming failed:', err));
+        }
+      }).catch(err => console.error('Subscription fetch for cache warming failed:', err));
+    }
+  }
+
+  return response;
 });
 
 /**

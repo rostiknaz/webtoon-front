@@ -8,7 +8,7 @@
 // Cache TTL constants (in seconds)
 export const CACHE_TTL = {
   SESSION: 60 * 60 * 24 * 7, // 7 days
-  USER_SUBSCRIPTION: 60 * 60, // 1 hour
+  USER_SUBSCRIPTION: 60 * 10, // 10 minutes (optimized for freshness)
   USER_PROFILE: 60 * 60, // 1 hour
   SERIES_METADATA: 60 * 60 * 24, // 1 day
   SERIES_EPISODES: 60 * 60 * 6, // 6 hours

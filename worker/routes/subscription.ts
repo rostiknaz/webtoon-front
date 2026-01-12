@@ -271,8 +271,10 @@ subscription.post('/subscribe', async (c) => {
       endedAt: null,
     });
 
-    // Invalidate cache (the cache will automatically expire after TTL)
-    // No need to manually delete as getUserSubscription will query fresh data
+    // Invalidate cache immediately to ensure fresh data on next request
+    const cache = createCacheLayer(c.env.CACHE);
+    await cache.subscriptions.invalidateUserSubscription(userId);
+    await cache.userProfiles.invalidateUserProfile(userId);
 
     return c.json({
       success: true,
