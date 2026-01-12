@@ -92,7 +92,7 @@ app.all('/api/auth/*', async (c) => {
   if (path.includes('/sign-in/') && response.status === 200) {
     // Login successful - warm the subscription cache in background
     const responseClone = response.clone();
-    const data = await responseClone.json().catch(() => null);
+    const data = await responseClone.json().catch(() => null) as { user?: { id?: string } } | null;
 
     if (data?.user?.id) {
       const userId = data.user.id;
