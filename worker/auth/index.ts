@@ -33,7 +33,7 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
           db,
           options: {
             usePlural: true,
-            debugLogs: true,
+            debugLogs: false,
           },
         },
         kv: env.SESSIONS,

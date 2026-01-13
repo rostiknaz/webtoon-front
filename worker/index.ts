@@ -59,9 +59,10 @@ app.use('*', cors({
 app.use('*', drizzleMiddleware());
 
 /**
- * Better Auth middleware - inject auth instance per request
+ * Better Auth middleware - lazy auth creation
+ * Only creates auth instance when actually needed (not for static assets)
  */
-app.use('*', async (c, next) => {
+app.use('/api/*', async (c, next) => {
   // Create auth instance with env bindings and Cloudflare context
   const cf = (c.req.raw as any).cf || {};
   const auth = createAuth(c.env, cf);
