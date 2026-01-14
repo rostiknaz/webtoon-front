@@ -12,6 +12,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import * as schema from '../../db/schema';
 import type { Bindings } from '../lib/types';
+import { hashPassword, verifyPassword } from '../lib/password';
 
 /**
  * Create Better Auth instance for runtime (per-request)
@@ -47,6 +48,11 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
           minPasswordLength: 8,
           maxPasswordLength: 128,
           requireEmailVerification: false,
+          password: {
+            // Use PBKDF2 instead of scrypt (scrypt exceeds Workers CPU limits)
+            hash: hashPassword,
+            verify: verifyPassword,
+          },
         },
         rateLimit: {
           enabled: true,
