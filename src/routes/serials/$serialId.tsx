@@ -22,7 +22,8 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { authClient } from '@/lib/auth.client';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription, checkSubscriptionStatus } from '@/hooks/useSubscription';
+import { toast } from '@/components/ui/sonner';
 
 export const Route = createFileRoute('/serials/$serialId')({
     loader: ({ context: { queryClient }, params: { serialId } }) => {
@@ -100,12 +101,38 @@ function SerialPage() {
   };
 
   const handlePlayNext = () => {
-    // Check if there's a next episode and it's not locked
     const nextIndex = activeIndex + 1;
-    if (nextIndex < episodes.length && !episodes[nextIndex].isLocked) {
+    if (nextIndex >= episodes.length) return;
+
+    const nextEpisode = data.episodes[nextIndex];
+
+    // If next episode is free, just play it
+    if (!nextEpisode.isPaid) {
       setPrevIndex(activeIndex);
       setActiveIndex(nextIndex);
+      return;
     }
+
+    // Next episode is paid - check subscription status from cookie
+    const subStatus = checkSubscriptionStatus();
+
+    if (subStatus.hasSubscription) {
+      // User has active subscription - play the episode
+      setPrevIndex(activeIndex);
+      setActiveIndex(nextIndex);
+      return;
+    }
+
+    // Subscription expired or never had one
+    if (subStatus.justExpired) {
+      // Show toast only if subscription just expired (had one before)
+      toast.error('Subscription Expired', {
+        description: 'Your subscription has expired. Subscribe to continue watching premium episodes.',
+      });
+    }
+
+    // Show subscription drawer
+    setIsSubscriptionDrawerOpen(true);
   };
 
   const handleLockedEpisodeClick = () => {
@@ -128,28 +155,26 @@ function SerialPage() {
     setIsSubscriptionDrawerOpen(true);
   };
 
-  const handleAuthSuccess = async () => {
+  const handleAuthSuccess = () => {
     // After successful login/signup, close auth drawer
     setIsAuthDrawerOpen(false);
 
-    // Refetch subscription status to get the latest data
-    const { data: freshSubscriptionData } = await subscription.refetch();
+    // Refresh subscription status from cookie (server sets it on login)
+    const { data: freshSubscriptionData } = subscription.refresh();
 
     // Only show subscription drawer if user doesn't have subscription
-    // If they have subscription, React Query will automatically refetch series data
-    // because the query key includes hasSubscription
     if (!freshSubscriptionData?.hasSubscription) {
       setIsSubscriptionDrawerOpen(true);
     }
   };
 
-  const handleSubscriptionSuccess = async () => {
+  const handleSubscriptionSuccess = () => {
     // Close the subscription drawer first for immediate feedback
     setIsSubscriptionDrawerOpen(false);
 
-    // Refetch subscription status - this will trigger automatic refetch of series data
-    // because the series query key includes hasSubscription
-    await subscription.refetch();
+    // Refresh subscription status from cookie (server sets it on subscribe)
+    // This triggers re-render which updates episode lock status via useMemo
+    subscription.refresh();
   };
 
   return (

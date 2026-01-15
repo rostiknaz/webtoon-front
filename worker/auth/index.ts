@@ -13,6 +13,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import * as schema from '../../db/schema';
 import type { Bindings } from '../lib/types';
 import { hashPassword, verifyPassword } from '../lib/password';
+import { subscriptionCookiePlugin } from './subscription-cookie-plugin';
 
 /**
  * Create Better Auth instance for runtime (per-request)
@@ -22,6 +23,7 @@ import { hashPassword, verifyPassword } from '../lib/password';
 export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
   // Create Drizzle instance with D1 binding
   const db = drizzle(env.DB, { schema }) as any;
+  const isSecure = env.BETTER_AUTH_URL.startsWith('https');
 
   return betterAuth({
     ...withCloudflare(
@@ -78,7 +80,7 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
           updateAge: 60 * 60 * 24, // Update if older than 1 day
         },
         advanced: {
-          useSecureCookies: env.BETTER_AUTH_URL.startsWith('https'),
+          useSecureCookies: isSecure,
           cookiePrefix: 'webtoon',
           crossSubDomainCookies: {
             enabled: false,
@@ -110,6 +112,14 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
             clientSecret: env.GOOGLE_CLIENT_SECRET,
           },
         },
+        // Plugins
+        plugins: [
+          subscriptionCookiePlugin({
+            db,
+            secret: env.BETTER_AUTH_SECRET,
+            isSecure,
+          }),
+        ],
       }
     ),
   });

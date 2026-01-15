@@ -12,6 +12,7 @@ import { subscriptions } from '../../db/schema';
 import type { AppEnvWithDB } from '../db/types';
 import { Errors } from '../lib/errors';
 import { subscribeBodySchema, validationHook } from '../lib/schemas';
+import { createSubscriptionSetCookie } from '../lib/subscription-cookie';
 
 const subscription = new Hono<AppEnvWithDB>();
 
@@ -248,17 +249,31 @@ subscription.post(
     await cache.subscriptions.invalidateUserSubscription(userId);
     await cache.userProfiles.invalidateUserProfile(userId);
 
-    return c.json({
-      success: true,
-      subscription: {
-        id: subscriptionId,
-        planId,
-        status: hasTrial ? 'trial' : 'active',
-        currentPeriodStart: Math.floor(periodStart.getTime() / 1000),
-        currentPeriodEnd: Math.floor(periodEnd.getTime() / 1000),
-        trialDays: plan.trialDays,
+    // Set subscription cookie for client-side access checks
+    const expiresAt = Math.floor(periodEnd.getTime() / 1000);
+    const isSecure = c.env.BETTER_AUTH_URL.startsWith('https');
+    const subCookie = await createSubscriptionSetCookie(
+      expiresAt,
+      planId,
+      c.env.BETTER_AUTH_SECRET,
+      isSecure
+    );
+
+    return c.json(
+      {
+        success: true,
+        subscription: {
+          id: subscriptionId,
+          planId,
+          status: hasTrial ? 'trial' : 'active',
+          currentPeriodStart: Math.floor(periodStart.getTime() / 1000),
+          currentPeriodEnd: Math.floor(periodEnd.getTime() / 1000),
+          trialDays: plan.trialDays,
+        },
       },
-    });
+      200,
+      { 'Set-Cookie': subCookie }
+    );
   }
 );
 
