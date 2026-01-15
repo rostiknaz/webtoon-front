@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialIdRouteImport } from './routes/serials/$serialId'
 
+const AuthErrorRoute = AuthErrorRouteImport.update({
+  id: '/auth-error',
+  path: '/auth-error',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -25,32 +31,43 @@ const SerialsSerialIdRoute = SerialsSerialIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/serials/$serialId'
+  fullPaths: '/' | '/auth-error' | '/serials/$serialId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/serials/$serialId'
-  id: '__root__' | '/' | '/serials/$serialId'
+  to: '/' | '/auth-error' | '/serials/$serialId'
+  id: '__root__' | '/' | '/auth-error' | '/serials/$serialId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthErrorRoute: typeof AuthErrorRoute
   SerialsSerialIdRoute: typeof SerialsSerialIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth-error': {
+      id: '/auth-error'
+      path: '/auth-error'
+      fullPath: '/auth-error'
+      preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthErrorRoute: AuthErrorRoute,
   SerialsSerialIdRoute: SerialsSerialIdRoute,
 }
 export const routeTree = rootRouteImport

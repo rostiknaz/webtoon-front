@@ -96,6 +96,13 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
         onAPIError: {
           errorURL: '/auth-error',
         },
+        // Account linking - allow OAuth to link to existing email accounts
+        account: {
+          accountLinking: {
+            enabled: true,
+            trustedProviders: ['google'],
+          },
+        },
         // OAuth Social Providers
         socialProviders: {
           google: {
