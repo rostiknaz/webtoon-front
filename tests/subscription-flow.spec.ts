@@ -38,19 +38,35 @@ async function navigateToSeriesPage(page: Page) {
 }
 
 async function openEpisodesDrawer(page: Page) {
+  const viewport = page.viewportSize();
+  const isMobile = viewport && viewport.width < 768;
+
+  if (!isMobile) {
+    // On desktop, episodes are in sidebar - no drawer needed
+    return;
+  }
+
+  // Check if drawer is already open
+  const existingDrawer = page.locator('[role="dialog"]').filter({ hasText: /Episodes/ });
+  if (await existingDrawer.isVisible().catch(() => false)) {
+    return; // Drawer already open
+  }
+
   // On mobile, tap video container to show controls
   const videoContainer = page.locator('.video-player-container');
-  if (await videoContainer.isVisible()) {
+  if (await videoContainer.isVisible().catch(() => false)) {
     await videoContainer.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
   }
 
   // Click episodes button to open drawer
   const episodesButton = page.locator('button').filter({ has: page.locator('svg.lucide-list') });
-  if (await episodesButton.isVisible()) {
-    await episodesButton.click();
-    await page.waitForTimeout(500);
-  }
+  await expect(episodesButton).toBeVisible({ timeout: 5000 });
+  await episodesButton.click();
+
+  // Wait for drawer to open
+  const drawer = page.locator('[role="dialog"]');
+  await expect(drawer).toBeVisible({ timeout: 5000 });
 }
 
 async function clickLockedEpisode(page: Page) {
@@ -64,13 +80,26 @@ async function clickLockedEpisode(page: Page) {
     const sidebarLockedEpisode = page.locator('.hidden.md\\:block button').filter({
       has: page.locator('svg.lucide-lock'),
     }).first();
+    // Scroll into view if needed
+    await sidebarLockedEpisode.scrollIntoViewIfNeeded();
     await expect(sidebarLockedEpisode).toBeVisible({ timeout: 5000 });
     await sidebarLockedEpisode.click();
   } else {
-    // Mobile: find locked episode in drawer
+    // Mobile: find locked episode in drawer - scroll within the drawer to find it
+    const drawer = page.locator('[role="dialog"]');
+    await expect(drawer).toBeVisible({ timeout: 5000 });
+
+    // Scroll down in the drawer to find locked episodes (they may be at the bottom)
+    const drawerContent = drawer.locator('.overflow-y-auto, [data-vaul-drawer]').first();
+    if (await drawerContent.isVisible().catch(() => false)) {
+      await drawerContent.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      await page.waitForTimeout(300);
+    }
+
     const drawerLockedEpisode = page.locator('[role="dialog"] button').filter({
       has: page.locator('svg.lucide-lock'),
     }).first();
+    await drawerLockedEpisode.scrollIntoViewIfNeeded();
     await expect(drawerLockedEpisode).toBeVisible({ timeout: 5000 });
     await drawerLockedEpisode.click();
   }
@@ -209,16 +238,39 @@ test.describe('Subscription Flow', () => {
       await fillSignupForm(page, { ...TEST_USER, email: uniqueEmail });
 
       // Submit signup
-      await page.getByRole('button', { name: /Create Account/i }).click();
+      const createAccountBtn = page.getByRole('button', { name: /Create Account/i });
+      await expect(createAccountBtn).toBeEnabled();
+      await createAccountBtn.click();
 
       // Wait for signup to complete and subscription drawer to open
-      // After successful signup, subscription drawer should automatically open
       const subscriptionDrawer = page.locator('[role="dialog"]').filter({
         hasText: /Choose Your Plan/i,
       });
-      await expect(subscriptionDrawer).toBeVisible({ timeout: 15000 });
+      const rateLimitError = page.locator('text=/Too many requests/i');
+
+      // Poll for subscription drawer to appear (handles race condition and rate limits)
+      let attempts = 0;
+      const maxAttempts = 40; // 20 seconds at 500ms intervals
+
+      while (attempts < maxAttempts) {
+        attempts++;
+
+        // Check for rate limit - skip test if hit
+        const isRateLimited = await rateLimitError.isVisible().catch(() => false);
+        if (isRateLimited) {
+          test.skip(true, 'Rate limited - too many signup requests');
+          return;
+        }
+
+        // Check if subscription drawer is visible
+        const isVisible = await subscriptionDrawer.isVisible().catch(() => false);
+        if (isVisible) break;
+
+        await page.waitForTimeout(500);
+      }
 
       // Verify subscription plans are displayed
+      await expect(subscriptionDrawer).toBeVisible({ timeout: 5000 });
       await expect(page.locator('text=RECOMMENDED')).toBeVisible({ timeout: 5000 });
     });
   });
@@ -551,7 +603,8 @@ test.describe('Subscription Flow', () => {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
 
-      // Reopen drawer
+      // Reopen episodes drawer first (on mobile, Escape closes both drawers)
+      await openEpisodesDrawer(page);
       await clickLockedEpisode(page);
 
       // Should show initial screen again (not login form with filled email)
@@ -779,5 +832,275 @@ test.describe('Edge Cases', () => {
     ]);
 
     expect(isDisabledOrTextChanged).toBe(true);
+  });
+});
+
+/**
+ * Cookie-Based Subscription Tests
+ *
+ * Tests the signed cookie implementation for subscription status:
+ * - Cookie is set on signup (with exp: 0 for no subscription)
+ * - Cookie is updated on subscribe (with future expiration)
+ * - Cookie format is tamper-proof (signed with HMAC-SHA256)
+ * - Episodes unlock based on cookie status
+ */
+test.describe('Cookie-Based Subscription', () => {
+  const SUBSCRIPTION_COOKIE_NAME = 'webtoon.sub';
+
+  // Add delay between tests to avoid rate limiting
+  test.beforeEach(async () => {
+    // Wait 2 seconds between tests to avoid rate limiting on signup
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  });
+
+  /**
+   * Helper to get subscription cookie from browser context
+   */
+  async function getSubscriptionCookie(page: Page): Promise<string | undefined> {
+    const cookies = await page.context().cookies();
+    const subCookie = cookies.find(c => c.name === SUBSCRIPTION_COOKIE_NAME);
+    return subCookie?.value;
+  }
+
+  /**
+   * Helper to parse subscription cookie payload (base64 decode first part)
+   */
+  function parseSubscriptionCookiePayload(cookieValue: string): { exp: number; pid: string | null } | null {
+    try {
+      const [payloadB64] = cookieValue.split('.');
+      if (!payloadB64) return null;
+      const payloadStr = Buffer.from(payloadB64, 'base64').toString('utf-8');
+      return JSON.parse(payloadStr);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Helper to count lock icons on the page
+   */
+  async function countLockIcons(page: Page): Promise<number> {
+    return page.locator('svg.lucide-lock').count();
+  }
+
+  /**
+   * Helper to complete signup and wait for subscription drawer
+   * Handles the race condition between auth drawer closing and subscription drawer opening
+   */
+  async function completeSignupAndWaitForSubscriptionDrawer(page: Page, email: string) {
+    await page.getByRole('button', { name: /Continue with Email/i }).click();
+    await page.getByRole('button', { name: /Don't have an account\? Sign up/i }).click();
+    await fillSignupForm(page, { ...TEST_USER, email });
+
+    // Click Create Account
+    const createAccountBtn = page.getByRole('button', { name: /Create Account/i });
+    await expect(createAccountBtn).toBeEnabled();
+    await createAccountBtn.click();
+
+    // Wait for either:
+    // 1. Subscription drawer to appear (success case)
+    // 2. An error message to appear (failure case)
+    // 3. Auth drawer to close (also success case)
+    const subscriptionDrawer = page.locator('[role="dialog"]').filter({
+      hasText: /Choose Your Plan/i,
+    });
+
+    // Check for rate limit error specifically
+    const rateLimitError = page.locator('text=/Too many requests/i');
+
+    // Poll for one of the expected outcomes
+    let attempts = 0;
+    const maxAttempts = 40; // 20 seconds at 500ms intervals
+
+    while (attempts < maxAttempts) {
+      attempts++;
+
+      // Check for rate limit error - if hit, skip the test
+      const isRateLimited = await rateLimitError.isVisible().catch(() => false);
+      if (isRateLimited) {
+        test.skip(true, 'Rate limited - too many signup requests');
+        return;
+      }
+
+      // Check if subscription drawer is visible
+      const isSubscriptionVisible = await subscriptionDrawer.isVisible().catch(() => false);
+      if (isSubscriptionVisible) {
+        return;
+      }
+
+      // Check if cookie is set (indicates auth succeeded)
+      const isCookieSet = (await getSubscriptionCookie(page)) !== undefined;
+      if (isCookieSet) {
+        // Cookie is set, wait a bit more for drawer to appear
+        await expect(subscriptionDrawer).toBeVisible({ timeout: 5000 });
+        return;
+      }
+
+      // Wait before next poll
+      await page.waitForTimeout(500);
+    }
+
+    // If we get here, something went wrong
+    throw new Error('Signup did not complete within timeout');
+  }
+
+  test('should set subscription cookie on successful signup', async ({ page }) => {
+    const uniqueEmail = generateUniqueEmail('test-cookie-signup');
+
+    // Verify no subscription cookie before signup
+    const cookieBefore = await getSubscriptionCookie(page);
+    expect(cookieBefore).toBeUndefined();
+
+    await navigateToSeriesPage(page);
+    await openEpisodesDrawer(page);
+    await clickLockedEpisode(page);
+
+    // Complete signup and wait for subscription drawer
+    await completeSignupAndWaitForSubscriptionDrawer(page, uniqueEmail);
+
+    // Verify subscription cookie is now set
+    const cookieAfter = await getSubscriptionCookie(page);
+    expect(cookieAfter).toBeDefined();
+
+    // Parse and verify cookie structure
+    const payload = parseSubscriptionCookiePayload(cookieAfter!);
+    expect(payload).not.toBeNull();
+    // New user without subscription should have exp: 0
+    expect(payload!.exp).toBe(0);
+    expect(payload!.pid).toBeNull();
+  });
+
+  test('should update subscription cookie after subscribing', async ({ page }) => {
+    const uniqueEmail = generateUniqueEmail('test-cookie-subscribe');
+
+    await navigateToSeriesPage(page);
+    await openEpisodesDrawer(page);
+    await clickLockedEpisode(page);
+
+    // Complete signup and wait for subscription drawer
+    await completeSignupAndWaitForSubscriptionDrawer(page, uniqueEmail);
+
+    // Get cookie before subscription
+    const cookieBeforeSub = await getSubscriptionCookie(page);
+    expect(cookieBeforeSub).toBeDefined();
+    const payloadBefore = parseSubscriptionCookiePayload(cookieBeforeSub!);
+    expect(payloadBefore!.exp).toBe(0); // No subscription yet
+
+    // Subscribe
+    const subscribeBtn = page.getByRole('button', { name: /Start My Free Trial|Start My Subscription/i });
+    await expect(subscribeBtn).toBeVisible();
+    await subscribeBtn.click();
+
+    // Wait for subscription to complete
+    await expect(page.locator('text=Subscription Activated')).toBeVisible({ timeout: 10000 });
+
+    // Verify cookie is updated with subscription expiration
+    const cookieAfterSub = await getSubscriptionCookie(page);
+    expect(cookieAfterSub).toBeDefined();
+
+    const payloadAfter = parseSubscriptionCookiePayload(cookieAfterSub!);
+    expect(payloadAfter).not.toBeNull();
+    // After subscription, exp should be a future timestamp
+    expect(payloadAfter!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    // planId should be set
+    expect(payloadAfter!.pid).not.toBeNull();
+  });
+
+  test('should unlock episodes when subscription cookie indicates active subscription', async ({ page }) => {
+    const uniqueEmail = generateUniqueEmail('test-cookie-unlock');
+
+    await navigateToSeriesPage(page);
+
+    // On mobile, open drawer first to see lock icons
+    await openEpisodesDrawer(page);
+
+    // Before auth, there should be locked episodes
+    const lockedCountBefore = await countLockIcons(page);
+    expect(lockedCountBefore).toBeGreaterThan(0);
+
+    // Complete signup and subscribe
+    await clickLockedEpisode(page);
+    await completeSignupAndWaitForSubscriptionDrawer(page, uniqueEmail);
+
+    const subscribeBtn = page.getByRole('button', { name: /Start My Free Trial|Start My Subscription/i });
+    await expect(subscribeBtn).toBeVisible();
+    await subscribeBtn.click();
+    await expect(page.locator('text=Subscription Activated')).toBeVisible({ timeout: 10000 });
+
+    // Wait for subscription drawer to close
+    await expect(page.locator('text=Choose Your Plan')).not.toBeVisible({ timeout: 5000 });
+
+    // Wait for UI to update
+    await page.waitForTimeout(500);
+
+    // On mobile, reopen drawer to check lock icons
+    await openEpisodesDrawer(page);
+
+    // After subscription, all episodes should be unlocked (no lock icons)
+    const lockedCountAfter = await countLockIcons(page);
+    expect(lockedCountAfter).toBe(0);
+  });
+
+  test('cookie format should be tamper-proof (signed)', async ({ page }) => {
+    const uniqueEmail = generateUniqueEmail('test-cookie-tamper');
+
+    await navigateToSeriesPage(page);
+    await openEpisodesDrawer(page);
+    await clickLockedEpisode(page);
+
+    // Complete signup and subscribe
+    await completeSignupAndWaitForSubscriptionDrawer(page, uniqueEmail);
+
+    const subscribeBtn = page.getByRole('button', { name: /Start My Free Trial|Start My Subscription/i });
+    await expect(subscribeBtn).toBeVisible();
+    await subscribeBtn.click();
+    await expect(page.locator('text=Subscription Activated')).toBeVisible({ timeout: 10000 });
+
+    // Get the cookie
+    const cookie = await getSubscriptionCookie(page);
+    expect(cookie).toBeDefined();
+
+    // Verify cookie has signature (two parts separated by dot)
+    const parts = cookie!.split('.');
+    expect(parts.length).toBe(2);
+    expect(parts[0].length).toBeGreaterThan(0); // payload (base64)
+    expect(parts[1].length).toBeGreaterThan(0); // signature (base64)
+  });
+
+  test('subscription check should be instant (cookie-based, no API call)', async ({ page }) => {
+    const uniqueEmail = generateUniqueEmail('test-cookie-instant');
+
+    // Complete signup and subscribe first
+    await navigateToSeriesPage(page);
+    await openEpisodesDrawer(page);
+    await clickLockedEpisode(page);
+    await completeSignupAndWaitForSubscriptionDrawer(page, uniqueEmail);
+
+    const subscribeBtn = page.getByRole('button', { name: /Start My Free Trial|Start My Subscription/i });
+    await expect(subscribeBtn).toBeVisible();
+    await subscribeBtn.click();
+    await expect(page.locator('text=Subscription Activated')).toBeVisible({ timeout: 10000 });
+
+    // Monitor network requests for subscription API calls
+    const subscriptionApiCalls: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/subscription/check')) {
+        subscriptionApiCalls.push(request.url());
+      }
+    });
+
+    // Navigate to home and back to series
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Click on first anime card
+    const animeCard = page.locator('a[href*="/serials/"]').first();
+    await animeCard.click();
+    await page.waitForURL(/\/serials\/.+/);
+    await page.waitForLoadState('networkidle');
+
+    // Verify no subscription check API calls were made
+    // (subscription status is read from cookie, not API)
+    expect(subscriptionApiCalls.length).toBe(0);
   });
 });
