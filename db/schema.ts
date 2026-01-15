@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // ============================================
@@ -41,7 +41,10 @@ export const accounts = sqliteTable('accounts', {
   password: text('password'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Prevent duplicate OAuth provider entries per user
+  uniqueIndex('idx_accounts_user_provider').on(table.userId, table.providerId),
+]);
 
 export const verifications = sqliteTable('verifications', {
   id: text('id').primaryKey(),
@@ -86,7 +89,10 @@ export const episodes = sqliteTable('episodes', {
   publishedAt: integer('published_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Prevent duplicate episode numbers within a series
+  uniqueIndex('idx_episodes_serial_episode').on(table.serialId, table.episodeNumber),
+]);
 
 // ============================================
 // Subscription Tables
@@ -123,7 +129,10 @@ export const subscriptions = sqliteTable('subscriptions', {
   endedAt: integer('ended_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Optimize subscription analytics queries by plan
+  index('idx_subscriptions_plan_id').on(table.planId),
+]);
 
 export const userEpisodeAccess = sqliteTable('user_episode_access', {
   id: text('id').primaryKey(),
@@ -133,7 +142,10 @@ export const userEpisodeAccess = sqliteTable('user_episode_access', {
   accessExpiresAt: integer('access_expires_at', { mode: 'timestamp' }), // NULL = permanent access
   grantedBySubscriptionId: text('granted_by_subscription_id').references(() => subscriptions.id),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Prevent duplicate episode access grants per user/episode
+  uniqueIndex('idx_user_episode_access_user_episode').on(table.userId, table.episodeId),
+]);
 
 // ============================================
 // Webhook & Payment Tables
@@ -180,4 +192,9 @@ export const watchHistory = sqliteTable('watch_history', {
   progress: real('progress').notNull().default(0), // Percentage watched (0-100)
   lastWatchedAt: integer('last_watched_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Prevent duplicate watch history entries per user/episode
+  uniqueIndex('idx_watch_history_user_episode').on(table.userId, table.episodeId),
+  // Optimize "continue watching" queries sorted by last watched time
+  index('idx_watch_history_user_last_watched').on(table.userId, table.lastWatchedAt),
+]);

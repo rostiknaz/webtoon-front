@@ -1,4 +1,6 @@
 import type { Config } from 'drizzle-kit';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 /**
  * Drizzle Kit Configuration
@@ -7,19 +9,39 @@ import type { Config } from 'drizzle-kit';
  *
  * Commands:
  * - `drizzle-kit generate` - Generate migrations from schema changes
- * - `drizzle-kit migrate` - Apply migrations (use wrangler for D1)
  * - `drizzle-kit push` - Push schema directly (development only)
  * - `drizzle-kit studio` - Launch Drizzle Studio GUI
  *
  * Environment:
  * - Local (default): Uses local SQLite file
- * - Production: Set DATABASE_URL=remote and CLOUDFLARE_API_TOKEN
+ * - Remote: Set DATABASE_URL=remote (reads CLOUDFLARE_API_TOKEN from .dev.vars)
  *
  * Examples:
  * - Local:  npm run db:studio
- * - Remote: DATABASE_URL=remote CLOUDFLARE_API_TOKEN=xxx npm run db:studio
+ * - Remote: npm run db:studio:remote
  */
 
+// Load .dev.vars for API token
+function loadDevVars(): Record<string, string> {
+  try {
+    const content = readFileSync(resolve(process.cwd(), '.dev.vars'), 'utf-8');
+    const vars: Record<string, string> = {};
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const [key, ...valueParts] = trimmed.split('=');
+        if (key && valueParts.length > 0) {
+          vars[key.trim()] = valueParts.join('=').trim();
+        }
+      }
+    }
+    return vars;
+  } catch {
+    return {};
+  }
+}
+
+const devVars = loadDevVars();
 const isRemote = process.env.DATABASE_URL === 'remote';
 
 const localConfig = {
@@ -43,7 +65,7 @@ const remoteConfig = {
   dbCredentials: {
     accountId: 'c8ef3e696c565b7c13e0867d70d7b6b9',
     databaseId: '3eb45b23-733f-4ed1-9990-fbb1a9c82179',
-    token: process.env.CLOUDFLARE_API_TOKEN!,
+    token: process.env.CLOUDFLARE_API_TOKEN || devVars.CLOUDFLARE_API_TOKEN || '',
   },
 } satisfies Config;
 

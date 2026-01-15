@@ -2,7 +2,7 @@
 -- These indexes dramatically improve query performance on frequently accessed tables
 
 -- CRITICAL: Episodes by series lookup (used on every series page load)
--- Queries: getSeriesEpisodes(), getEpisodesForAccess(), getSeriesStats()
+-- Queries: getSeriesEpisodes(), getSeriesStats()
 CREATE INDEX `idx_episodes_serial_id` ON `episodes` (`serial_id`);
 --> statement-breakpoint
 

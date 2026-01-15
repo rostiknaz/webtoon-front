@@ -38,16 +38,6 @@ export interface EpisodeData {
 }
 
 /**
- * Episode data for access checking
- */
-export interface EpisodeAccess {
-  id: string;
-  episodeNumber: number;
-  videoId: string | null;
-  isPaid: boolean;
-}
-
-/**
  * Episode statistics
  */
 export interface EpisodeStats {
@@ -117,29 +107,6 @@ export async function getSeriesEpisodes(db: DB, seriesId: string): Promise<Episo
     title: ep.title || 'Untitled',
     publishedAt: ep.publishedAt ? Math.floor(ep.publishedAt.getTime() / 1000) : null,
   }));
-}
-
-/**
- * Get episodes with access info (for access endpoint)
- *
- * @param db - Drizzle database instance
- * @param seriesId - Series UUID
- * @returns Array of episodes with minimal access data
- */
-export async function getEpisodesForAccess(
-  db: DB,
-  seriesId: string
-): Promise<EpisodeAccess[]> {
-  return await db
-    .select({
-      id: episodes.id,
-      episodeNumber: episodes.episodeNumber,
-      videoId: episodes.videoId,
-      isPaid: episodes.isPaid,
-    })
-    .from(episodes)
-    .where(eq(episodes.serialId, seriesId))
-    .orderBy(episodes.episodeNumber);
 }
 
 /**
