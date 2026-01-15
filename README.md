@@ -1,73 +1,186 @@
-# React + TypeScript + Vite
+# Webtoon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A video streaming platform for webtoon/anime content, built with React and deployed on Cloudflare's edge network.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Video Streaming** - HLS adaptive streaming via Cloudflare Stream
+- **Authentication** - Email/password and Google OAuth via Better Auth
+- **Subscriptions** - Subscription plans with trial periods and instant access checks
+- **Responsive UI** - Mobile-first design with drawer navigation
+- **Edge Deployment** - Globally distributed on Cloudflare Workers
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, TanStack Router, TanStack Query |
+| Backend | Cloudflare Workers, Hono |
+| Database | Cloudflare D1 (SQLite), Drizzle ORM |
+| Auth | Better Auth + better-auth-cloudflare |
+| Payments | Solidgate (webhooks) |
+| Styling | Tailwind CSS v4, Radix UI, shadcn/ui |
+| Testing | Playwright |
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 20+
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+- Cloudflare account (for deployment)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting Started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 1. Install dependencies
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Configure environment variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.dev.vars` file in the project root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+BETTER_AUTH_SECRET=your-secret-key-min-32-chars
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+CLOUDFLARE_API_TOKEN=your-api-token
 ```
+
+### 3. Set up the database
+
+```bash
+# Generate migrations from schema
+npm run db:generate
+
+# Apply migrations to local D1
+npm run db:migrate:local
+
+# Seed with sample data
+npm run db:seed:local
+```
+
+### 4. Start development server
+
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`.
+
+## Scripts
+
+### Development
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server with Cloudflare Worker |
+| `npm run build` | TypeScript check + production build |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview production build locally |
+
+### Database
+
+| Command | Description |
+|---------|-------------|
+| `npm run db:generate` | Generate migrations from schema changes |
+| `npm run db:migrate:local` | Apply migrations to local D1 |
+| `npm run db:migrate:remote` | Apply migrations to production D1 |
+| `npm run db:studio` | Open Drizzle Studio (local) |
+| `npm run db:studio:remote` | Open Drizzle Studio (production) |
+| `npm run db:seed:local` | Seed local database |
+
+### Testing
+
+| Command | Description |
+|---------|-------------|
+| `npm run test` | Run all Playwright E2E tests |
+| `npm run test:mobile` | Run tests on Mobile Chrome |
+| `npm run test:ui` | Open Playwright interactive UI |
+
+Run a specific test:
+```bash
+npx playwright test --grep "test name"
+```
+
+## Project Structure
+
+```
+webtoon-front/
+├── src/                    # Frontend React application
+│   ├── components/         # React components
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Utilities and client config
+│   ├── routes/             # TanStack Router file-based routes
+│   └── types.ts            # TypeScript types
+├── worker/                 # Cloudflare Worker backend
+│   ├── auth/               # Better Auth configuration
+│   ├── db/                 # Database services
+│   ├── lib/                # Backend utilities
+│   ├── routes/             # Hono API routes
+│   └── index.ts            # Worker entry point
+├── db/                     # Database schema and migrations
+│   ├── schema.ts           # Drizzle ORM schema
+│   ├── migrations/         # SQL migrations
+│   └── seed.sql            # Sample data
+├── tests/                  # Playwright E2E tests
+└── docs/                   # Architecture documentation
+```
+
+## Architecture
+
+### Request Flow
+
+```
+Browser → Cloudflare Worker → Hono Router
+                ↓
+        /api/*  → D1 Database
+        /*      → Static Assets
+```
+
+The Cloudflare Worker handles both API requests and serves the static React frontend. API routes are processed by Hono, while all other routes return the SPA for client-side routing.
+
+### Authentication
+
+Uses [Better Auth](https://www.better-auth.com/) with the [better-auth-cloudflare](https://github.com/zpg6/better-auth-cloudflare) adapter for:
+- Email/password authentication
+- Google OAuth
+- Session management via cookies
+- Rate limiting via Cloudflare KV
+
+### Subscription System
+
+Subscription status is stored in a signed cookie (HMAC-SHA256) for instant client-side access checks without API calls:
+
+```
+Login → Server sets signed cookie → Client reads locally → Instant decision
+```
+
+See [`docs/subscription-architecture.md`](docs/subscription-architecture.md) for details.
+
+## Deployment
+
+### Deploy to Cloudflare Workers
+
+```bash
+# Set production secrets
+wrangler secret put BETTER_AUTH_SECRET
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+
+# Apply database migrations
+npm run db:migrate:remote
+
+# Deploy
+wrangler deploy
+```
+
+## Documentation
+
+- [`docs/subscription-architecture.md`](docs/subscription-architecture.md) - Subscription cookie system
+- [`docs/HLS_ADAPTIVE_STREAMING.md`](docs/HLS_ADAPTIVE_STREAMING.md) - Video streaming setup
+- [`docs/SECRET_MANAGEMENT.md`](docs/SECRET_MANAGEMENT.md) - Environment variables guide
+
+## License
+
+Private - All rights reserved
