@@ -4,7 +4,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   },
   "main": "./worker/index.ts",
   // Development environment variables
@@ -12,7 +13,9 @@
     "BETTER_AUTH_URL": "http://localhost:5174",
     "VITE_BETTER_AUTH_URL": "http://localhost:5174",
     "CLOUDFLARE_STREAM_CUSTOMER_CODE": "9u10nm8oora2n5zb",
-    "CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID": "b9b6b4f8b735d37919dcfebeda242dba"
+    "CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID": "b9b6b4f8b735d37919dcfebeda242dba",
+    "GOOGLE_CLIENT_ID": "878660868675-9tq9epojoo0bave9tnal1svrou10ovif.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_SECRET":"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"
   },
   "d1_databases": [
     {

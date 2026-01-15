@@ -376,3 +376,8 @@ export function createCacheLayer(kv: KVNamespace) {
     raw: new CacheManager(kv), // For custom caching
   };
 }
+
+/**
+ * Type for the cache layer returned by createCacheLayer
+ */
+export type CacheLayer = ReturnType<typeof createCacheLayer>;

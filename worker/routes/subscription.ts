@@ -5,11 +5,13 @@
  */
 
 import { Hono } from 'hono';
-import { createCacheLayer } from '../../lib/cache';
+import { zValidator } from '@hono/zod-validator';
 import { getUserSubscription } from '../db/services/subscription.service';
 import { getActivePlans, getPlanById } from '../db/services/plans.service';
 import { subscriptions } from '../../db/schema';
 import type { AppEnvWithDB } from '../db/types';
+import { Errors } from '../lib/errors';
+import { subscribeBodySchema, validationHook } from '../lib/schemas';
 
 const subscription = new Hono<AppEnvWithDB>();
 
@@ -22,52 +24,42 @@ const subscription = new Hono<AppEnvWithDB>();
  * Response: { hasSubscription: boolean }
  */
 subscription.get('/check', async (c) => {
-  try {
-    // Get session from Better Auth
-    const auth = c.get('auth');
-    const session = await auth.api.getSession({
-      headers: c.req.raw.headers,
-    });
+  // Get userId and cache from context (cached by middleware)
+  const userId = c.get('userId');
+  const cache = c.get('cache');
 
-    if (!session?.user?.id) {
-      return c.json({ hasSubscription: false });
-    }
-
-    const userId = session.user.id;
-    const cache = createCacheLayer(c.env.CACHE);
-
-    // Try cache first
-    let cachedSub = await cache.subscriptions.getUserSubscription(userId);
-
-    if (cachedSub) {
-      return c.json({ hasSubscription: cachedSub.hasAccess });
-    }
-
-    // Cache miss - query D1
-    const db = c.get('db');
-    const dbSub = await getUserSubscription(db, userId);
-
-    const hasSubscription = !!dbSub &&
-      ['active', 'trial'].includes(dbSub.status) &&
-      (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
-
-    // Cache for 1 hour
-    if (dbSub) {
-      await cache.subscriptions.setUserSubscription(userId, {
-        status: dbSub.status,
-        planId: dbSub.planId,
-        planFeatures: dbSub.planFeatures,
-        currentPeriodEnd: dbSub.currentPeriodEnd || 0,
-        hasAccess: hasSubscription,
-        cachedAt: Date.now(),
-      });
-    }
-
-    return c.json({ hasSubscription });
-  } catch (error) {
-    console.error('Subscription check error:', error);
-    return c.json({ hasSubscription: false }, 500);
+  if (!userId) {
+    return c.json({ hasSubscription: false });
   }
+
+  // Try cache first
+  const cachedSub = await cache.subscriptions.getUserSubscription(userId);
+
+  if (cachedSub) {
+    return c.json({ hasSubscription: cachedSub.hasAccess });
+  }
+
+  // Cache miss - query D1
+  const db = c.get('db');
+  const dbSub = await getUserSubscription(db, userId);
+
+  const hasSubscription = !!dbSub &&
+    ['active', 'trial'].includes(dbSub.status) &&
+    (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+
+  // Cache for 1 hour
+  if (dbSub) {
+    await cache.subscriptions.setUserSubscription(userId, {
+      status: dbSub.status,
+      planId: dbSub.planId,
+      planFeatures: dbSub.planFeatures,
+      currentPeriodEnd: dbSub.currentPeriodEnd || 0,
+      hasAccess: hasSubscription,
+      cachedAt: Date.now(),
+    });
+  }
+
+  return c.json({ hasSubscription });
 });
 
 /**
@@ -88,72 +80,62 @@ subscription.get('/check', async (c) => {
  * }
  */
 subscription.get('/status', async (c) => {
-  try {
-    // Get session from Better Auth
-    const auth = c.get('auth');
-    const session = await auth.api.getSession({
-      headers: c.req.raw.headers,
-    });
+  // Get userId and cache from context (cached by middleware)
+  const userId = c.get('userId');
+  const cache = c.get('cache');
 
-    if (!session?.user?.id) {
-      return c.json({ subscription: null }, 401);
-    }
+  if (!userId) {
+    throw Errors.unauthorized();
+  }
 
-    const userId = session.user.id;
-    const cache = createCacheLayer(c.env.CACHE);
+  // Try cache first
+  const cachedSub = await cache.subscriptions.getUserSubscription(userId);
 
-    // Try cache first
-    let cachedSub = await cache.subscriptions.getUserSubscription(userId);
-
-    if (cachedSub) {
-      return c.json({
-        subscription: {
-          status: cachedSub.status,
-          planId: cachedSub.planId,
-          planFeatures: cachedSub.planFeatures,
-          currentPeriodEnd: cachedSub.currentPeriodEnd,
-          hasAccess: cachedSub.hasAccess,
-        },
-      });
-    }
-
-    // Cache miss - query D1
-    const db = c.get('db');
-    const dbSub = await getUserSubscription(db, userId);
-
-    if (!dbSub) {
-      return c.json({ subscription: null });
-    }
-
-    const hasAccess = ['active', 'trial'].includes(dbSub.status) &&
-      (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
-
-    // Cache for 1 hour
-    await cache.subscriptions.setUserSubscription(userId, {
-      status: dbSub.status,
-      planId: dbSub.planId,
-      planFeatures: dbSub.planFeatures,
-      currentPeriodEnd: dbSub.currentPeriodEnd || 0,
-      hasAccess,
-      cachedAt: Date.now(),
-    });
-
+  if (cachedSub) {
     return c.json({
       subscription: {
-        status: dbSub.status,
-        planId: dbSub.planId,
-        planName: dbSub.planName,
-        currentPeriodStart: dbSub.currentPeriodStart,
-        currentPeriodEnd: dbSub.currentPeriodEnd,
-        canceledAt: dbSub.canceledAt,
-        features: dbSub.planFeatures,
-        hasAccess,
+        status: cachedSub.status,
+        planId: cachedSub.planId,
+        planFeatures: cachedSub.planFeatures,
+        currentPeriodEnd: cachedSub.currentPeriodEnd,
+        hasAccess: cachedSub.hasAccess,
       },
     });
-  } catch (error) {
-    console.error('Subscription status error:', error);
-    return c.json({ error: 'Failed to fetch subscription status' }, 500);
   }
+
+  // Cache miss - query D1
+  const db = c.get('db');
+  const dbSub = await getUserSubscription(db, userId);
+
+  if (!dbSub) {
+    return c.json({ subscription: null });
+  }
+
+  const hasAccess = ['active', 'trial'].includes(dbSub.status) &&
+    (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+
+  // Cache for 1 hour
+  await cache.subscriptions.setUserSubscription(userId, {
+    status: dbSub.status,
+    planId: dbSub.planId,
+    planFeatures: dbSub.planFeatures,
+    currentPeriodEnd: dbSub.currentPeriodEnd || 0,
+    hasAccess,
+    cachedAt: Date.now(),
+  });
+
+  return c.json({
+    subscription: {
+      status: dbSub.status,
+      planId: dbSub.planId,
+      planName: dbSub.planName,
+      currentPeriodStart: dbSub.currentPeriodStart,
+      currentPeriodEnd: dbSub.currentPeriodEnd,
+      canceledAt: dbSub.canceledAt,
+      features: dbSub.planFeatures,
+      hasAccess,
+    },
+  });
 });
 
 /**
@@ -175,21 +157,16 @@ subscription.get('/status', async (c) => {
  * }
  */
 subscription.get('/plans', async (c) => {
-  try {
-    const db = c.get('db');
-    const plans = await getActivePlans(db);
+  const db = c.get('db');
+  const plans = await getActivePlans(db);
 
-    // Parse features JSON for each plan
-    const parsedPlans = plans.map((plan: typeof plans[0]) => ({
-      ...plan,
-      features: typeof plan.features === 'string' ? JSON.parse(plan.features) : plan.features,
-    }));
+  // Parse features JSON for each plan
+  const parsedPlans = plans.map((plan: typeof plans[0]) => ({
+    ...plan,
+    features: typeof plan.features === 'string' ? JSON.parse(plan.features) : plan.features,
+  }));
 
-    return c.json({ plans: parsedPlans });
-  } catch (error) {
-    console.error('Plans fetch error:', error);
-    return c.json({ error: 'Failed to fetch plans' }, 500);
-  }
+  return c.json({ plans: parsedPlans });
 });
 
 /**
@@ -210,44 +187,40 @@ subscription.get('/plans', async (c) => {
  *   }
  * }
  */
-subscription.post('/subscribe', async (c) => {
-  try {
-    // Get session from Better Auth
-    const auth = c.get('auth');
-    const session = await auth.api.getSession({
-      headers: c.req.raw.headers,
-    });
+subscription.post(
+  '/subscribe',
+  zValidator('json', subscribeBodySchema, validationHook),
+  async (c) => {
+    // Get session and cache from context (cached by middleware)
+    const userId = c.get('userId');
+    const cache = c.get('cache');
 
-    if (!session?.user?.id) {
-      return c.json({ error: 'Unauthorized' }, 401);
+    if (!userId) {
+      throw Errors.unauthorized();
     }
 
-    const userId = session.user.id;
-    const body = await c.req.json<{ planId: string }>();
-    const { planId } = body;
-
-    if (!planId) {
-      return c.json({ error: 'Plan ID is required' }, 400);
-    }
+    const { planId } = c.req.valid('json');
 
     const db = c.get('db');
 
     // Verify plan exists
     const plan = await getPlanById(db, planId);
     if (!plan) {
-      return c.json({ error: 'Plan not found' }, 404);
+      throw Errors.notFound('Plan', planId);
     }
 
     // Check if user already has an active subscription
     const existingSub = await getUserSubscription(db, userId);
     if (existingSub && ['active', 'trial'].includes(existingSub.status)) {
-      return c.json({ error: 'User already has an active subscription' }, 400);
+      throw Errors.conflict('User already has an active subscription');
     }
 
     // Calculate subscription dates
     const now = new Date();
     const hasTrial = plan.trialDays > 0;
-    const trialEnd = hasTrial ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000) : null;
+    const trialEnd = hasTrial
+      ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
+      : null;
 
     // For monthly: 30 days, for yearly: 365 days
     const periodDays = plan.billingPeriod === 'yearly' ? 365 : 30;
@@ -272,7 +245,6 @@ subscription.post('/subscribe', async (c) => {
     });
 
     // Invalidate cache immediately to ensure fresh data on next request
-    const cache = createCacheLayer(c.env.CACHE);
     await cache.subscriptions.invalidateUserSubscription(userId);
     await cache.userProfiles.invalidateUserProfile(userId);
 
@@ -287,10 +259,7 @@ subscription.post('/subscribe', async (c) => {
         trialDays: plan.trialDays,
       },
     });
-  } catch (error) {
-    console.error('Subscribe error:', error);
-    return c.json({ error: 'Failed to create subscription' }, 500);
   }
-});
+);
 
 export default subscription;

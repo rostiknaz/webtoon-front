@@ -84,8 +84,25 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
             enabled: false,
           },
           generateId: () => crypto.randomUUID(),
+          // Explicit cookie config for OAuth state to survive redirects
+          defaultCookieAttributes: {
+            sameSite: 'lax', // Required for OAuth redirects to work
+            path: '/',
+            httpOnly: true,
+          },
         },
         trustedOrigins: [env.BETTER_AUTH_URL],
+        // Error handling for OAuth - redirect to frontend instead of showing HTML error page
+        onAPIError: {
+          errorURL: '/auth-error',
+        },
+        // OAuth Social Providers
+        socialProviders: {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+          },
+        },
       }
     ),
   });
@@ -106,5 +123,11 @@ export const auth = betterAuth({
   baseURL: 'http://localhost:5173',
   emailAndPassword: {
     enabled: true,
+  },
+  socialProviders: {
+    google: {
+      clientId: 'cli-placeholder',
+      clientSecret: 'cli-placeholder',
+    },
   },
 });

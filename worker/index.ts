@@ -22,11 +22,25 @@ import subscriptionRoutes from './routes/subscription';
 import { drizzleMiddleware } from './db';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
+import { toApiError } from './lib/errors';
+import { createCacheLayer } from '../lib/cache';
 
 /**
  * Create Hono app instance with environment bindings
  */
 const app = new Hono<AppEnvWithDB>();
+
+/**
+ * Global error handler
+ *
+ * Catches all errors and returns standardized API responses.
+ * ApiError instances are converted to their defined status codes.
+ * Unknown errors are logged and returned as 500 Internal Server Error.
+ */
+app.onError((err, c) => {
+  const apiError = toApiError(err);
+  return c.json(apiError.toResponse(), apiError.statusCode as 400 | 401 | 403 | 404 | 409 | 429 | 500 | 503);
+});
 
 /**
  * Global middleware
@@ -59,16 +73,30 @@ app.use('*', cors({
 app.use('*', drizzleMiddleware());
 
 /**
- * Better Auth middleware - lazy auth creation
- * Only creates auth instance when actually needed (not for static assets)
+ * API middleware - auth, session, and cache initialization
+ *
+ * This middleware runs once per request and sets up:
+ * - auth: Better Auth instance for authentication
+ * - session: Cached session data (eliminates redundant lookups in routes)
+ * - userId: Convenience accessor for session.user.id
+ * - cache: KV cache layer instance (eliminates object allocation per route)
  */
 app.use('/api/*', async (c, next) => {
   // Create auth instance with env bindings and Cloudflare context
   const cf = (c.req.raw as any).cf || {};
   const auth = createAuth(c.env, cf);
-
-  // Store in context for use in routes
   c.set('auth', auth);
+
+  // Create cache layer once per request (P1 fix: eliminates 6+ object allocations per route)
+  const cache = createCacheLayer(c.env.CACHE);
+  c.set('cache', cache);
+
+  // Fetch session once per request (P1 fix: eliminates redundant auth lookups in routes)
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
+  c.set('session', session);
+  c.set('userId', session?.user?.id || null);
 
   await next();
 });

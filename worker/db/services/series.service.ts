@@ -188,36 +188,31 @@ export async function getSeriesStats(db: DB, seriesId: string) {
 
 /**
  * Increment likes counter for an episode (anonymous)
+ *
+ * Uses RETURNING clause to get new value in single query (50% fewer DB operations)
  */
 export async function incrementEpisodeLikes(db: DB, episodeId: string): Promise<number> {
-  await db
+  const result = await db
     .update(episodes)
     .set({ likes: sql`${episodes.likes} + 1` })
-    .where(eq(episodes.id, episodeId));
-
-  const result = await db
-    .select({ likes: episodes.likes })
-    .from(episodes)
     .where(eq(episodes.id, episodeId))
-    .limit(1);
+    .returning({ likes: episodes.likes });
 
   return result[0]?.likes ?? 0;
 }
 
 /**
  * Decrement likes counter for an episode (anonymous)
+ *
+ * Uses RETURNING clause to get new value in single query (50% fewer DB operations)
+ * Ensures likes never go below 0
  */
 export async function decrementEpisodeLikes(db: DB, episodeId: string): Promise<number> {
-  await db
+  const result = await db
     .update(episodes)
     .set({ likes: sql`MAX(0, ${episodes.likes} - 1)` })
-    .where(eq(episodes.id, episodeId));
-
-  const result = await db
-    .select({ likes: episodes.likes })
-    .from(episodes)
     .where(eq(episodes.id, episodeId))
-    .limit(1);
+    .returning({ likes: episodes.likes });
 
   return result[0]?.likes ?? 0;
 }

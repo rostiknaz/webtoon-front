@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import {
     Outlet,
     createRootRouteWithContext,
@@ -5,10 +6,18 @@ import {
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import NotFound from "@/pages/NotFound.tsx";
+import { useAuthToast } from "@/hooks/useAuthToast"
+
+// Lazy load devtools - only imported in development
+const ReactQueryDevtools = import.meta.env.DEV
+    ? lazy(() => import('@tanstack/react-query-devtools').then(m => ({ default: m.ReactQueryDevtools })))
+    : () => null
+
+const TanStackRouterDevtools = import.meta.env.DEV
+    ? lazy(() => import('@tanstack/react-router-devtools').then(m => ({ default: m.TanStackRouterDevtools })))
+    : () => null
 
 export const Route = createRootRouteWithContext<{
     queryClient: QueryClient
@@ -18,13 +27,20 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
+    // Handle OAuth success/error toast notifications
+    useAuthToast()
+
     return (
         <TooltipProvider>
             <Toaster />
             <Sonner />
             <Outlet />
-            <ReactQueryDevtools buttonPosition="top-right" />
-            <TanStackRouterDevtools position="bottom-right" />
+            {import.meta.env.DEV && (
+                <Suspense fallback={null}>
+                    <ReactQueryDevtools buttonPosition="top-right" />
+                    <TanStackRouterDevtools position="bottom-right" />
+                </Suspense>
+            )}
         </TooltipProvider>
     )
 }

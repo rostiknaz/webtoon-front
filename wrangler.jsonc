@@ -4,10 +4,15 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   },
   "main": "./worker/index.ts",
   // Production environment variables (default for CI/CD)
+  // Note: Sensitive vars (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) should be set via:
+  //   - wrangler secret put GOOGLE_CLIENT_ID
+  //   - wrangler secret put GOOGLE_CLIENT_SECRET
+  // Or in .dev.vars for local development
   "vars": {
     "BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
     "VITE_BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
@@ -18,7 +23,8 @@
     {
       "binding": "DB",
       "database_name": "webtoon-db",
-      "database_id": "3eb45b23-733f-4ed1-9990-fbb1a9c82179"
+      "database_id": "3eb45b23-733f-4ed1-9990-fbb1a9c82179",
+      "migrations_dir": "db/migrations"
     }
   ],
   "kv_namespaces": [
