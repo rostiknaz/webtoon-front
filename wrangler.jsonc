@@ -6,7 +6,10 @@
   // See: https://developers.cloudflare.com/workers/observability/
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1 // 100% sampling initially to gather data, reduce to 0.1 (10%) for high traffic
+    "logs": {
+      "invocation_logs": true,
+      "head_sampling_rate": 1 // 100% sampling initially, reduce to 0.1 (10%) for high traffic
+    }
   },
   "assets": {
     "not_found_handling": "single-page-application",
