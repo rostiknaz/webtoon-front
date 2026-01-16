@@ -2,6 +2,12 @@
   "name": "webtoon-front",
   "compatibility_date": "2026-01-05",
   "compatibility_flags": ["nodejs_compat"],
+  // Workers Observability - logs, traces, and metrics
+  // See: https://developers.cloudflare.com/workers/observability/
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1 // 100% sampling initially to gather data, reduce to 0.1 (10%) for high traffic
+  },
   "assets": {
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
