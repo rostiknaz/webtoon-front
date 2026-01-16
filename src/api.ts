@@ -39,8 +39,12 @@ async function fetchJson<T>(url: string, options: FetchOptions = {}): Promise<T>
         }
 
         // Try to extract error message from response body
+        // Server returns { error: { code, message } } format
         const errorData = await response.json().catch(() => ({}));
-        const message = (errorData as { error?: string }).error || response.statusText;
+        const errorObj = (errorData as { error?: { message?: string } | string }).error;
+        const message = typeof errorObj === 'object'
+            ? errorObj?.message ?? response.statusText
+            : errorObj ?? response.statusText;
         throw new Error(`${errorMessage}: ${message}`);
     }
 
