@@ -14,6 +14,14 @@ import { Errors } from '../lib/errors';
 import { subscribeBodySchema, validationHook } from '../lib/schemas';
 import { createSubscriptionSetCookie } from '../lib/subscription-cookie';
 
+/**
+ * Check if a subscription is currently active
+ */
+function isSubscriptionActive(sub: { status: string; currentPeriodEnd: number | null }): boolean {
+  return ['active', 'trial'].includes(sub.status) &&
+    (!sub.currentPeriodEnd || sub.currentPeriodEnd > Date.now() / 1000);
+}
+
 const subscription = new Hono<AppEnvWithDB>();
 
 /**
@@ -44,9 +52,7 @@ subscription.get('/check', async (c) => {
   const db = c.get('db');
   const dbSub = await getUserSubscription(db, userId);
 
-  const hasSubscription = !!dbSub &&
-    ['active', 'trial'].includes(dbSub.status) &&
-    (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+  const hasSubscription = !!dbSub && isSubscriptionActive(dbSub);
 
   // Cache for 1 hour
   if (dbSub) {
@@ -112,8 +118,7 @@ subscription.get('/status', async (c) => {
     return c.json({ subscription: null });
   }
 
-  const hasAccess = ['active', 'trial'].includes(dbSub.status) &&
-    (!dbSub.currentPeriodEnd || dbSub.currentPeriodEnd > Date.now() / 1000);
+  const hasAccess = isSubscriptionActive(dbSub);
 
   // Cache for 1 hour
   await cache.subscriptions.setUserSubscription(userId, {
