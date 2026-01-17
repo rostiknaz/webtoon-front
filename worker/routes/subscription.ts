@@ -25,126 +25,6 @@ function isSubscriptionActive(sub: { status: string; currentPeriodEnd: number | 
 const subscription = new Hono<AppEnvWithDB>();
 
 /**
- * GET /api/subscription/check
- *
- * Returns boolean indicating if user has active subscription
- * Used by frontend to quickly check access without full details
- *
- * Response: { hasSubscription: boolean }
- */
-subscription.get('/check', async (c) => {
-  // Get userId and cache from context (cached by middleware)
-  const userId = c.get('userId');
-  const cache = c.get('cache');
-
-  if (!userId) {
-    return c.json({ hasSubscription: false });
-  }
-
-  // Try cache first
-  const cachedSub = await cache.subscriptions.getUserSubscription(userId);
-
-  if (cachedSub) {
-    return c.json({ hasSubscription: cachedSub.hasAccess });
-  }
-
-  // Cache miss - query D1
-  const db = c.get('db');
-  const dbSub = await getUserSubscription(db, userId);
-
-  const hasSubscription = !!dbSub && isSubscriptionActive(dbSub);
-
-  // Cache for 1 hour
-  if (dbSub) {
-    await cache.subscriptions.setUserSubscription(userId, {
-      status: dbSub.status,
-      planId: dbSub.planId,
-      planFeatures: dbSub.planFeatures,
-      currentPeriodEnd: dbSub.currentPeriodEnd || 0,
-      hasAccess: hasSubscription,
-      cachedAt: Date.now(),
-    });
-  }
-
-  return c.json({ hasSubscription });
-});
-
-/**
- * GET /api/subscription/status
- *
- * Returns full subscription details for authenticated user
- *
- * Response: {
- *   subscription: {
- *     status: string,
- *     planId: string,
- *     planName: string,
- *     currentPeriodStart: number,
- *     currentPeriodEnd: number,
- *     canceledAt: number | null,
- *     features: object
- *   } | null
- * }
- */
-subscription.get('/status', async (c) => {
-  // Get userId and cache from context (cached by middleware)
-  const userId = c.get('userId');
-  const cache = c.get('cache');
-
-  if (!userId) {
-    throw Errors.unauthorized();
-  }
-
-  // Try cache first
-  const cachedSub = await cache.subscriptions.getUserSubscription(userId);
-
-  if (cachedSub) {
-    return c.json({
-      subscription: {
-        status: cachedSub.status,
-        planId: cachedSub.planId,
-        planFeatures: cachedSub.planFeatures,
-        currentPeriodEnd: cachedSub.currentPeriodEnd,
-        hasAccess: cachedSub.hasAccess,
-      },
-    });
-  }
-
-  // Cache miss - query D1
-  const db = c.get('db');
-  const dbSub = await getUserSubscription(db, userId);
-
-  if (!dbSub) {
-    return c.json({ subscription: null });
-  }
-
-  const hasAccess = isSubscriptionActive(dbSub);
-
-  // Cache for 1 hour
-  await cache.subscriptions.setUserSubscription(userId, {
-    status: dbSub.status,
-    planId: dbSub.planId,
-    planFeatures: dbSub.planFeatures,
-    currentPeriodEnd: dbSub.currentPeriodEnd || 0,
-    hasAccess,
-    cachedAt: Date.now(),
-  });
-
-  return c.json({
-    subscription: {
-      status: dbSub.status,
-      planId: dbSub.planId,
-      planName: dbSub.planName,
-      currentPeriodStart: dbSub.currentPeriodStart,
-      currentPeriodEnd: dbSub.currentPeriodEnd,
-      canceledAt: dbSub.canceledAt,
-      features: dbSub.planFeatures,
-      hasAccess,
-    },
-  });
-});
-
-/**
  * GET /api/subscription/plans
  *
  * Returns all active subscription plans
@@ -215,9 +95,15 @@ subscription.post(
       throw Errors.notFound('Plan', planId);
     }
 
-    // Check if user already has an active subscription
+    // Check cache first for existing subscription
+    const cachedSub = await cache.subscriptions.getUserSubscription(userId);
+    if (cachedSub && cachedSub.hasAccess) {
+      throw Errors.conflict('User already has an active subscription');
+    }
+
+    // Fallback to D1 if cache miss
     const existingSub = await getUserSubscription(db, userId);
-    if (existingSub && ['active', 'trial'].includes(existingSub.status)) {
+    if (existingSub && isSubscriptionActive(existingSub)) {
       throw Errors.conflict('User already has an active subscription');
     }
 
@@ -250,12 +136,19 @@ subscription.post(
       endedAt: null,
     });
 
-    // Invalidate cache immediately to ensure fresh data on next request
-    await cache.subscriptions.invalidateUserSubscription(userId);
-    await cache.userProfiles.invalidateUserProfile(userId);
-
-    // Set subscription cookie for client-side access checks
+    // Set subscription in cache with TTL = subscription expiration time
     const expiresAt = Math.floor(periodEnd.getTime() / 1000);
+    const ttlSeconds = expiresAt - Math.floor(Date.now() / 1000);
+    await cache.subscriptions.setUserSubscription(userId, {
+      status: hasTrial ? 'trial' : 'active',
+      planId,
+      planFeatures: typeof plan.features === 'string' ? JSON.parse(plan.features) : plan.features,
+      currentPeriodEnd: expiresAt,
+      hasAccess: true,
+    }, ttlSeconds);
+
+    // Invalidate user profile to force refresh on next request
+    await cache.userProfiles.invalidateUserProfile(userId);
     const isSecure = c.env.BETTER_AUTH_URL.startsWith('https');
     const subCookie = await createSubscriptionSetCookie(
       expiresAt,

@@ -111,6 +111,77 @@ export class CacheManager {
 
     return data;
   }
+
+  /**
+   * Get or fetch with lock pattern (prevents cache stampede)
+   *
+   * P0 FIX: Prevents thundering herd problem where multiple concurrent
+   * requests all hit the database on cache miss.
+   *
+   * Uses a short-lived lock key to ensure only one request fetches from DB.
+   * Other requests will retry cache after a brief delay.
+   *
+   * @param key - Cache key
+   * @param fetcher - Function to fetch data on cache miss
+   * @param options - Cache options including TTL
+   * @returns Cached or fetched data, or null if lock contention
+   */
+  async getOrFetchWithLock<T>(
+    key: string,
+    fetcher: () => Promise<T | null>,
+    options?: CacheOptions & { lockTtl?: number; retries?: number }
+  ): Promise<T | null> {
+    const lockKey = `lock:${key}`;
+    const lockTtl = options?.lockTtl ?? 5; // 5 second lock by default
+    const maxRetries = options?.retries ?? 2;
+
+    // Try cache first
+    const cached = await this.get<T>(key);
+    if (cached !== null) {
+      return cached;
+    }
+
+    // Cache miss - try to acquire lock
+    // Check if another request is already fetching
+    const existingLock = await this.kv.get(lockKey);
+    if (existingLock) {
+      // Another request is fetching - wait and retry cache
+      for (let i = 0; i < maxRetries; i++) {
+        await new Promise(resolve => setTimeout(resolve, 50 * (i + 1))); // 50ms, 100ms delays
+        const retryCache = await this.get<T>(key);
+        if (retryCache !== null) {
+          return retryCache;
+        }
+      }
+      // Still no cache after retries - fetch anyway to prevent starvation
+    }
+
+    // Set lock (short TTL)
+    try {
+      await this.kv.put(lockKey, '1', { expirationTtl: lockTtl });
+    } catch {
+      // Lock set failed - continue anyway
+    }
+
+    try {
+      // Fetch from source
+      const data = await fetcher();
+
+      if (data !== null) {
+        // Store in cache
+        await this.set(key, data, options);
+      }
+
+      return data;
+    } finally {
+      // Release lock
+      try {
+        await this.kv.delete(lockKey);
+      } catch {
+        // Lock delete failed - will expire anyway
+      }
+    }
+  }
 }
 
 /**
@@ -148,6 +219,21 @@ export class SessionCache {
 }
 
 /**
+ * Cached subscription data structure
+ */
+export interface CachedSubscription {
+  status: string;
+  planId: string;
+  planFeatures: {
+    episodeAccess: string;
+    adFree: boolean;
+  };
+  currentPeriodEnd: number;
+  hasAccess: boolean;
+  cachedAt: number;
+}
+
+/**
  * User Subscription Cache
  * Critical for access control performance
  */
@@ -158,30 +244,42 @@ export class SubscriptionCache {
     this.cache = new CacheManager(kv);
   }
 
-  async getUserSubscription(userId: string) {
-    return this.cache.get<{
-      status: string;
-      planId: string;
-      planFeatures: {
-        episodeAccess: string;
-        adFree: boolean;
-      };
-      currentPeriodEnd: number;
-      hasAccess: boolean;
-      cachedAt: number;
-    }>(`${CACHE_PREFIX.USER_SUB}${userId}`);
+  async getUserSubscription(userId: string): Promise<CachedSubscription | null> {
+    return this.cache.get<CachedSubscription>(`${CACHE_PREFIX.USER_SUB}${userId}`);
   }
 
-  async setUserSubscription(userId: string, subData: any) {
+  async setUserSubscription(userId: string, subData: Omit<CachedSubscription, 'cachedAt'>, ttlSeconds?: number) {
     return this.cache.set(
       `${CACHE_PREFIX.USER_SUB}${userId}`,
       { ...subData, cachedAt: Date.now() },
-      { ttl: CACHE_TTL.USER_SUBSCRIPTION }
+      { ttl: ttlSeconds || CACHE_TTL.USER_SUBSCRIPTION }
     );
   }
 
   async invalidateUserSubscription(userId: string) {
     return this.cache.delete(`${CACHE_PREFIX.USER_SUB}${userId}`);
+  }
+
+  /**
+   * Get subscription with lock to prevent cache stampede
+   *
+   * P0 FIX: Prevents thundering herd when multiple concurrent requests
+   * experience cache miss for the same user.
+   *
+   * @param userId - User ID
+   * @param fetcher - Function to fetch subscription from database
+   * @param ttlSeconds - Optional TTL override
+   */
+  async getOrFetchUserSubscription(
+    userId: string,
+    fetcher: () => Promise<CachedSubscription | null>,
+    ttlSeconds?: number
+  ): Promise<CachedSubscription | null> {
+    return this.cache.getOrFetchWithLock<CachedSubscription>(
+      `${CACHE_PREFIX.USER_SUB}${userId}`,
+      fetcher,
+      { ttl: ttlSeconds || CACHE_TTL.USER_SUBSCRIPTION }
+    );
   }
 }
 

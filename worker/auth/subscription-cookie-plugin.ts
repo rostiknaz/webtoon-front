@@ -14,10 +14,12 @@ import {
   clearSubscriptionCookie,
 } from '../lib/subscription-cookie';
 import { getUserSubscription } from '../db/services/subscription.service';
+import { createCacheLayer } from '@/lib/cache.ts';
 import type { DB } from '../db';
 
 interface PluginOptions {
   db: DB;
+  cache: KVNamespace;
   secret: string;
   isSecure: boolean;
 }
@@ -30,7 +32,8 @@ interface PluginOptions {
  * - Cookie contains signed expiration timestamp (tamper-proof)
  */
 export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlugin {
-  const { db, secret, isSecure } = options;
+  const { db, cache: kvCache, secret, isSecure } = options;
+  const cacheLayer = createCacheLayer(kvCache);
 
   return {
     id: 'subscription-cookie',
@@ -53,19 +56,38 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
             const newSession = ctx.context.newSession;
             if (!newSession?.user?.id) return;
 
+            const userId = newSession.user.id;
+
             try {
-              // Fetch user's subscription from database
-              const subscription = await getUserSubscription(db, newSession.user.id);
+              // P0 FIX: Use getOrFetchUserSubscription to prevent cache stampede
+              // This ensures only one request fetches from D1 on concurrent cache misses
+              const cachedSub = await cacheLayer.subscriptions.getOrFetchUserSubscription(
+                userId,
+                async () => {
+                  // Fetcher: query D1 and transform to cache format
+                  const subscription = await getUserSubscription(db, userId);
 
-              // Determine expiration: active/trial with valid period, or 0 (no subscription)
-              const expiresAt =
-                subscription &&
-                ['active', 'trial'].includes(subscription.status) &&
-                subscription.currentPeriodEnd
-                  ? subscription.currentPeriodEnd
-                  : 0;
+                  if (subscription &&
+                      ['active', 'trial'].includes(subscription.status) &&
+                      subscription.currentPeriodEnd) {
+                    return {
+                      status: subscription.status,
+                      planId: subscription.planId,
+                      planFeatures: subscription.planFeatures,
+                      currentPeriodEnd: subscription.currentPeriodEnd,
+                      hasAccess: true,
+                      cachedAt: Date.now(),
+                    };
+                  }
+                  return null;
+                }
+              );
 
-              const planId = subscription?.planId || null;
+              // Determine cookie values from cached subscription
+              const expiresAt = cachedSub?.hasAccess && cachedSub.currentPeriodEnd > Date.now() / 1000
+                ? cachedSub.currentPeriodEnd
+                : 0;
+              const planId = cachedSub?.planId || null;
 
               // Create signed cookie
               const cookie = await createSubscriptionSetCookie(

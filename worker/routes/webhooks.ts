@@ -6,7 +6,7 @@
 
 import { Hono } from 'hono';
 import { createCacheLayer } from '../../lib/cache';
-import { markWebhookProcessed } from '../db/services/payment.service';
+import { markWebhookProcessed, isWebhookAlreadyProcessed } from '../db/services/payment.service';
 import {
   handlePaymentSuccessTransaction,
   handleSubscriptionCreatedTransaction,
@@ -86,6 +86,15 @@ webhooks.post('/solidgate', async (c) => {
     const db = c.get('db');
     const cache = createCacheLayer(c.env.CACHE);
 
+    // P0 FIX: Idempotency check BEFORE processing
+    // Prevents duplicate handling on webhook retries
+    const eventId = `${payload.event}-${payload.order?.order_id || payload.subscription?.id || crypto.randomUUID()}`;
+    const alreadyProcessed = await isWebhookAlreadyProcessed(db, eventId);
+    if (alreadyProcessed) {
+      console.log(`Webhook already processed: ${eventId}`);
+      return c.text('OK', 200);
+    }
+
     let userId: string | null = null;
 
     // Handle different event types with atomic transactions
@@ -118,14 +127,16 @@ webhooks.post('/solidgate', async (c) => {
         console.log(`Unhandled event type: ${payload.event}`);
     }
 
-    // Invalidate user cache if userId was returned
+    // Invalidate user cache if userId was returned (parallel for performance)
     if (userId) {
-      await cache.subscriptions.invalidateUserSubscription(userId);
-      await cache.userProfiles.invalidateUserProfile(userId);
+      await Promise.all([
+        cache.subscriptions.invalidateUserSubscription(userId),
+        cache.userProfiles.invalidateUserProfile(userId),
+      ]);
     }
 
-    // Mark webhook as processed
-    await markWebhookProcessed(db, body);
+    // Mark webhook as processed (update the record created in transaction)
+    await markWebhookProcessed(db, eventId);
 
     return c.text('OK', 200);
   } catch (error) {

@@ -116,6 +116,7 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
         plugins: [
           subscriptionCookiePlugin({
             db,
+            cache: env.CACHE,
             secret: env.BETTER_AUTH_SECRET,
             isSecure,
           }),

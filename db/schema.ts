@@ -132,6 +132,9 @@ export const subscriptions = sqliteTable('subscriptions', {
 }, (table) => [
   // Optimize subscription analytics queries by plan
   index('idx_subscriptions_plan_id').on(table.planId),
+  // NOTE: Partial unique index `idx_one_active_subscription_per_user` exists via manual migration
+  // (0005_p0_subscription_race_condition.sql) - prevents duplicate active/trial subscriptions per user
+  // Drizzle doesn't support partial indexes (WHERE clause), so this is maintained manually
 ]);
 
 export const userEpisodeAccess = sqliteTable('user_episode_access', {

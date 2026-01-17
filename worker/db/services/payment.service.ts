@@ -244,3 +244,23 @@ export async function markWebhookProcessed(db: DB, eventId: string) {
     .set({ processedAt: sql`unixepoch()` })
     .where(eq(webhookEvents.eventId, eventId));
 }
+
+/**
+ * Check if webhook event was already processed (idempotency check)
+ *
+ * MUST be called BEFORE processing any webhook to prevent duplicate handling.
+ * This is critical for preventing double charges, duplicate subscriptions, etc.
+ *
+ * @param db - Drizzle database instance
+ * @param eventId - Unique event ID (e.g., "payment.success-order123")
+ * @returns true if already processed, false if new event
+ */
+export async function isWebhookAlreadyProcessed(db: DB, eventId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(eq(webhookEvents.eventId, eventId))
+    .limit(1);
+
+  return result.length > 0;
+}
