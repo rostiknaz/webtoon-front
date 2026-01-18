@@ -25,15 +25,18 @@ import {
   Coins,
   Crown,
   Shield,
+  Github,
 } from 'lucide-react';
+import { GoogleIcon } from '@/components/icons';
+import type { ReactNode } from 'react';
 
-// Provider display info
-const PROVIDER_INFO: Record<string, { name: string; icon: string; color: string }> = {
-  google: { name: 'Google', icon: '🔵', color: 'bg-blue-500/10 text-blue-500' },
-  github: { name: 'GitHub', icon: '⚫', color: 'bg-gray-500/10 text-gray-400' },
+// Provider display info with React components for icons
+const PROVIDER_INFO: Record<string, { name: string; icon: ReactNode; color: string }> = {
+  google: { name: 'Google', icon: <GoogleIcon className="h-5 w-5" />, color: 'bg-blue-500/10' },
+  github: { name: 'GitHub', icon: <Github className="h-5 w-5" />, color: 'bg-gray-500/10 text-gray-400' },
   discord: { name: 'Discord', icon: '🟣', color: 'bg-indigo-500/10 text-indigo-500' },
   twitter: { name: 'Twitter', icon: '🐦', color: 'bg-sky-500/10 text-sky-500' },
-  credential: { name: 'Email', icon: '📧', color: 'bg-green-500/10 text-green-500' },
+  credential: { name: 'Email', icon: <Mail className="h-5 w-5" />, color: 'bg-green-500/10 text-green-500' },
 };
 
 const AccountPage = () => {
