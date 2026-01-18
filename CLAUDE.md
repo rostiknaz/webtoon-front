@@ -177,3 +177,4 @@ Read these files only when working on related features:
 
 - **Cloudflare Workers**: `.claude/docs/cloudflare-workers.md` - Detailed Workers patterns, Durable Objects, KV, D1, Queues, WebSockets, Agents
 - **Subscription System**: `docs/subscription-architecture.md` - Cookie-based subscription flow
+- **Likes System**: `docs/likes-architecture.md` - Scalable likes for episodes (D1, KV, Analytics Engine, Durable Objects)
