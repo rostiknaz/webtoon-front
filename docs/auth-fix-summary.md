@@ -107,11 +107,12 @@ await authClient.signUp.email({ email, password, name });
 // Sign Out
 await authClient.signOut();
 
-// Get Session
-const session = authClient.useSession();
+// Get Session (React Query-based with caching)
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
+const session = useOptimizedSession();
 
 // Check if authenticated
-const { isAuthenticated, user } = useAuth(); // Custom hook
+const isAuthenticated = !!session.data?.user;
 ```
 
 ## Testing

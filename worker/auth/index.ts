@@ -93,7 +93,12 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
             httpOnly: true,
           },
         },
-        trustedOrigins: [env.BETTER_AUTH_URL],
+        trustedOrigins: [
+          env.BETTER_AUTH_URL,
+          // Include both localhost ports for development (Vite uses next available port)
+          'http://localhost:5173',
+          'http://localhost:5174',
+        ],
         // Error handling for OAuth - redirect to frontend instead of showing HTML error page
         onAPIError: {
           errorURL: '/auth-error',

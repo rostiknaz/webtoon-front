@@ -21,7 +21,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
-import { authClient } from '@/lib/auth.client';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { useSubscription, checkSubscriptionStatus } from '@/hooks/useSubscription';
 import { toast } from '@/components/ui/sonner';
 
@@ -61,7 +61,7 @@ function SerialErrorComponent({ error }: ErrorComponentProps) {
 
 function SerialPage() {
   const { serialId } = Route.useParams();
-  const session = authClient.useSession();
+  const session = useOptimizedSession();
   const subscription = useSubscription();
 
   const isAuthenticated = !!session.data?.user;

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { authClient } from '@/lib/auth.client';
+import { useInvalidateSession } from '@/hooks/useOptimizedSession';
 import {
   Drawer,
   DrawerContent,
@@ -144,6 +145,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const location = useLocation();
+  const invalidateSession = useInvalidateSession();
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -230,6 +232,8 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
           description: errorMessage,
         });
       } else {
+        // Invalidate session cache so Header updates immediately
+        invalidateSession();
         toast.success('Welcome back!', {
           description: 'You have been signed in successfully.',
         });
@@ -295,6 +299,8 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
           setMode('login');
           loginForm.setValue('email', values.email);
         } else {
+          // Invalidate session cache so Header updates immediately
+          invalidateSession();
           toast.success('Account created!', {
             description: 'Welcome! You have been signed in.',
           });

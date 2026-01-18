@@ -95,15 +95,26 @@ subscription.post(
       throw Errors.notFound('Plan', planId);
     }
 
-    // Check cache first for existing subscription
-    const cachedSub = await cache.subscriptions.getUserSubscription(userId);
-    if (cachedSub && cachedSub.hasAccess) {
-      throw Errors.conflict('User already has an active subscription');
-    }
+    // Check for existing subscription (cache-first with stampede prevention)
+    const existingSub = await cache.subscriptions.getOrFetchUserSubscription(
+      userId,
+      async () => {
+        const subscription = await getUserSubscription(db, userId);
+        if (subscription && isSubscriptionActive(subscription) && subscription.currentPeriodEnd) {
+          return {
+            status: subscription.status,
+            planId: subscription.planId,
+            planFeatures: subscription.planFeatures,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+            hasAccess: true,
+            cachedAt: Date.now(),
+          };
+        }
+        return null;
+      }
+    );
 
-    // Fallback to D1 if cache miss
-    const existingSub = await getUserSubscription(db, userId);
-    if (existingSub && isSubscriptionActive(existingSub)) {
+    if (existingSub?.hasAccess) {
       throw Errors.conflict('User already has an active subscription');
     }
 

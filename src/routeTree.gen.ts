@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialIdRouteImport } from './routes/serials/$serialId'
 
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth-error',
   path: '/auth-error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,30 +37,34 @@ const SerialsSerialIdRoute = SerialsSerialIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/serials/$serialId': typeof SerialsSerialIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth-error' | '/serials/$serialId'
+  fullPaths: '/' | '/account' | '/auth-error' | '/serials/$serialId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth-error' | '/serials/$serialId'
-  id: '__root__' | '/' | '/auth-error' | '/serials/$serialId'
+  to: '/' | '/account' | '/auth-error' | '/serials/$serialId'
+  id: '__root__' | '/' | '/account' | '/auth-error' | '/serials/$serialId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   AuthErrorRoute: typeof AuthErrorRoute
   SerialsSerialIdRoute: typeof SerialsSerialIdRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/auth-error'
       fullPath: '/auth-error'
       preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   AuthErrorRoute: AuthErrorRoute,
   SerialsSerialIdRoute: SerialsSerialIdRoute,
 }

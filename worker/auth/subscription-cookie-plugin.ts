@@ -14,7 +14,7 @@ import {
   clearSubscriptionCookie,
 } from '../lib/subscription-cookie';
 import { getUserSubscription } from '../db/services/subscription.service';
-import { createCacheLayer } from '@/lib/cache.ts';
+import { createCacheLayer } from '../../lib/cache';
 import type { DB } from '../db';
 
 interface PluginOptions {

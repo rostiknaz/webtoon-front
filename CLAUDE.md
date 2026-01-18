@@ -170,3 +170,10 @@ npx wrangler deploy
 - Do NOT include `Co-Authored-By: Claude` in commit messages
 - Use imperative mood for commit messages (e.g., "Add feature" not "Added feature")
 - Keep commits focused and atomic
+
+## On-Demand Documentation
+
+Read these files only when working on related features:
+
+- **Cloudflare Workers**: `.claude/docs/cloudflare-workers.md` - Detailed Workers patterns, Durable Objects, KV, D1, Queues, WebSockets, Agents
+- **Subscription System**: `docs/subscription-architecture.md` - Cookie-based subscription flow
