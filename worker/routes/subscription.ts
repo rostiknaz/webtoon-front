@@ -125,8 +125,10 @@ subscription.post(
       ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
       : null;
 
-    // For monthly: 30 days, for yearly: 365 days
-    const periodDays = plan.billingPeriod === 'yearly' ? 365 : 30;
+    // Calculate period days based on billing period
+    const periodDays =
+      plan.billingPeriod === 'yearly' ? 365 :
+      plan.billingPeriod === 'weekly' ? 7 : 30;
     const periodStart = trialEnd || now;
     const periodEnd = new Date(periodStart.getTime() + periodDays * 24 * 60 * 60 * 1000);
 
