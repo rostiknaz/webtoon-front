@@ -285,6 +285,9 @@ export class SubscriptionCache {
    * P0 FIX: Prevents thundering herd when multiple concurrent requests
    * experience cache miss for the same user.
    *
+   * Also validates expiration time - if cached subscription is expired,
+   * invalidates cache and fetches fresh data.
+   *
    * @param userId - User ID
    * @param fetcher - Function to fetch subscription from database
    * @param ttlSeconds - Optional TTL override
@@ -294,8 +297,26 @@ export class SubscriptionCache {
     fetcher: () => Promise<CachedSubscription | null>,
     ttlSeconds?: number
   ): Promise<CachedSubscription | null> {
+    const key = `${CACHE_PREFIX.USER_SUB}${userId}`;
+
+    // Check cache first
+    const cached = await this.cache.get<CachedSubscription>(key);
+
+    if (cached) {
+      // Validate expiration time (don't trust cached hasAccess)
+      const now = Math.floor(Date.now() / 1000);
+      if (cached.currentPeriodEnd > now) {
+        // Still valid
+        return { ...cached, hasAccess: true };
+      }
+
+      // Expired - invalidate cache
+      await this.cache.delete(key);
+    }
+
+    // Cache miss or expired - fetch with lock
     return this.cache.getOrFetchWithLock<CachedSubscription>(
-      `${CACHE_PREFIX.USER_SUB}${userId}`,
+      key,
       fetcher,
       { ttl: ttlSeconds || CACHE_TTL.USER_SUBSCRIPTION }
     );
