@@ -67,9 +67,8 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
                   // Fetcher: query D1 and transform to cache format
                   const subscription = await getUserSubscription(db, userId);
 
-                  if (subscription &&
-                      ['active', 'trial'].includes(subscription.status) &&
-                      subscription.currentPeriodEnd) {
+                  // Only cache if subscription has access (time-based check)
+                  if (subscription?.hasAccess && subscription.currentPeriodEnd) {
                     return {
                       status: subscription.status,
                       planId: subscription.planId,
