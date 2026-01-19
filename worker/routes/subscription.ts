@@ -14,14 +14,6 @@ import { Errors } from '../lib/errors';
 import { subscribeBodySchema, validationHook } from '../lib/schemas';
 import { createSubscriptionSetCookie } from '../lib/subscription-cookie';
 
-/**
- * Check if a subscription is currently active
- */
-function isSubscriptionActive(sub: { status: string; currentPeriodEnd: number | null }): boolean {
-  return ['active', 'trial'].includes(sub.status) &&
-    (!sub.currentPeriodEnd || sub.currentPeriodEnd > Date.now() / 1000);
-}
-
 const subscription = new Hono<AppEnvWithDB>();
 
 /**
@@ -95,17 +87,19 @@ subscription.post(
       throw Errors.notFound('Plan', planId);
     }
 
-    // Check for existing subscription (cache-first with stampede prevention)
+    // Check for existing active subscription (cache-first with stampede prevention)
+    // Access is determined by time (currentPeriodEnd > now), not status
     const existingSub = await cache.subscriptions.getOrFetchUserSubscription(
       userId,
       async () => {
-        const subscription = await getUserSubscription(db, userId);
-        if (subscription && isSubscriptionActive(subscription) && subscription.currentPeriodEnd) {
+        const sub = await getUserSubscription(db, userId);
+        // Only cache if subscription has access (not expired)
+        if (sub?.hasAccess && sub.currentPeriodEnd) {
           return {
-            status: subscription.status,
-            planId: subscription.planId,
-            planFeatures: subscription.planFeatures,
-            currentPeriodEnd: subscription.currentPeriodEnd,
+            status: sub.status,
+            planId: sub.planId,
+            planFeatures: sub.planFeatures,
+            currentPeriodEnd: sub.currentPeriodEnd,
             hasAccess: true,
             cachedAt: Date.now(),
           };

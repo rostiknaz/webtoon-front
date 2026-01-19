@@ -244,8 +244,27 @@ export class SubscriptionCache {
     this.cache = new CacheManager(kv);
   }
 
+  /**
+   * Get cached subscription with time-based access validation
+   *
+   * Always re-validates hasAccess based on currentPeriodEnd > now
+   * to handle edge cases where cached data becomes stale.
+   */
   async getUserSubscription(userId: string): Promise<CachedSubscription | null> {
-    return this.cache.get<CachedSubscription>(`${CACHE_PREFIX.USER_SUB}${userId}`);
+    const cached = await this.cache.get<CachedSubscription>(`${CACHE_PREFIX.USER_SUB}${userId}`);
+    if (!cached) return null;
+
+    // Re-validate hasAccess based on time (don't trust cached hasAccess)
+    const now = Math.floor(Date.now() / 1000);
+    const hasAccess = cached.currentPeriodEnd > now;
+
+    // If subscription expired, invalidate cache and return null
+    if (!hasAccess) {
+      await this.invalidateUserSubscription(userId);
+      return null;
+    }
+
+    return { ...cached, hasAccess };
   }
 
   async setUserSubscription(userId: string, subData: Omit<CachedSubscription, 'cachedAt'>, ttlSeconds?: number) {
