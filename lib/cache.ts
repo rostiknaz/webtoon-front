@@ -5,6 +5,8 @@
  * using Cloudflare KV storage to reduce D1 database queries.
  */
 
+import { subscriptionHasAccess } from './subscription-utils';
+
 // Cache TTL constants (in seconds)
 export const CACHE_TTL = {
   SESSION: 60 * 60 * 24 * 7, // 7 days
@@ -247,7 +249,7 @@ export class SubscriptionCache {
   /**
    * Get cached subscription with time-based access validation
    *
-   * Always re-validates hasAccess based on currentPeriodEnd > now
+   * Always re-validates hasAccess using subscriptionHasAccess()
    * to handle edge cases where cached data becomes stale.
    */
   async getUserSubscription(userId: string): Promise<CachedSubscription | null> {
@@ -255,8 +257,7 @@ export class SubscriptionCache {
     if (!cached) return null;
 
     // Re-validate hasAccess based on time (don't trust cached hasAccess)
-    const now = Math.floor(Date.now() / 1000);
-    const hasAccess = cached.currentPeriodEnd > now;
+    const hasAccess = subscriptionHasAccess(cached.currentPeriodEnd);
 
     // If subscription expired, invalidate cache and return null
     if (!hasAccess) {
@@ -303,9 +304,8 @@ export class SubscriptionCache {
     const cached = await this.cache.get<CachedSubscription>(key);
 
     if (cached) {
-      // Validate expiration time (don't trust cached hasAccess)
-      const now = Math.floor(Date.now() / 1000);
-      if (cached.currentPeriodEnd > now) {
+      // Validate expiration time using shared helper
+      if (subscriptionHasAccess(cached.currentPeriodEnd)) {
         // Still valid
         return { ...cached, hasAccess: true };
       }

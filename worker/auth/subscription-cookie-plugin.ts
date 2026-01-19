@@ -14,6 +14,7 @@ import {
   clearSubscriptionCookie,
 } from '../lib/subscription-cookie';
 import { getUserSubscription } from '../db/services/subscription.service';
+import { subscriptionHasAccess } from '../../lib/subscription-utils';
 import { createCacheLayer } from '../../lib/cache';
 import type { DB } from '../db';
 
@@ -105,7 +106,7 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
           }),
         },
         {
-          // Clear cookie on sign-out
+          // Clear cookie and invalidate cache on sign-out
           matcher: (ctx) => {
             const path = ctx.path ?? '';
             return path === '/sign-out';
@@ -114,6 +115,15 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
           handler: createAuthMiddleware(async (ctx) => {
             // Append clear cookie to response headers
             ctx.context.responseHeaders?.append('Set-Cookie', clearSubscriptionCookie());
+
+            // Invalidate subscription cache if expired
+            const session = ctx.context.session;
+            if (session?.user?.id) {
+              const cached = await cacheLayer.subscriptions.getUserSubscription(session.user.id);
+              if (cached && !subscriptionHasAccess(cached.currentPeriodEnd)) {
+                await cacheLayer.subscriptions.invalidateUserSubscription(session.user.id);
+              }
+            }
           }),
         },
       ],

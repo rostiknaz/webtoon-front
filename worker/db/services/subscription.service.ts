@@ -7,6 +7,9 @@
 import { eq, asc, desc } from 'drizzle-orm';
 import { plans, subscriptions } from '../../../db/schema';
 import type { DB } from '../index';
+// Re-export from shared utils for backwards compatibility
+export { subscriptionHasAccess } from '../../../lib/subscription-utils';
+import { subscriptionHasAccess } from '../../../lib/subscription-utils';
 
 /**
  * Get all active subscription plans
@@ -50,14 +53,6 @@ export interface UserSubscriptionData {
   hasAccess: boolean;
 }
 
-/**
- * Check if subscription grants access based on expiration time
- * Access is purely time-based, status is informational only
- */
-export function subscriptionHasAccess(currentPeriodEnd: number | null): boolean {
-  if (!currentPeriodEnd) return false;
-  return currentPeriodEnd > Math.floor(Date.now() / 1000);
-}
 
 /**
  * Get user's most recent subscription with plan details
