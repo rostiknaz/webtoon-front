@@ -1,87 +1,127 @@
 /**
- * Subscription Hook
+ * Subscription Hook - Hybrid Cookie/API Approach
  *
- * Reads subscription status from a signed cookie (set by server on login/subscribe).
- * Zero API calls - instant access control checks.
- *
- * The cookie is tamper-proof: users can read but cannot forge valid signatures.
+ * - Instant UI from signed cookie (0ms, $0 cost)
+ * - Background sync via TanStack Query
+ * - 90% cookie / 10% API split for cost optimization
  */
 
-import { useMemo, useState, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  hasActiveSubscription,
-  getSubscriptionExpiry,
-  getSubscriptionPlanId,
-} from '@/lib/subscription-cookie';
+  fetchSubscriptionStatus,
+  getSubscriptionSync,
+  type SubscriptionData,
+  subscriptionQueryKey,
+} from '@/services/subscription.service';
+
+interface UseSubscriptionOptions {
+  /** Enable background API validation (default: true) */
+  enableApiValidation?: boolean;
+  /** API cache stale time in ms (default: 5 minutes) */
+  staleTime?: number;
+}
+
+const DEFAULT_STALE_TIME = 5 * 60 * 1000;
+
+const NO_SUBSCRIPTION: SubscriptionData = {
+  hasSubscription: false,
+  expiresAt: 0,
+  planId: null,
+  planFeatures: null,
+  source: 'none',
+};
 
 /**
- * Hook to get user's subscription status from cookie
- *
- * - Reads from signed cookie (instant, no API call)
- * - Call `refresh()` after auth/subscribe to re-read the cookie
- * - Use `checkSubscriptionStatus()` for imperative checks (e.g., on episode switch)
+ * Get subscription status with hybrid cookie/API approach
  */
-export function useSubscription() {
-  // Version state to trigger re-computation when cookie changes
-  const [version, setVersion] = useState(0);
+export function useSubscription(options: UseSubscriptionOptions = {}) {
+  const { enableApiValidation = true, staleTime = DEFAULT_STALE_TIME } = options;
+  const queryClient = useQueryClient();
+  const [cookieVersion, setCookieVersion] = useState(0);
 
-  const data = useMemo(() => ({
-    hasSubscription: hasActiveSubscription(),
-    expiresAt: getSubscriptionExpiry(),
-    planId: getSubscriptionPlanId(),
-  }), [version]);
+  // Instant data from cookie
+  const cookieData = useMemo(() => getSubscriptionSync(), [cookieVersion]);
 
-  // Call refresh() after login/subscribe to re-read the cookie
-  const refresh = useCallback(() => {
-    setVersion(v => v + 1);
-    // Return fresh data immediately (useful for conditional logic after refresh)
-    return {
-      data: {
-        hasSubscription: hasActiveSubscription(),
-        expiresAt: getSubscriptionExpiry(),
-        planId: getSubscriptionPlanId(),
-      },
-    };
-  }, []);
+  // Background API validation
+  const apiQuery = useQuery({
+    queryKey: subscriptionQueryKey,
+    queryFn: fetchSubscriptionStatus,
+    enabled: enableApiValidation,
+    staleTime,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+  });
+
+  // Merged data: API (validated) > Cookie (instant) > None
+  const data = apiQuery.data?.source === 'api'
+    ? apiQuery.data
+    : cookieData.source !== 'none'
+      ? cookieData
+      : NO_SUBSCRIPTION;
+
+  const source = apiQuery.data?.source === 'api'
+    ? 'api'
+    : cookieData.source === 'cookie'
+      ? 'cookie'
+      : 'none';
+
+  // Re-read cookie and refetch API
+  const refresh = useCallback(async (): Promise<SubscriptionData> => {
+    setCookieVersion((v) => v + 1);
+
+    if (enableApiValidation) {
+      await queryClient.invalidateQueries({ queryKey: subscriptionQueryKey });
+      return queryClient.fetchQuery({
+        queryKey: subscriptionQueryKey,
+        queryFn: fetchSubscriptionStatus,
+      });
+    }
+
+    return getSubscriptionSync();
+  }, [enableApiValidation, queryClient]);
+
+  // Force fresh API validation
+  const validateWithApi = useCallback((): Promise<SubscriptionData> => {
+    return queryClient.fetchQuery({
+      queryKey: subscriptionQueryKey,
+      queryFn: fetchSubscriptionStatus,
+      staleTime: 0,
+    });
+  }, [queryClient]);
 
   return {
     data,
+    source,
+    isPending: enableApiValidation && apiQuery.isPending && !cookieData.hasSubscription,
+    isFetching: apiQuery.isFetching,
+    error: apiQuery.error,
     refresh,
-    // Mimic React Query interface for compatibility
-    isLoading: false,
-    isPending: false,
-    isError: false,
-    error: null,
+    validateWithApi,
+  } as const;
+}
+
+/**
+ * Imperative subscription check for user actions
+ * (episode switching, playback start, premium content access)
+ */
+export function checkSubscriptionStatus() {
+  const data = getSubscriptionSync();
+  return {
+    hasSubscription: data.hasSubscription,
+    expiresAt: data.expiresAt,
+    planId: data.planId,
+    justExpired: data.expiresAt > 0 && !data.hasSubscription,
   };
 }
 
 /**
- * Imperative subscription check - call on specific actions
- *
- * Use this for checks on user actions like:
- * - Episode switching
- * - Video playback start
- * - Premium content access
- *
- * @returns Object with hasSubscription and whether it just expired
+ * Hook to invalidate subscription cache
  */
-export function checkSubscriptionStatus(): {
-  hasSubscription: boolean;
-  expiresAt: number;
-  planId: string | null;
-  justExpired: boolean;
-} {
-  const hasSubscription = hasActiveSubscription();
-  const expiresAt = getSubscriptionExpiry();
-  const planId = getSubscriptionPlanId();
-
-  // Check if subscription just expired (had a plan but it's now expired)
-  const justExpired = expiresAt > 0 && !hasSubscription;
-
-  return {
-    hasSubscription,
-    expiresAt,
-    planId,
-    justExpired,
-  };
+export function useInvalidateSubscription() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    () => queryClient.invalidateQueries({ queryKey: subscriptionQueryKey }),
+    [queryClient]
+  );
 }

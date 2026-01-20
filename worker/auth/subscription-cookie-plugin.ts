@@ -13,7 +13,7 @@ import {
   createSubscriptionSetCookie,
   clearSubscriptionCookie,
 } from '../lib/subscription-cookie';
-import { getUserSubscription } from '../db/services/subscription.service';
+import { getCachedSubscription } from '../lib/subscription-helpers';
 import { createCacheLayer } from '../../lib/cache';
 import type { DB } from '../db';
 
@@ -52,35 +52,13 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
           },
 
           handler: createAuthMiddleware(async (ctx) => {
-            // newSession is available after successful auth
             const newSession = ctx.context.newSession;
             if (!newSession?.user?.id) return;
 
             const userId = newSession.user.id;
 
             try {
-              // P0 FIX: Use getOrFetchUserSubscription to prevent cache stampede
-              // This ensures only one request fetches from D1 on concurrent cache misses
-              const cachedSub = await cacheLayer.subscriptions.getOrFetchUserSubscription(
-                userId,
-                async () => {
-                  // Fetcher: query D1 and transform to cache format
-                  const subscription = await getUserSubscription(db, userId);
-
-                  // Only cache if subscription has access (time-based check)
-                  if (subscription?.hasAccess && subscription.currentPeriodEnd) {
-                    return {
-                      status: subscription.status,
-                      planId: subscription.planId,
-                      planFeatures: subscription.planFeatures,
-                      currentPeriodEnd: subscription.currentPeriodEnd,
-                      hasAccess: true,
-                      cachedAt: Date.now(),
-                    };
-                  }
-                  return null;
-                }
-              );
+              const cachedSub = await getCachedSubscription(cacheLayer, db, userId);
 
               // Determine cookie values from cached subscription
               const expiresAt = cachedSub?.hasAccess && cachedSub.currentPeriodEnd > Date.now() / 1000
@@ -88,7 +66,6 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
                 : 0;
               const planId = cachedSub?.planId || null;
 
-              // Create signed cookie
               const cookie = await createSubscriptionSetCookie(
                 expiresAt,
                 planId,
@@ -96,10 +73,8 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
                 isSecure
               );
 
-              // Append to response headers
               ctx.context.responseHeaders?.append('Set-Cookie', cookie);
             } catch (error) {
-              // Don't fail auth if cookie creation fails
               console.error('Failed to set subscription cookie:', error);
             }
           }),
@@ -112,7 +87,6 @@ export function subscriptionCookiePlugin(options: PluginOptions): BetterAuthPlug
           },
 
           handler: createAuthMiddleware(async (ctx) => {
-            // Append clear cookie to response headers
             ctx.context.responseHeaders?.append('Set-Cookie', clearSubscriptionCookie());
           }),
         },

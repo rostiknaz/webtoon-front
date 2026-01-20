@@ -140,14 +140,17 @@ export const subscriptionCheckResponseSchema = z.object({
     hasSubscription: z.boolean(),
 });
 
+/**
+ * Subscription status response from GET /api/subscription/status
+ * Used by hybrid cookie/API subscription checking
+ */
 export const subscriptionStatusResponseSchema = z.object({
     hasSubscription: z.boolean(),
     subscription: z.object({
-        planId: z.string(),
-        planName: z.string(),
         status: z.string(),
-        currentPeriodStart: z.string(),
-        currentPeriodEnd: z.string(),
+        planId: z.string(),
+        currentPeriodEnd: z.number(), // Unix timestamp (seconds)
+        planFeatures: planFeaturesSchema,
     }).optional(),
 });
 

@@ -5,7 +5,11 @@
  * using Cloudflare KV storage to reduce D1 database queries.
  */
 
-import { subscriptionHasAccess } from './subscription-utils';
+/** Check if subscription is still valid based on expiration time */
+function isSubscriptionActive(currentPeriodEnd: number | null): boolean {
+  if (!currentPeriodEnd) return false;
+  return currentPeriodEnd > Math.floor(Date.now() / 1000);
+}
 
 // Cache TTL constants (in seconds)
 export const CACHE_TTL = {
@@ -249,7 +253,7 @@ export class SubscriptionCache {
   /**
    * Get cached subscription with time-based access validation
    *
-   * Always re-validates hasAccess using subscriptionHasAccess()
+   * Always re-validates hasAccess using isSubscriptionActive()
    * to handle edge cases where cached data becomes stale.
    */
   async getUserSubscription(userId: string): Promise<CachedSubscription | null> {
@@ -257,7 +261,7 @@ export class SubscriptionCache {
     if (!cached) return null;
 
     // Re-validate hasAccess based on time (don't trust cached hasAccess)
-    const hasAccess = subscriptionHasAccess(cached.currentPeriodEnd);
+    const hasAccess = isSubscriptionActive(cached.currentPeriodEnd);
 
     // If subscription expired, invalidate cache and return null
     if (!hasAccess) {
@@ -305,7 +309,7 @@ export class SubscriptionCache {
 
     if (cached) {
       // Validate expiration time using shared helper
-      if (subscriptionHasAccess(cached.currentPeriodEnd)) {
+      if (isSubscriptionActive(cached.currentPeriodEnd)) {
         // Still valid
         return { ...cached, hasAccess: true };
       }

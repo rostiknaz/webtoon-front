@@ -155,12 +155,12 @@ function SerialPage() {
     setIsSubscriptionDrawerOpen(true);
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
     // After successful login/signup, close auth drawer
     setIsAuthDrawerOpen(false);
 
-    // Refresh subscription status from cookie (server sets it on login)
-    const { data: freshSubscriptionData } = subscription.refresh();
+    // Refresh subscription status (reads cookie + validates with API)
+    const freshSubscriptionData = await subscription.refresh();
 
     // Only show subscription drawer if user doesn't have subscription
     if (!freshSubscriptionData?.hasSubscription) {
@@ -174,7 +174,7 @@ function SerialPage() {
 
     // Refresh subscription status from cookie (server sets it on subscribe)
     // This triggers re-render which updates episode lock status via useMemo
-    subscription.refresh();
+    void subscription.refresh();
   };
 
   return (

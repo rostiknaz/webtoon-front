@@ -5,11 +5,13 @@ import {
     seriesMetadataSchema,
     subscriptionPlansResponseSchema,
     subscriptionCheckResponseSchema,
+    subscriptionStatusResponseSchema,
     subscribeResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
     type SubscriptionCheckResponse,
+    type SubscriptionStatusResponse,
     type SubscribeResponse,
 } from './types';
 
@@ -130,7 +132,7 @@ export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse>
 };
 
 /**
- * Check if user has an active subscription
+ * Check if user has an active subscription (simple boolean check)
  */
 export const checkSubscription = async (): Promise<SubscriptionCheckResponse> => {
     const data = await fetchJson('/api/subscription/check', {
@@ -138,6 +140,18 @@ export const checkSubscription = async (): Promise<SubscriptionCheckResponse> =>
         errorMessage: 'Failed to check subscription',
     });
     return subscriptionCheckResponseSchema.parse(data);
+};
+
+/**
+ * Get full subscription status with details (cache-first on server)
+ * Used by hybrid cookie/API subscription checking
+ */
+export const getSubscriptionStatus = async (): Promise<SubscriptionStatusResponse> => {
+    const data = await fetchJson('/api/subscription/status', {
+        credentials: 'include',
+        errorMessage: 'Failed to get subscription status',
+    });
+    return subscriptionStatusResponseSchema.parse(data);
 };
 
 /**

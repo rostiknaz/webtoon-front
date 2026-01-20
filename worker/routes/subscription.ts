@@ -6,42 +6,70 @@
 
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { getUserSubscription } from '../db/services/subscription.service';
 import { getActivePlans, getPlanById } from '../db/services/plans.service';
 import { subscriptions } from '../../db/schema';
 import type { AppEnvWithDB } from '../db/types';
 import { Errors } from '../lib/errors';
 import { subscribeBodySchema, validationHook } from '../lib/schemas';
-import { createSubscriptionSetCookie } from '../lib/subscription-cookie';
+import {
+  getCachedSubscription,
+  createSubCookie,
+  parsePlanFeatures,
+} from '../lib/subscription-helpers';
 
 const subscription = new Hono<AppEnvWithDB>();
+
+/**
+ * GET /api/subscription/status
+ *
+ * Returns user's current subscription status (cache-first with D1 fallback)
+ * Also sets/refreshes the subscription cookie if user has active subscription.
+ */
+subscription.get('/status', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    return c.json({ hasSubscription: false });
+  }
+
+  const cachedSub = await getCachedSubscription(c.get('cache'), c.get('db'), userId);
+
+  if (cachedSub?.hasAccess) {
+    const subCookie = await createSubCookie(
+      cachedSub.currentPeriodEnd,
+      cachedSub.planId,
+      c.env.BETTER_AUTH_SECRET,
+      c.env.BETTER_AUTH_URL
+    );
+
+    return c.json(
+      {
+        hasSubscription: true,
+        subscription: {
+          status: cachedSub.status,
+          planId: cachedSub.planId,
+          currentPeriodEnd: cachedSub.currentPeriodEnd,
+          planFeatures: cachedSub.planFeatures,
+        },
+      },
+      200,
+      { 'Set-Cookie': subCookie }
+    );
+  }
+
+  return c.json({ hasSubscription: false });
+});
 
 /**
  * GET /api/subscription/plans
  *
  * Returns all active subscription plans
- *
- * Response: {
- *   plans: Array<{
- *     id: string,
- *     name: string,
- *     description: string,
- *     price: number,
- *     currency: string,
- *     billingPeriod: string,
- *     trialDays: number,
- *     features: object
- *   }>
- * }
  */
 subscription.get('/plans', async (c) => {
-  const db = c.get('db');
-  const plans = await getActivePlans(db);
+  const plans = await getActivePlans(c.get('db'));
 
-  // Parse features JSON for each plan
-  const parsedPlans = plans.map((plan: typeof plans[0]) => ({
+  const parsedPlans = plans.map((plan) => ({
     ...plan,
-    features: typeof plan.features === 'string' ? JSON.parse(plan.features) : plan.features,
+    features: parsePlanFeatures(plan.features),
   }));
 
   return c.json({ plans: parsedPlans });
@@ -51,35 +79,19 @@ subscription.get('/plans', async (c) => {
  * POST /api/subscription/subscribe
  *
  * Subscribe user to a plan (mock payment - skips actual payment processing)
- *
- * Request body: { planId: string }
- *
- * Response: {
- *   success: boolean,
- *   subscription: {
- *     id: string,
- *     planId: string,
- *     status: string,
- *     currentPeriodStart: number,
- *     currentPeriodEnd: number
- *   }
- * }
  */
 subscription.post(
   '/subscribe',
   zValidator('json', subscribeBodySchema, validationHook),
   async (c) => {
-    // Get session and cache from context (cached by middleware)
     const userId = c.get('userId');
-    const cache = c.get('cache');
-
     if (!userId) {
       throw Errors.unauthorized();
     }
 
     const { planId } = c.req.valid('json');
-
     const db = c.get('db');
+    const cache = c.get('cache');
 
     // Verify plan exists
     const plan = await getPlanById(db, planId);
@@ -87,27 +99,8 @@ subscription.post(
       throw Errors.notFound('Plan', planId);
     }
 
-    // Check for existing active subscription (cache-first with stampede prevention)
-    // Access is determined by time (currentPeriodEnd > now), not status
-    const existingSub = await cache.subscriptions.getOrFetchUserSubscription(
-      userId,
-      async () => {
-        const sub = await getUserSubscription(db, userId);
-        // Only cache if subscription has access (not expired)
-        if (sub?.hasAccess && sub.currentPeriodEnd) {
-          return {
-            status: sub.status,
-            planId: sub.planId,
-            planFeatures: sub.planFeatures,
-            currentPeriodEnd: sub.currentPeriodEnd,
-            hasAccess: true,
-            cachedAt: Date.now(),
-          };
-        }
-        return null;
-      }
-    );
-
+    // Check for existing active subscription
+    const existingSub = await getCachedSubscription(cache, db, userId);
     if (existingSub?.hasAccess) {
       throw Errors.conflict('User already has an active subscription');
     }
@@ -119,49 +112,49 @@ subscription.post(
       ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
       : null;
 
-    // Calculate period days based on billing period
     const periodDays =
       plan.billingPeriod === 'yearly' ? 365 :
       plan.billingPeriod === 'weekly' ? 7 : 30;
     const periodStart = trialEnd || now;
     const periodEnd = new Date(periodStart.getTime() + periodDays * 24 * 60 * 60 * 1000);
+    const status = hasTrial ? 'trial' : 'active';
 
-    // Create subscription (mock - skip payment)
+    // Create subscription in D1
     const subscriptionId = crypto.randomUUID();
     await db.insert(subscriptions).values({
       id: subscriptionId,
       userId,
       planId,
-      status: hasTrial ? 'trial' : 'active',
-      solidgateOrderId: null, // Would be set after real payment
+      status,
+      solidgateOrderId: null,
       solidgateSubscriptionId: null,
       currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
       trialStart: hasTrial ? now : null,
-      trialEnd: trialEnd,
+      trialEnd,
       canceledAt: null,
       endedAt: null,
     });
 
-    // Set subscription in cache with TTL = subscription expiration time
+    // Update cache
     const expiresAt = Math.floor(periodEnd.getTime() / 1000);
     const ttlSeconds = expiresAt - Math.floor(Date.now() / 1000);
     await cache.subscriptions.setUserSubscription(userId, {
-      status: hasTrial ? 'trial' : 'active',
+      status,
       planId,
-      planFeatures: typeof plan.features === 'string' ? JSON.parse(plan.features) : plan.features,
+      planFeatures: parsePlanFeatures(plan.features),
       currentPeriodEnd: expiresAt,
       hasAccess: true,
     }, ttlSeconds);
 
-    // Invalidate user profile to force refresh on next request
     await cache.userProfiles.invalidateUserProfile(userId);
-    const isSecure = c.env.BETTER_AUTH_URL.startsWith('https');
-    const subCookie = await createSubscriptionSetCookie(
+
+    // Create cookie
+    const subCookie = await createSubCookie(
       expiresAt,
       planId,
       c.env.BETTER_AUTH_SECRET,
-      isSecure
+      c.env.BETTER_AUTH_URL
     );
 
     return c.json(
@@ -170,9 +163,9 @@ subscription.post(
         subscription: {
           id: subscriptionId,
           planId,
-          status: hasTrial ? 'trial' : 'active',
+          status,
           currentPeriodStart: Math.floor(periodStart.getTime() / 1000),
-          currentPeriodEnd: Math.floor(periodEnd.getTime() / 1000),
+          currentPeriodEnd: expiresAt,
           trialDays: plan.trialDays,
         },
       },

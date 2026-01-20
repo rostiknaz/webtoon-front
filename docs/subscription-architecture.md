@@ -1,21 +1,27 @@
 # Subscription Cookie Architecture
 
-Zero-API access control using signed cookies.
+Hybrid cookie/API access control optimized for scale (500k-1M users/day).
 
 ## Table of Contents
 - [Overview](#overview)
+- [Hybrid Architecture](#hybrid-architecture)
 - [Cookie-based Architecture](#cookie-based-architecture)
 - [Server Components](#server-components)
 - [Client Components](#client-components)
 - [Flow Diagrams](#flow-diagrams)
 - [Security Model](#security-model)
 - [Benefits](#benefits)
+- [Cost Analysis](#cost-analysis)
 
 ---
 
 ## Overview
 
-This system enables **instant subscription access checks** without any API calls. The server sets a cryptographically signed cookie containing subscription expiration data. The client can read this cookie to make access decisions immediately.
+This system uses a **hybrid cookie/API approach** for subscription access checks:
+
+1. **Instant UI** - Reads from signed cookie (0ms, $0 cost)
+2. **Background sync** - TanStack Query fetches from API (validates/refreshes)
+3. **Cookie mismatch** - API response updates local state
 
 **Key Principle:** Users can READ the cookie but cannot FORGE a valid one.
 
@@ -33,6 +39,72 @@ The cookie contains:
 - **Expiration timestamp** - When the subscription ends (Unix timestamp)
 - **Plan ID** - Which plan the user subscribed to
 - **HMAC signature** - Cryptographic proof the server created this cookie
+
+---
+
+## Hybrid Architecture
+
+The hybrid approach balances instant UX with data validation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Hybrid Flow                                    │
+│                                                                         │
+│  ┌─────────────┐                    ┌─────────────────────────────┐     │
+│  │   Cookie    │  Instant (0ms)     │        React State          │     │
+│  │  (Signed)   │ ─────────────────▶ │   hasSubscription: true     │     │
+│  └─────────────┘                    └─────────────────────────────┘     │
+│                                              │                           │
+│                                              │ TanStack Query            │
+│                                              │ (background)              │
+│  ┌─────────────┐                             ▼                           │
+│  │    API      │  GET /api/subscription/status                          │
+│  │  (Cached)   │ ◀───────────────────────────────────────────────────── │
+│  └─────────────┘                                                        │
+│        │                                                                │
+│        │ KV Cache (10 min) → D1 fallback                                │
+│        ▼                                                                │
+│  ┌─────────────┐                    ┌─────────────────────────────┐     │
+│  │   Server    │  Validated data    │        React State          │     │
+│  │  Response   │ ─────────────────▶ │   source: 'api' (trusted)   │     │
+│  └─────────────┘                    └─────────────────────────────┘     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Sources Priority
+
+| Source | Speed | Trust Level | Use Case |
+|--------|-------|-------------|----------|
+| Cookie | <1ms | Signed, trusted | UI rendering, feature flags |
+| API (cached) | ~10ms | Validated | Background sync, sensitive ops |
+| API (fresh) | ~50ms | Authoritative | Payment flows, after subscribe |
+
+### When Each Source Is Used
+
+**Cookie-first (90% of checks):**
+- Initial page load
+- Episode navigation
+- Premium badge display
+- Download button visibility
+
+**API validation (10% of checks):**
+- Background sync every 5 minutes (stale time)
+- After successful login
+- After subscription purchase
+- Sensitive operations (via `validateWithApi()`)
+
+### Cookie Lifecycle
+
+| Event | Cookie Action | Source |
+|-------|--------------|--------|
+| Login | Set with subscription data | `subscription-cookie-plugin` |
+| Subscribe | Set with new subscription | `POST /subscribe` |
+| API fetch | Refresh/restore cookie | `GET /status` |
+| Logout | Clear cookie | `subscription-cookie-plugin` |
+| Expiration | Browser auto-deletes | `Max-Age` attribute |
+
+**Cookie recovery:** If the cookie is deleted (user clears browser data, etc.), the next API call via TanStack Query will restore it from `GET /status` response.
 
 ---
 
@@ -275,9 +347,131 @@ return c.json({ success: true, subscription: {...} }, 200, {
 
 ---
 
+### 4. Subscription Status Endpoint
+
+**File:** `worker/routes/subscription.ts`
+
+Returns the user's current subscription status using cache-first pattern.
+**Also sets/refreshes the subscription cookie** - this handles the case where the cookie was deleted but the user still has an active subscription.
+
+**Endpoint:** `GET /api/subscription/status`
+
+**Response (with subscription):**
+```http
+HTTP/1.1 200 OK
+Set-Cookie: webtoon.sub=eyJle...;Path=/;Max-Age=...;SameSite=Lax;Secure
+Content-Type: application/json
+
+{
+  "hasSubscription": true,
+  "subscription": {
+    "status": "active",
+    "planId": "plan_4weeks",
+    "currentPeriodEnd": 1737882000,
+    "planFeatures": {
+      "episodeAccess": "all",
+      "adFree": true,
+      "downloadable": true,
+      "earlyAccess": true
+    }
+  }
+}
+```
+
+**Response (no subscription):**
+```json
+{
+  "hasSubscription": false
+}
+```
+
+**Cookie refresh behavior:**
+
+When the API returns `hasSubscription: true`, it also sets the `webtoon.sub` cookie in the response. This ensures:
+1. Cookie is restored if it was deleted (user cleared cookies, etc.)
+2. Cookie expiration is kept in sync with actual subscription
+3. Client has cookie available for subsequent synchronous checks
+
+**Cache strategy:**
+- KV cache TTL matches subscription expiration (up to 10 minutes)
+- Cache miss → D1 query → cache result
+- Invalidated on subscription changes
+
+---
+
 ## Client Components
 
-### 1. Cookie Reader Utility
+### 1. Subscription Service
+
+**File:** `src/services/subscription.service.ts`
+
+This module provides the hybrid cookie/API subscription checking logic.
+
+#### `SubscriptionData` Interface
+
+```typescript
+interface SubscriptionData {
+  hasSubscription: boolean;
+  expiresAt: number;        // Unix timestamp (seconds), 0 if none
+  planId: string | null;
+  planFeatures: PlanFeatures | null;
+  source: 'cookie' | 'api' | 'none';
+}
+```
+
+#### `getSubscriptionFromCookie()`
+
+Reads subscription from cookie (instant, no network).
+
+```typescript
+import { getSubscriptionFromCookie } from '@/services/subscription.service';
+
+const data = getSubscriptionFromCookie();
+// Returns: SubscriptionData with source='cookie' or null
+```
+
+#### `getSubscriptionFromApi()`
+
+Fetches subscription from API (cache-first on server).
+
+```typescript
+import { getSubscriptionFromApi } from '@/services/subscription.service';
+
+const data = await getSubscriptionFromApi();
+// Returns: SubscriptionData with source='api'
+```
+
+#### `getSubscription(forceApi?)`
+
+Hybrid approach: cookie-first, API fallback.
+
+```typescript
+import { getSubscription } from '@/services/subscription.service';
+
+// Normal usage - cookie first, API fallback
+const data = await getSubscription();
+
+// Sensitive operations - force API validation
+const validated = await getSubscription(true);
+```
+
+#### `getSubscriptionSync()`
+
+Synchronous cookie-only check for immediate UI rendering.
+
+```typescript
+import { getSubscriptionSync } from '@/services/subscription.service';
+
+// No async, always returns data
+const data = getSubscriptionSync();
+if (data.hasSubscription) {
+  // Show premium UI immediately
+}
+```
+
+---
+
+### 2. Cookie Reader Utility
 
 **File:** `src/lib/subscription-cookie.ts`
 
@@ -335,20 +529,22 @@ const payload = parseSubscriptionCookie();
 
 ---
 
-### 2. React Hook
+### 3. React Hook (Hybrid)
 
 **File:** `src/hooks/useSubscription.ts`
 
-Provides a React-friendly interface for subscription status.
+Provides a React-friendly interface with hybrid cookie/API checking using TanStack Query.
 
-#### `useSubscription()`
+#### `useSubscription(options?)`
 
 ```typescript
 import { useSubscription } from '@/hooks/useSubscription';
 
 function PremiumContent() {
-  const { data, refresh } = useSubscription();
+  const { data, isPending, source } = useSubscription();
 
+  // data is available instantly from cookie
+  // isPending is true only if API is loading AND no cookie data
   if (!data.hasSubscription) {
     return <SubscribePrompt />;
   }
@@ -357,25 +553,38 @@ function PremiumContent() {
 }
 ```
 
+**Options:**
+```typescript
+interface UseSubscriptionOptions {
+  enableApiValidation?: boolean;  // Enable background API sync (default: true)
+  staleTime?: number;             // API cache stale time (default: 5 minutes)
+}
+
+// Cookie-only mode (fastest, no network)
+const { data } = useSubscription({ enableApiValidation: false });
+```
+
 **Hook return value:**
 ```typescript
 {
-  data: {
-    hasSubscription: boolean;  // Is subscription active?
-    expiresAt: number;         // Unix timestamp (0 if none)
-    planId: string | null;     // Plan ID
-  };
-  refresh: () => { data: {...} };  // Re-read cookie and return fresh data
-  isLoading: false;   // Always false (no async)
-  isPending: false;   // Always false (no async)
-  isError: false;     // Always false (reading local cookie)
-  error: null;        // Always null
+  data: SubscriptionData;         // Merged cookie + API data
+  isPending: boolean;             // True only if API loading AND no cookie
+  isFetching: boolean;            // True if API currently fetching in background
+  error: Error | null;            // API error (null if using cookie only)
+  source: 'cookie' | 'api' | 'none';  // Current data source
+  refresh: () => Promise<SubscriptionData>;   // Re-read cookie + refetch API
+  validateWithApi: () => Promise<SubscriptionData>;  // Force fresh API check
 }
 ```
 
+**Data source priority:**
+1. API data (if available) - validated, authoritative
+2. Cookie data - instant, signed
+3. No subscription - default state
+
 **Using `refresh()`:**
 
-Call `refresh()` after actions that update the subscription cookie:
+Call `refresh()` after actions that update the subscription:
 
 ```typescript
 function SubscribeButton({ planId }) {
@@ -385,10 +594,10 @@ function SubscribeButton({ planId }) {
     // API call sets new cookie via Set-Cookie header
     await api.subscribe(planId);
 
-    // Re-read cookie to update React state
-    const { data } = refresh();
+    // Re-read cookie AND refetch API to update React state
+    const freshData = await refresh();
 
-    if (data.hasSubscription) {
+    if (freshData.hasSubscription) {
       toast.success('Subscription activated!');
     }
   };
@@ -397,9 +606,33 @@ function SubscribeButton({ planId }) {
 }
 ```
 
+**Using `validateWithApi()`:**
+
+For sensitive operations that require server validation:
+
+```typescript
+function PurchaseButton() {
+  const { validateWithApi } = useSubscription();
+
+  const handlePurchase = async () => {
+    // Force fresh API check before purchase
+    const validated = await validateWithApi();
+
+    if (!validated.hasSubscription) {
+      // Proceed with purchase flow
+      await showPaymentModal();
+    } else {
+      toast.info('You already have an active subscription');
+    }
+  };
+
+  return <button onClick={handlePurchase}>Purchase</button>;
+}
+```
+
 ---
 
-### 3. Imperative Check Function
+### 4. Imperative Check Function
 
 **File:** `src/hooks/useSubscription.ts`
 
@@ -750,24 +983,78 @@ No loading states, no error handling for network failures, no retry logic.
 
 ---
 
+## Cost Analysis
+
+Estimated costs for 500k-1M users/day with hybrid approach:
+
+### Approach Comparison
+
+| Approach | Monthly Cost | Latency | Use Case |
+|----------|-------------|---------|----------|
+| Cookie only | $0 | 0ms | UI checks |
+| API + KV | ~$126/mo | ~10ms | Full validation |
+| **Hybrid** | **~$12/mo** | **0-10ms** | Best of both |
+
+### Hybrid Breakdown
+
+Assuming 1M users/day, 5 subscription checks per session:
+
+**Cookie checks (90%):**
+- 4.5M checks/day × 30 days = 135M checks/month
+- Cost: $0 (local cookie read)
+
+**API checks (10%):**
+- 0.5M checks/day × 30 days = 15M checks/month
+- KV reads: ~$0.50/million = ~$7.50/month
+- Worker invocations: ~$0.30/million = ~$4.50/month
+- **Total: ~$12/month**
+
+### Why Hybrid Wins
+
+```
+Pure API (all 150M checks via API):
+  - KV: 150M × $0.50/M = $75
+  - Workers: 150M × $0.30/M = $45
+  - D1 fallback: ~$6
+  Total: ~$126/month
+
+Hybrid (90% cookie, 10% API):
+  - Cookie: 135M × $0 = $0
+  - API: 15M checks = ~$12
+  Total: ~$12/month
+
+Savings: 90% ($114/month)
+```
+
+---
+
 ## Summary
 
-The subscription cookie architecture provides:
+The hybrid subscription architecture provides:
 
-- **Instant access checks** (<1ms vs 50-200ms)
-- **Zero API calls** for subscription status
+- **Instant access checks** (<1ms for 90% of checks)
+- **Background validation** via TanStack Query
 - **Tamper-proof** via HMAC-SHA256 signing
 - **Automatic updates** on auth and subscribe events
 - **Self-expiring** when subscription ends
-- **Simplified client code** with no async logic
+- **Cost optimized** (~$12/mo vs ~$126/mo for pure API)
 
-**Cookie flow:**
+**Hybrid flow:**
 ```
 Login/Subscribe -> Server creates signed cookie -> Browser stores it
-Access check -> Client reads cookie locally -> Instant decision
+Access check -> Client reads cookie locally -> Instant UI decision
+                  └-> TanStack Query fetches API in background
+                       └-> KV cache (10 min) -> D1 fallback
+                            └-> Updates React state if different
 Logout/Expire -> Cookie cleared/expires -> Access denied
 ```
 
 **Files:**
-- Server: `worker/lib/subscription-cookie.ts`, `worker/auth/subscription-cookie-plugin.ts`
-- Client: `src/lib/subscription-cookie.ts`, `src/hooks/useSubscription.ts`
+- Server:
+  - `worker/lib/subscription-cookie.ts` - Cookie creation/verification
+  - `worker/auth/subscription-cookie-plugin.ts` - Auth integration
+  - `worker/routes/subscription.ts` - API endpoints including `/status`
+- Client:
+  - `src/lib/subscription-cookie.ts` - Cookie reader utilities
+  - `src/services/subscription.service.ts` - Hybrid service layer
+  - `src/hooks/useSubscription.ts` - TanStack Query hook

@@ -7,9 +7,12 @@
 import { eq, asc, desc } from 'drizzle-orm';
 import { plans, subscriptions } from '../../../db/schema';
 import type { DB } from '../index';
-// Re-export from shared utils for backwards compatibility
-export { subscriptionHasAccess } from '../../../lib/subscription-utils';
-import { subscriptionHasAccess } from '../../../lib/subscription-utils';
+
+/** Check if subscription is still valid based on expiration time */
+function isSubscriptionActive(currentPeriodEnd: number | null): boolean {
+  if (!currentPeriodEnd) return false;
+  return currentPeriodEnd > Math.floor(Date.now() / 1000);
+}
 
 /**
  * Get all active subscription plans
@@ -102,7 +105,7 @@ export async function getUserSubscription(
     canceledAt: result[0].canceledAt
       ? Math.floor(result[0].canceledAt.getTime() / 1000)
       : null,
-    hasAccess: subscriptionHasAccess(currentPeriodEnd),
+    hasAccess: isSubscriptionActive(currentPeriodEnd),
   };
 }
 
