@@ -45,7 +45,7 @@ const NO_SUBSCRIPTION: SubscriptionData = {
 /**
  * Get subscription status from cookie (instant, no network call)
  *
- * @returns SubscriptionData from cookie or null if no valid cookie
+ * @returns SubscriptionData from cookie or null if no cookie exists
  */
 export function getSubscriptionFromCookie(): SubscriptionData | null {
   // Check if cookie exists first
@@ -57,29 +57,14 @@ export function getSubscriptionFromCookie(): SubscriptionData | null {
   const expiresAt = getSubscriptionExpiry();
   const planId = getSubscriptionPlanId();
 
-  // Cookie exists but subscription expired
-  if (!hasSubscription && expiresAt > 0) {
-    return {
-      hasSubscription: false,
-      expiresAt,
-      planId,
-      planFeatures: null, // Cookie doesn't store features
-      source: 'cookie',
-    };
-  }
-
-  // Valid subscription in cookie
-  if (hasSubscription) {
-    return {
-      hasSubscription: true,
-      expiresAt,
-      planId,
-      planFeatures: null, // Cookie doesn't store features, will be enriched by API
-      source: 'cookie',
-    };
-  }
-
-  return null;
+  // Cookie exists - return data from it (active, expired, or no subscription)
+  return {
+    hasSubscription,
+    expiresAt,
+    planId,
+    planFeatures: null, // Cookie doesn't store features
+    source: 'cookie',
+  };
 }
 
 /**
