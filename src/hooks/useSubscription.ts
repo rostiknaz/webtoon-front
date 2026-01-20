@@ -16,8 +16,8 @@ import {
 } from '@/services/subscription.service';
 
 interface UseSubscriptionOptions {
-  /** Enable background API validation (default: true) */
-  enableApiValidation?: boolean;
+  /** Is user authenticated - API validation only runs when true */
+  isAuthenticated?: boolean;
   /** API cache stale time in ms (default: 5 minutes) */
   staleTime?: number;
 }
@@ -36,18 +36,18 @@ const NO_SUBSCRIPTION: SubscriptionData = {
  * Get subscription status with hybrid cookie/API approach
  */
 export function useSubscription(options: UseSubscriptionOptions = {}) {
-  const { enableApiValidation = true, staleTime = DEFAULT_STALE_TIME } = options;
+  const { isAuthenticated = false, staleTime = DEFAULT_STALE_TIME } = options;
   const queryClient = useQueryClient();
   const [cookieVersion, setCookieVersion] = useState(0);
 
   // Instant data from cookie
   const cookieData = useMemo(() => getSubscriptionSync(), [cookieVersion]);
 
-  // Background API validation
+  // Background API validation - only when authenticated
   const apiQuery = useQuery({
     queryKey: subscriptionQueryKey,
     queryFn: fetchSubscriptionStatus,
-    enabled: enableApiValidation,
+    enabled: isAuthenticated,
     staleTime,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
@@ -70,7 +70,7 @@ export function useSubscription(options: UseSubscriptionOptions = {}) {
   const refresh = useCallback(async (): Promise<SubscriptionData> => {
     setCookieVersion((v) => v + 1);
 
-    if (enableApiValidation) {
+    if (isAuthenticated) {
       await queryClient.invalidateQueries({ queryKey: subscriptionQueryKey });
       return queryClient.fetchQuery({
         queryKey: subscriptionQueryKey,
@@ -79,7 +79,7 @@ export function useSubscription(options: UseSubscriptionOptions = {}) {
     }
 
     return getSubscriptionSync();
-  }, [enableApiValidation, queryClient]);
+  }, [isAuthenticated, queryClient]);
 
   // Force fresh API validation
   const validateWithApi = useCallback((): Promise<SubscriptionData> => {
@@ -93,7 +93,7 @@ export function useSubscription(options: UseSubscriptionOptions = {}) {
   return {
     data,
     source,
-    isPending: enableApiValidation && apiQuery.isPending && !cookieData.hasSubscription,
+    isPending: isAuthenticated && apiQuery.isPending && !cookieData.hasSubscription,
     isFetching: apiQuery.isFetching,
     error: apiQuery.error,
     refresh,

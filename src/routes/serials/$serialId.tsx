@@ -63,9 +63,8 @@ function SerialErrorComponent({ error }: ErrorComponentProps) {
 function SerialPage() {
   const { serialId } = Route.useParams();
   const session = useOptimizedSession();
-  const subscription = useSubscription();
-
   const isAuthenticated = !!session.data?.user;
+  const subscription = useSubscription({ isAuthenticated });
   const hasSubscription = subscription.data?.hasSubscription ?? false;
 
   // Fetch series data - query key does NOT include hasSubscription to prevent flicker
