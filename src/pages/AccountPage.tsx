@@ -44,7 +44,7 @@ const AccountPage = () => {
   const { session } = useLoaderData({ from: '/account' });
   const user = session.user;
 
-  const { data: subscription } = useSubscription({ isAuthenticated: true });
+  const { data: subscription } = useSubscription();
   // Use React Query-based hook for linked accounts (prevents duplicate API calls)
   const { data: linkedAccounts = [], isPending: isLoadingAccounts } = useLinkedAccounts(true);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);

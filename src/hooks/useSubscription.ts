@@ -2,7 +2,7 @@
  * Subscription Hook - Hybrid Cookie/API Approach
  *
  * - Instant UI from signed cookie (0ms, $0 cost)
- * - Background sync via TanStack Query
+ * - Background sync via TanStack Query (only for authenticated users)
  * - 90% cookie / 10% API split for cost optimization
  */
 
@@ -14,10 +14,9 @@ import {
   type SubscriptionData,
   subscriptionQueryKey,
 } from '@/services/subscription.service';
+import { useOptimizedSession } from './useOptimizedSession';
 
 interface UseSubscriptionOptions {
-  /** Is user authenticated - API validation only runs when true */
-  isAuthenticated?: boolean;
   /** API cache stale time in ms (default: 5 minutes) */
   staleTime?: number;
 }
@@ -36,9 +35,13 @@ const NO_SUBSCRIPTION: SubscriptionData = {
  * Get subscription status with hybrid cookie/API approach
  */
 export function useSubscription(options: UseSubscriptionOptions = {}) {
-  const { isAuthenticated = false, staleTime = DEFAULT_STALE_TIME } = options;
+  const { staleTime = DEFAULT_STALE_TIME } = options;
   const queryClient = useQueryClient();
   const [cookieVersion, setCookieVersion] = useState(0);
+
+  // Check authentication status internally
+  const session = useOptimizedSession();
+  const isAuthenticated = !!session.data?.user;
 
   // Instant data from cookie
   const cookieData = useMemo(() => getSubscriptionSync(), [cookieVersion]);

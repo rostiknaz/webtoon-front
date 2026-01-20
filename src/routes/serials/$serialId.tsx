@@ -64,7 +64,7 @@ function SerialPage() {
   const { serialId } = Route.useParams();
   const session = useOptimizedSession();
   const isAuthenticated = !!session.data?.user;
-  const subscription = useSubscription({ isAuthenticated });
+  const subscription = useSubscription();
   const hasSubscription = subscription.data?.hasSubscription ?? false;
 
   // Fetch series data - query key does NOT include hasSubscription to prevent flicker
