@@ -184,7 +184,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
         });
       }
       // Note: On success, this redirects to Google, so no need to reset loading
-    } catch (err) {
+    } catch {
       setIsGoogleLoading(false);
       toast.error('Google Sign In Failed', {
         description: 'Failed to connect with Google. Please try again.',
@@ -217,7 +217,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
         handleClose();
         onSuccess?.();
       }
-    } catch (err) {
+    } catch {
       const errorMessage = 'Failed to sign in. Please try again.';
       loginForm.setError('root', {
         type: 'manual',
@@ -285,7 +285,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
           onSuccess?.();
         }
       }
-    } catch (err) {
+    } catch {
       const errorMessage = 'Failed to create account. Please try again.';
       signupForm.setError('root', {
         type: 'manual',

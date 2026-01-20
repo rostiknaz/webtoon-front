@@ -35,14 +35,15 @@ export const Route = createFileRoute('/serials/$serialId')({
 
 function SerialErrorComponent({ error }: ErrorComponentProps) {
     const router = useRouter()
-    if (error instanceof SerialNotFoundError) {
-        return <div>{error.message}</div>
-    }
     const queryErrorResetBoundary = useQueryErrorResetBoundary()
 
     useEffect(() => {
         queryErrorResetBoundary.reset()
     }, [queryErrorResetBoundary])
+
+    if (error instanceof SerialNotFoundError) {
+        return <div>{error.message}</div>
+    }
 
     return (
         <div>

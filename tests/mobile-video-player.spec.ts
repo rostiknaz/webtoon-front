@@ -41,7 +41,7 @@ test.describe('Mobile Video Player', () => {
       await expect(videoContainer).toBeVisible();
 
       // Custom controls should be hidden initially (on mobile)
-      const customControls = page.locator('.custom-controls');
+      const _customControls = page.locator('.custom-controls');
 
       // Tap on video to show controls
       await videoContainer.click();

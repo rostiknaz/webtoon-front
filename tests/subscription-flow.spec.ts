@@ -125,12 +125,12 @@ function generateUniqueEmail(prefix: string): string {
 }
 
 // Check if rate limited and handle gracefully
-async function isRateLimited(page: Page): Promise<boolean> {
+async function _isRateLimited(page: Page): Promise<boolean> {
   const rateLimitError = page.locator('text=/Too many requests|rate limit/i');
   return await rateLimitError.isVisible({ timeout: 1000 }).catch(() => false);
 }
 
-async function fillLoginForm(page: Page, email: string, password: string) {
+async function _fillLoginForm(page: Page, email: string, password: string) {
   const emailInput = page.locator('input[type="email"]');
   await emailInput.fill(email);
 
@@ -471,7 +471,7 @@ test.describe('Subscription Flow', () => {
       });
 
       // Wait for either subscription drawer or success toast
-      const drawerAppeared = await subscriptionDrawer.isVisible().catch(() => false);
+      const _drawerAppeared = await subscriptionDrawer.isVisible().catch(() => false);
 
       if (await subscriptionDrawer.isVisible({ timeout: 15000 }).catch(() => false)) {
         // Subscribe button should exist with either "Free Trial" or "Subscription" text
