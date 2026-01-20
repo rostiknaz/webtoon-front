@@ -50,7 +50,7 @@ export async function getCachedSubscription(cache: CacheLayer, db: DB, userId: s
  */
 export async function createSubCookie(
   expiresAt: number,
-  planId: string,
+  planId: string | null,
   secret: string,
   authUrl: string
 ) {

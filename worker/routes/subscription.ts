@@ -23,7 +23,7 @@ const subscription = new Hono<AppEnvWithDB>();
  * GET /api/subscription/status
  *
  * Returns user's current subscription status (cache-first with D1 fallback)
- * Also sets/refreshes the subscription cookie if user has active subscription.
+ * Always sets/refreshes the subscription cookie to sync client state.
  */
 subscription.get('/status', async (c) => {
   const userId = c.get('userId');
@@ -33,14 +33,15 @@ subscription.get('/status', async (c) => {
 
   const cachedSub = await getCachedSubscription(c.get('cache'), c.get('db'), userId);
 
-  if (cachedSub?.hasAccess) {
-    const subCookie = await createSubCookie(
-      cachedSub.currentPeriodEnd,
-      cachedSub.planId,
-      c.env.BETTER_AUTH_SECRET,
-      c.env.BETTER_AUTH_URL
-    );
+  // Always set cookie to sync client state (even when no subscription)
+  const subCookie = await createSubCookie(
+    cachedSub?.hasAccess ? cachedSub.currentPeriodEnd : 0,
+    cachedSub?.planId ?? null,
+    c.env.BETTER_AUTH_SECRET,
+    c.env.BETTER_AUTH_URL
+  );
 
+  if (cachedSub?.hasAccess) {
     return c.json(
       {
         hasSubscription: true,
@@ -56,7 +57,7 @@ subscription.get('/status', async (c) => {
     );
   }
 
-  return c.json({ hasSubscription: false });
+  return c.json({ hasSubscription: false }, 200, { 'Set-Cookie': subCookie });
 });
 
 /**
