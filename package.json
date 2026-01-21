@@ -75,10 +75,12 @@
     "react-dom": "^19.2.0",
     "react-resizable-panels": "^4.2.2",
     "sonner": "^2.0.7",
+    "swiper": "^12.0.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "vaul": "^1.1.2",
     "xgplayer": "^3.0.23",
+    "xgplayer-hls": "^3.0.23",
     "zod": "^4.3.5"
   },
   "devDependencies": {

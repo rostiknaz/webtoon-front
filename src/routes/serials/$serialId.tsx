@@ -6,9 +6,9 @@ import {
     useSuspenseQuery,
 } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion';
 
-import { VideoPlayer } from '@/components/VideoPlayer';
+import { HybridVideoPlayer } from '@/components/HybridVideoPlayer';
+import { VideoPlayerCacheProvider } from '@/contexts/VideoPlayerCacheContext';
 import getSeriesMetadataQueryOptions from "@/queryOptions/seriesQueryOptions.ts";
 import {EpisodeSidebar} from "@/components/EpisodeSidebar.tsx";
 import {AuthDrawer} from "@/components/AuthDrawer.tsx";
@@ -22,8 +22,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
-import { useSubscription, checkSubscriptionStatus } from '@/hooks/useSubscription';
-import { toast } from '@/components/ui/sonner';
+import { useSubscription } from '@/hooks/useSubscription';
 
 export const Route = createFileRoute('/serials/$serialId')({
     loader: ({ context: { queryClient }, params: { serialId } }) => {
@@ -84,55 +83,15 @@ function SerialPage() {
   }, [data, hasSubscription]);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [prevIndex, setPrevIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
   if (!data) return null;
 
-  const episode = episodes[activeIndex];
-  const isMovingForward = activeIndex > prevIndex;
-
   const handleEpisodeSelect = (index: number) => {
-    setPrevIndex(activeIndex);
     setActiveIndex(index);
     setIsDrawerOpen(false); // Close drawer after selecting episode on mobile
-  };
-
-  const handlePlayNext = () => {
-    const nextIndex = activeIndex + 1;
-    if (nextIndex >= episodes.length) return;
-
-    const nextEpisode = data.episodes[nextIndex];
-
-    // If next episode is free, just play it
-    if (!nextEpisode.isPaid) {
-      setPrevIndex(activeIndex);
-      setActiveIndex(nextIndex);
-      return;
-    }
-
-    // Next episode is paid - check subscription status from cookie
-    const subStatus = checkSubscriptionStatus();
-
-    if (subStatus.hasSubscription) {
-      // User has active subscription - play the episode
-      setPrevIndex(activeIndex);
-      setActiveIndex(nextIndex);
-      return;
-    }
-
-    // Subscription expired or never had one
-    if (subStatus.justExpired) {
-      // Show toast only if subscription just expired (had one before)
-      toast.error('Subscription Expired', {
-        description: 'Your subscription has expired. Subscribe to continue watching premium episodes.',
-      });
-    }
-
-    // Show subscription drawer
-    setIsSubscriptionDrawerOpen(true);
   };
 
   const handleLockedEpisodeClick = () => {
@@ -177,27 +136,25 @@ function SerialPage() {
     void subscription.refresh();
   };
 
+  // Handle episode change from swiper
+  const handleEpisodeChange = (index: number) => {
+    setActiveIndex(index);
+  };
+
   return (
       <div className="serial-page-container flex bg-background text-foreground">
-          {/* Video Player - Full screen */}
-          <div className="flex-1 relative overflow-hidden bg-black">
-              <AnimatePresence mode="wait">
-                  <motion.div
-                      key={episode._id}
-                      initial={{ y: isMovingForward ? 300 : -300, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: isMovingForward ? -300 : 300, opacity: 0 }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className="h-full"
-                  >
-                      <VideoPlayer
-                          episode={episode}
-                          seriesTitle={data.title}
-                          onOpenEpisodes={() => setIsDrawerOpen(true)}
-                          onPlayNext={handlePlayNext}
-                      />
-                  </motion.div>
-              </AnimatePresence>
+          {/* Video Player - Full screen with Swiper + Context caching */}
+          <div className="flex-1 relative overflow-hidden bg-black h-full">
+              <VideoPlayerCacheProvider>
+                  <HybridVideoPlayer
+                      episodes={episodes}
+                      initialIndex={activeIndex}
+                      seriesTitle={data.title}
+                      onEpisodeChange={handleEpisodeChange}
+                      onLockedEpisode={handleLockedEpisodeClick}
+                      onShowEpisodes={() => setIsDrawerOpen(true)}
+                  />
+              </VideoPlayerCacheProvider>
           </div>
 
           {/* Desktop: Sidebar */}

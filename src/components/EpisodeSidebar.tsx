@@ -99,7 +99,7 @@ export function EpisodeSidebar({ series, episodes, activeIndex, onSelect, onLock
                     <div className="space-y-2">
                         {episodes.map((ep, i) => (
                         <button
-                            key={ep._id}
+                            key={`${ep._id}-${i}`}
                             onClick={() => ep.isLocked ? onLockedClick?.() : onSelect(i)}
                             className={cn(
                                 "w-full p-3 rounded-lg border transition-all duration-200 text-left cursor-pointer",
