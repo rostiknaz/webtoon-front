@@ -98,17 +98,6 @@ interface VideoPlayerCacheContextValue {
 const VideoPlayerCacheContext = createContext<VideoPlayerCacheContextValue | null>(null);
 
 /**
- * Brand colors from design system for player styling
- */
-const PLAYER_COLORS = {
-  primary: 'hsl(10, 85%, 58%)',      // Orange-red brand color
-  primaryLight: 'hsl(10, 85%, 68%)', // Lighter variant for gradients
-  accent: 'hsl(280, 75%, 60%)',      // Purple accent
-  muted: 'hsl(240, 10%, 25%)',       // Muted background
-  mutedLight: 'hsl(240, 10%, 35%)',  // Lighter muted for cached
-};
-
-/**
  * Default xgplayer configuration for HLS streaming
  * Styled to match the premium design system
  */
@@ -141,15 +130,15 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
       gestureY: false, // Disable to not interfere with Swiper
       disableGesture: false,
     },
-    // Premium styling to match brand design system
+    // White styling to match control icons
     commonStyle: {
-      playedColor: PLAYER_COLORS.primary,      // Progress played color
-      cachedColor: PLAYER_COLORS.mutedLight,   // Buffered/cached color
-      progressColor: PLAYER_COLORS.muted,      // Progress bar background
-      volumeColor: PLAYER_COLORS.primary,      // Volume bar color
+      playedColor: 'rgba(255, 255, 255, 0.9)',      // Progress played color
+      cachedColor: 'rgba(255, 255, 255, 0.35)',     // Buffered/cached color
+      progressColor: 'rgba(255, 255, 255, 0.2)',    // Progress bar background
+      volumeColor: 'rgba(255, 255, 255, 0.9)',      // Volume bar color
       sliderBtnStyle: {
-        background: PLAYER_COLORS.primary,
-        boxShadow: `0 0 12px ${PLAYER_COLORS.primary}`,
+        background: '#ffffff',
+        boxShadow: '0 0 10px rgba(255, 255, 255, 0.4)',
       },
     },
     // Use HLS plugin for MSE-based playback (creates blob: URLs instead of exposing m3u8)
