@@ -52,15 +52,15 @@ async function openEpisodesDrawer(page: Page) {
     return; // Drawer already open
   }
 
-  // On mobile, tap video container to show controls
-  const videoContainer = page.locator('.video-player-container');
-  if (await videoContainer.isVisible().catch(() => false)) {
-    await videoContainer.click();
-    await page.waitForTimeout(300);
-  }
+  // Wait for HybridVideoPlayer to be visible
+  const videoContainer = page.locator('.hybrid-video-player');
+  await expect(videoContainer).toBeVisible({ timeout: 15000 });
 
-  // Click episodes button to open drawer
-  const episodesButton = page.locator('button').filter({ has: page.locator('svg.lucide-list') });
+  // Wait for active slide to load
+  await page.waitForSelector('.swiper-slide-active', { timeout: 10000 });
+
+  // Click episodes button in active slide to open drawer
+  const episodesButton = page.locator('.swiper-slide-active button').filter({ has: page.locator('svg.lucide-list') });
   await expect(episodesButton).toBeVisible({ timeout: 5000 });
   await episodesButton.click();
 

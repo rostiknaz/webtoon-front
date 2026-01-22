@@ -2,10 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: false, // Run tests sequentially to avoid rate limiting
+  fullyParallel: true, // Run tests in parallel for better performance
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1, // Retry once locally for flaky tests
-  workers: 1, // Single worker to avoid rate limiting on signup
+  workers: 2, // 2 workers to balance parallelism with resource usage
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5173',

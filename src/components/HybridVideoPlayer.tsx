@@ -15,19 +15,28 @@ import type { Episode } from "../types.ts";
 import { ArrowLeft, Heart, Share2, List } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
+import { PlayerErrorBoundary } from "./ErrorBoundary";
 import type Player from "xgplayer";
 import "xgplayer/dist/index.min.css";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { EffectCreative } from "swiper/modules";
+import { EffectCreative, Virtual } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 // Use bundle CSS - includes all module styles (effect-creative, navigation, pagination, etc.)
 // Individual module CSS imports have Vite 7 compatibility issues with exports field conditions
 import "swiper/css/bundle";
 
-// Track which players have had events set up
-const playersWithEvents = new WeakSet<Player>();
+// Utility functions - moved outside component to avoid recreation
+const formatNumber = (num?: number) => {
+  if (!num) return "0";
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toString();
+};
+
+// Stable event handler to stop propagation (prevents click bubbling to video)
+const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
 interface HybridVideoPlayerProps {
   episodes: Episode[];
@@ -38,6 +47,158 @@ interface HybridVideoPlayerProps {
   onShowEpisodes?: () => void;
 }
 
+interface EpisodeSlideProps {
+  episode: Episode;
+  index: number;
+  totalEpisodes: number;
+  seriesTitle: string;
+  showControls: boolean;
+  isLiked: boolean;
+  cacheStats?: { size: number; maxSize: number };
+  onToggleLike: (episodeId: string) => void; // Accept episodeId to avoid inline arrow in parent
+  onVideoClick: () => void;
+  onLockedEpisode: () => void;
+  onShowEpisodes?: () => void;
+}
+
+/**
+ * Memoized slide component to prevent unnecessary re-renders
+ * Only re-renders when its specific props change
+ */
+const EpisodeSlide = memo(function EpisodeSlide({
+  episode,
+  index,
+  totalEpisodes,
+  seriesTitle,
+  showControls,
+  isLiked,
+  cacheStats,
+  onToggleLike,
+  onVideoClick,
+  onLockedEpisode,
+  onShowEpisodes,
+}: EpisodeSlideProps) {
+  return (
+    <div
+      className="relative w-full h-full"
+      onClick={episode.isLocked ? undefined : onVideoClick}
+    >
+      {/* Video content */}
+      <div className="w-full h-full flex items-center justify-center">
+        {episode.isLocked ? (
+          <div className="flex flex-col items-center justify-center text-white">
+            <h2 className="text-xl font-bold mb-2">Episode is locked</h2>
+            <p className="text-gray-400 mb-4">Subscribe to unlock</p>
+            <Button onClick={onLockedEpisode}>Subscribe</Button>
+          </div>
+        ) : (
+          <div
+            className="player-host w-full h-full"
+            data-episode-id={episode._id}
+          />
+        )}
+      </div>
+
+      {/* Episode indicator */}
+      <div className="absolute top-4 right-4 z-50 bg-black/60 px-3 py-1 rounded-full text-white text-sm">
+        {index + 1} / {totalEpisodes}
+        {import.meta.env.DEV && cacheStats && (
+          <span className="ml-2 text-xs text-gray-400">
+            (cached: {cacheStats.size}/{cacheStats.maxSize})
+          </span>
+        )}
+      </div>
+
+      {/* TikTok-style Floating Action Buttons */}
+      <div
+        className={`custom-controls absolute bottom-24 md:bottom-32 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={stopPropagation}
+      >
+        {/* Like Button */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleLike(episode._id)}
+            className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
+              isLiked ? "text-red-500" : "text-white"
+            }`}
+          >
+            <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
+          </Button>
+          <span className="text-white text-xs font-semibold drop-shadow-lg">
+            {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
+          </span>
+        </div>
+
+        {/* Episodes Button - Mobile only */}
+        {onShowEpisodes && (
+          <div className="flex flex-col items-center gap-1 md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onShowEpisodes}
+              className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
+            >
+              <List className="h-6 w-6" />
+            </Button>
+            <span className="text-white text-xs font-semibold drop-shadow-lg">
+              Episodes
+            </span>
+          </div>
+        )}
+
+        {/* Share Button */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
+          >
+            <Share2 className="h-6 w-6" />
+          </Button>
+          <span className="text-white text-xs font-semibold drop-shadow-lg">
+            Share
+          </span>
+        </div>
+      </div>
+
+      {/* Top Info Bar */}
+      <div
+        className={`custom-controls absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={stopPropagation}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:text-primary hover:bg-white/10"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div>
+              <h3 className="text-white font-medium text-sm md:text-base">
+                {seriesTitle}
+              </h3>
+              <p className="text-gray-300 text-xs md:text-sm">
+                Episode {episode.episodeNumber || index + 1}
+                {episode.title && ` - ${episode.title}`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export function HybridVideoPlayer({
   episodes,
   initialIndex,
@@ -46,20 +207,24 @@ export function HybridVideoPlayer({
   onLockedEpisode,
   onShowEpisodes,
 }: HybridVideoPlayerProps) {
-  const [isLiked, setIsLiked] = useState(false);
+  // Track likes per episode
+  const [likedEpisodes, setLikedEpisodes] = useState<Record<string, boolean>>({});
   const [showControls, setShowControls] = useState(true);
 
   const swiperRef = useRef<SwiperType | null>(null);
+  // Track which players have had events set up (per component instance)
+  const playersWithEventsRef = useRef(new WeakSet<Player>());
 
   // Use the cache context for player management
   const cache = useVideoPlayerCache();
 
-  const formatNumber = (num?: number) => {
-    if (!num) return "0";
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
+  // Toggle like for a specific episode
+  const toggleLike = useCallback((episodeId: string) => {
+    setLikedEpisodes(prev => ({
+      ...prev,
+      [episodeId]: !prev[episodeId]
+    }));
+  }, []);
 
   // Check if current player is paused
   const isPlayerPaused = useCallback(() => {
@@ -104,8 +269,8 @@ export function HybridVideoPlayer({
   // Setup player event listeners (only once per player)
   const setupPlayerEvents = useCallback(
     (player: Player, episodeIndex: number) => {
-      if (playersWithEvents.has(player)) return;
-      playersWithEvents.add(player);
+      if (playersWithEventsRef.current.has(player)) return;
+      playersWithEventsRef.current.add(player);
 
       // Handle video end - play next episode
       player.on("ended", () => {
@@ -157,11 +322,21 @@ export function HybridVideoPlayer({
       }
 
       // Create new player using context
-      const { player, isNew } = cache.initPlayerInHost(
+      const result = cache.initPlayerInHost(
         episode._id,
         hlsUrl,
         host
       );
+
+      // Handle initialization failure gracefully
+      if (!result) {
+        if (import.meta.env.DEV) {
+          console.warn(`Failed to initialize player for episode ${episode._id}`);
+        }
+        return;
+      }
+
+      const { player, isNew } = result;
 
       if (isNew) {
         setupPlayerEvents(player, slideIndex);
@@ -174,6 +349,7 @@ export function HybridVideoPlayer({
   );
 
   // Preload a player without playing (for smooth transitions)
+  // With virtual slides, we find slides by data-episode-id since swiper.slides order changes
   const preloadEpisode = useCallback(
     (swiper: SwiperType, slideIndex: number) => {
       if (slideIndex < 0 || slideIndex >= episodes.length) return;
@@ -181,7 +357,13 @@ export function HybridVideoPlayer({
       const episode = episodes[slideIndex];
       if (!episode || episode.isLocked) return;
 
-      const slideEl = swiper.slides[slideIndex] as HTMLElement;
+      // Guard against destroyed swiper instance (can happen with async callbacks)
+      if (!swiper?.el) return;
+
+      // Find slide by episode ID (works with virtual slides)
+      const slideEl = swiper.el.querySelector(
+        `[data-episode-id="${episode._id}"]`
+      ) as HTMLElement;
       if (!slideEl) return;
 
       const host = slideEl.querySelector(".player-host") as HTMLElement;
@@ -223,23 +405,30 @@ export function HybridVideoPlayer({
     (swiper: SwiperType) => {
       swiperRef.current = swiper;
 
-      // Initialize player for the initial slide
-      const activeSlide = swiper.slides[swiper.activeIndex] as HTMLElement;
-      if (activeSlide) {
-        const episode = episodes[swiper.activeIndex];
-        if (episode) {
+      const episode = episodes[swiper.activeIndex];
+      if (!episode) return;
+
+      // IMPORTANT: With Virtual Slides, the DOM elements aren't rendered yet when onSwiper fires.
+      // We need to wait for the next animation frame to ensure the slides are in the DOM.
+      requestAnimationFrame(() => {
+        // Guard against destroyed swiper instance (component unmounted during rAF)
+        if (!swiper?.el) return;
+
+        // Find active slide by episode ID (works with virtual slides)
+        const activeSlide = swiper.el.querySelector(
+          `[data-episode-id="${episode._id}"]`
+        ) as HTMLElement;
+
+        if (activeSlide) {
           cache.setActiveEpisode(episode._id);
           // initPlayer will play the video, play event will hide controls
           initPlayer(activeSlide, swiper.activeIndex);
 
-          // Pre-init first 3 episodes (or adjacent) for instant switching
-          const startIndex = swiper.activeIndex;
-          for (let i = 0; i < 3 && startIndex + i < episodes.length; i++) {
-            if (i === 0) continue; // Skip active (already initialized)
-            preloadEpisode(swiper, startIndex + i);
-          }
+          // Pre-init adjacent episodes (virtual slides pre-renders them via addSlidesBefore/After)
+          preloadEpisode(swiper, swiper.activeIndex + 1);
+          preloadEpisode(swiper, swiper.activeIndex - 1);
         }
-      }
+      });
     },
     [episodes, cache, initPlayer, preloadEpisode]
   );
@@ -277,8 +466,11 @@ export function HybridVideoPlayer({
       if (episode) {
         cache.setActiveEpisode(episode._id);
 
-        // Player was preloaded during transition start - now just play it
-        const activeSlide = swiper.slides[newIndex] as HTMLElement;
+        // Find active slide by episode ID (works with virtual slides)
+        const activeSlide = swiper.el.querySelector(
+          `[data-episode-id="${episode._id}"]`
+        ) as HTMLElement;
+
         if (activeSlide) {
           // initPlayer will either play cached player or create new one if needed
           initPlayer(activeSlide, newIndex);
@@ -309,8 +501,8 @@ export function HybridVideoPlayer({
     };
   }, [cache]);
 
-  // Debug: show cache stats in dev
-  const cacheStats = cache.getCacheStats();
+  // Debug: show cache stats only in dev (avoid unnecessary object creation in production)
+  const cacheStats = import.meta.env.DEV ? cache.getCacheStats() : undefined;
 
   return (
     <div
@@ -329,7 +521,7 @@ export function HybridVideoPlayer({
         onSlideChangeTransitionStart={handleSlideChangeTransitionStart}
         onSlideChangeTransitionEnd={handleSlideChangeTransitionEnd}
         initialSlide={initialIndex}
-        modules={[EffectCreative]}
+        modules={[EffectCreative, Virtual]}
         effect="creative"
         creativeEffect={{
           prev: {
@@ -341,132 +533,36 @@ export function HybridVideoPlayer({
             opacity: 0,
           },
         }}
+        // Virtual slides - only render slides in/near viewport for 100+ episode performance
+        virtual={{
+          enabled: true,
+          addSlidesBefore: 2, // Pre-render 2 slides before active for smooth backward swipe
+          addSlidesAfter: 2,  // Pre-render 2 slides after active for smooth forward swipe
+        }}
         className="w-full h-full"
       >
         {episodes.map((episode, index) => (
           <SwiperSlide
-            key={`${episode._id}-${index}`}
+            key={episode._id}
             data-episode-id={episode._id}
+            virtualIndex={index}
             className={episode.isLocked ? "locked" : ""}
           >
-            {/* Slide container - includes video + controls as one unit */}
-            <div
-              className="relative w-full h-full"
-              onClick={episode.isLocked ? undefined : handleVideoClick}
-            >
-              {/* Video content */}
-              <div className="w-full h-full flex items-center justify-center">
-                {episode.isLocked ? (
-                  <div className="flex flex-col items-center justify-center text-white">
-                    <h2 className="text-xl font-bold mb-2">Episode is locked</h2>
-                    <p className="text-gray-400 mb-4">Subscribe to unlock</p>
-                    <Button onClick={onLockedEpisode}>Subscribe</Button>
-                  </div>
-                ) : (
-                  <div
-                    className="player-host w-full h-full"
-                    data-episode-id={episode._id}
-                  />
-                )}
-              </div>
-
-              {/* Episode indicator */}
-              <div className="absolute top-4 right-4 z-50 bg-black/60 px-3 py-1 rounded-full text-white text-sm">
-                {index + 1} / {episodes.length}
-                {import.meta.env.DEV && (
-                  <span className="ml-2 text-xs text-gray-400">
-                    (cached: {cacheStats.size}/{cacheStats.maxSize})
-                  </span>
-                )}
-              </div>
-
-              {/* TikTok-style Floating Action Buttons */}
-              <div
-                className={`custom-controls absolute bottom-24 md:bottom-32 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
-                  showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Like Button */}
-                <div className="flex flex-col items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsLiked(!isLiked)}
-                    className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
-                      isLiked ? "text-red-500" : "text-white"
-                    }`}
-                  >
-                    <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
-                  </Button>
-                  <span className="text-white text-xs font-semibold drop-shadow-lg">
-                    {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
-                  </span>
-                </div>
-
-                {/* Episodes Button - Mobile only */}
-                {onShowEpisodes && (
-                  <div className="flex flex-col items-center gap-1 md:hidden">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onShowEpisodes}
-                      className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
-                    >
-                      <List className="h-6 w-6" />
-                    </Button>
-                    <span className="text-white text-xs font-semibold drop-shadow-lg">
-                      Episodes
-                    </span>
-                  </div>
-                )}
-
-                {/* Share Button */}
-                <div className="flex flex-col items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
-                  >
-                    <Share2 className="h-6 w-6" />
-                  </Button>
-                  <span className="text-white text-xs font-semibold drop-shadow-lg">
-                    Share
-                  </span>
-                </div>
-              </div>
-
-              {/* Top Info Bar */}
-              <div
-                className={`custom-controls absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
-                  showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Link to="/">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-white hover:text-primary hover:bg-white/10"
-                      >
-                        <ArrowLeft className="h-5 w-5" />
-                      </Button>
-                    </Link>
-                    <div>
-                      <h3 className="text-white font-medium text-sm md:text-base">
-                        {seriesTitle}
-                      </h3>
-                      <p className="text-gray-300 text-xs md:text-sm">
-                        Episode {episode.episodeNumber || index + 1}
-                        {episode.title && ` - ${episode.title}`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PlayerErrorBoundary episodeId={episode._id}>
+              <EpisodeSlide
+                episode={episode}
+                index={index}
+                totalEpisodes={episodes.length}
+                seriesTitle={seriesTitle}
+                showControls={showControls}
+                isLiked={!!likedEpisodes[episode._id]}
+                cacheStats={cacheStats}
+                onToggleLike={toggleLike}
+                onVideoClick={handleVideoClick}
+                onLockedEpisode={onLockedEpisode}
+                onShowEpisodes={onShowEpisodes}
+              />
+            </PlayerErrorBoundary>
           </SwiperSlide>
         ))}
       </Swiper>

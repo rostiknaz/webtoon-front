@@ -16,6 +16,7 @@ import {
   useRef,
   useCallback,
   useState,
+  useMemo,
   type ReactNode,
 } from 'react';
 import Player from 'xgplayer';
@@ -33,12 +34,12 @@ interface CachedPlayer {
 }
 
 interface VideoPlayerCacheContextValue {
-  /** Initialize player in a host element (for Swiper slides) */
+  /** Initialize player in a host element (for Swiper slides). Returns null if initialization fails. */
   initPlayerInHost: (
     episodeId: string,
     hlsUrl: string,
     hostElement: HTMLElement
-  ) => { player: Player; isNew: boolean };
+  ) => { player: Player; isNew: boolean } | null;
 
   /** Preload player without playing (for smooth transitions) */
   preloadPlayer: (
@@ -163,7 +164,7 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     episodeId: string,
     hlsUrl: string,
     hostElement: HTMLElement
-  ) => {
+  ): { player: Player; isNew: boolean } | null => {
     const existing = cacheRef.current.get(episodeId);
 
     if (existing) {
@@ -180,24 +181,32 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
       return { player: existing.player, isNew: false };
     }
 
-    // Evict oldest if at capacity (protect the new episode)
-    evictOldest(episodeId);
+    try {
+      // Create new player in the host element FIRST
+      const player = new Player(createPlayerConfig(hostElement, hlsUrl));
 
-    // Create new player in the host element
-    const player = new Player(createPlayerConfig(hostElement, hlsUrl));
+      // Only evict AFTER successful creation (don't destroy working players if new one fails)
+      evictOldest(episodeId);
 
-    // Add to cache
-    const cached: CachedPlayer = {
-      player,
-      container: hostElement,
-      currentTime: 0,
-      episodeId,
-      hlsUrl,
-    };
-    cacheRef.current.set(episodeId, cached);
-    orderRef.current.push(episodeId);
+      // Add to cache
+      const cached: CachedPlayer = {
+        player,
+        container: hostElement,
+        currentTime: 0,
+        episodeId,
+        hlsUrl,
+      };
+      cacheRef.current.set(episodeId, cached);
+      orderRef.current.push(episodeId);
 
-    return { player, isNew: true };
+      return { player, isNew: true };
+    } catch (error) {
+      // Log error in development, fail gracefully in production
+      if (import.meta.env.DEV) {
+        console.error(`Failed to initialize player for episode ${episodeId}:`, error);
+      }
+      return null;
+    }
   }, [evictOldest]);
 
   // Preload player without playing (for smooth transitions)
@@ -219,22 +228,29 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
       return;
     }
 
-    // Evict oldest if at capacity
-    evictOldest(episodeId);
+    try {
+      // Create player FIRST (will start loading manifest and first segment due to videoInit: true)
+      const player = new Player(createPlayerConfig(hostElement, hlsUrl));
 
-    // Create player (will start loading manifest and first segment due to videoInit: true)
-    const player = new Player(createPlayerConfig(hostElement, hlsUrl));
+      // Only evict AFTER successful creation (don't destroy working players if new one fails)
+      evictOldest(episodeId);
 
-    // Add to cache
-    const cached: CachedPlayer = {
-      player,
-      container: hostElement,
-      currentTime: 0,
-      episodeId,
-      hlsUrl,
-    };
-    cacheRef.current.set(episodeId, cached);
-    orderRef.current.push(episodeId);
+      // Add to cache
+      const cached: CachedPlayer = {
+        player,
+        container: hostElement,
+        currentTime: 0,
+        episodeId,
+        hlsUrl,
+      };
+      cacheRef.current.set(episodeId, cached);
+      orderRef.current.push(episodeId);
+    } catch (error) {
+      // Preload failures are non-critical, log in development only
+      if (import.meta.env.DEV) {
+        console.warn(`Failed to preload player for episode ${episodeId}:`, error);
+      }
+    }
   }, [evictOldest]);
 
   // Check if player exists
@@ -328,7 +344,8 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     episodeIds: Array.from(cacheRef.current.keys()),
   }), []);
 
-  const value: VideoPlayerCacheContextValue = {
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  const value = useMemo<VideoPlayerCacheContextValue>(() => ({
     initPlayerInHost,
     preloadPlayer,
     hasPlayer,
@@ -343,7 +360,22 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     playPlayer,
     destroyAll,
     getCacheStats,
-  };
+  }), [
+    initPlayerInHost,
+    preloadPlayer,
+    hasPlayer,
+    getCachedPlayer,
+    savePosition,
+    getSavedPosition,
+    restorePosition,
+    setActiveEpisode,
+    activeEpisodeId,
+    pauseOthers,
+    pauseAll,
+    playPlayer,
+    destroyAll,
+    getCacheStats,
+  ]);
 
   return (
     <VideoPlayerCacheContext.Provider value={value}>
