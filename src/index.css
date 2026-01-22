@@ -297,3 +297,96 @@ h1, h2, h3, h4, h5, h6 {
     height: -webkit-fill-available;
   }
 }
+
+/* Premium Swiper transitions */
+.premium-swiper {
+  /* Custom easing for premium feel - smooth deceleration */
+  --swiper-timing: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.premium-swiper .swiper-wrapper {
+  transition-timing-function: var(--swiper-timing) !important;
+}
+
+/* Slide depth and shadow effects */
+.premium-swiper .swiper-slide {
+  transition: filter 0.4s ease-out, box-shadow 0.4s ease-out;
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Active slide - crisp and focused */
+.premium-swiper .swiper-slide-active {
+  filter: none;
+  z-index: 2;
+}
+
+/* Adjacent slides - subtle depth effect */
+.premium-swiper .swiper-slide-prev,
+.premium-swiper .swiper-slide-next {
+  filter: brightness(0.7);
+}
+
+/* Creative effect shadow enhancement */
+.premium-swiper .swiper-slide-shadow {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+}
+
+.premium-swiper .swiper-slide-prev .swiper-slide-shadow,
+.premium-swiper .swiper-slide-next .swiper-slide-shadow {
+  opacity: 1;
+}
+
+/* Smooth touch feedback */
+.premium-swiper.swiper-grab {
+  cursor: grab;
+}
+
+.premium-swiper.swiper-grabbing {
+  cursor: grabbing;
+}
+
+/* Edge glow effect on resistance */
+.premium-swiper::before,
+.premium-swiper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 80px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  z-index: 100;
+}
+
+.premium-swiper::before {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    hsl(10 85% 58% / 0.15) 0%,
+    transparent 100%
+  );
+}
+
+.premium-swiper::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    hsl(10 85% 58% / 0.15) 0%,
+    transparent 100%
+  );
+}
+
+/* Show edge glow when at bounds (controlled via data attribute if needed) */
+.premium-swiper[data-edge="top"]::before,
+.premium-swiper[data-edge="bottom"]::after {
+  opacity: 1;
+}

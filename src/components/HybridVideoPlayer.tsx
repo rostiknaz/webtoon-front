@@ -293,6 +293,7 @@ export function HybridVideoPlayer({
   // Track likes per episode
   const [likedEpisodes, setLikedEpisodes] = useState<Record<string, boolean>>({});
   const [showControls, setShowControls] = useState(true);
+  const [edgeState, setEdgeState] = useState<"top" | "bottom" | null>(null);
 
   const swiperRef = useRef<SwiperType | null>(null);
   // Track which players have had events set up (per component instance)
@@ -603,9 +604,25 @@ export function HybridVideoPlayer({
     (_swiper: SwiperType) => {
       // Most work is now done in handleSlideChange
       // This callback mainly ensures we catch any edge cases for adjacent swipes
+      // Clear edge state after transition
+      setEdgeState(null);
     },
     []
   );
+
+  // Handle edge glow effects when reaching bounds
+  const handleReachBeginning = useCallback(() => {
+    setEdgeState("top");
+  }, []);
+
+  const handleReachEnd = useCallback(() => {
+    setEdgeState("bottom");
+  }, []);
+
+  // Clear edge state when moving away from bounds
+  const handleFromEdge = useCallback(() => {
+    setEdgeState(null);
+  }, []);
 
 
   // Navigate to specific episode (called from parent via initialIndex change)
@@ -653,43 +670,52 @@ export function HybridVideoPlayer({
       <Swiper
         direction="vertical"
         slidesPerView={1}
-        // TikTok-style animation (Option A from UX research)
-        speed={280}                    // Faster, snappier than 350
-        threshold={3}                  // More responsive to touch
-        touchRatio={1.2}              // Slightly more sensitive
-        resistanceRatio={0.65}        // Subtle bounce at edges
-        followFinger={true}           // Real-time finger tracking
-        shortSwipes={true}            // Quick flicks work
-        longSwipesRatio={0.3}         // Easier to complete swipe
+        // Premium swipe feel - smooth and elegant
+        speed={380}                    // Slightly slower for premium feel
+        threshold={5}                  // Intentional swipe required
+        touchRatio={1}                 // Natural touch response
+        resistanceRatio={0.7}          // Satisfying edge resistance
+        followFinger={true}            // Real-time finger tracking
+        shortSwipes={true}             // Quick flicks still work
+        longSwipesRatio={0.35}         // Balanced swipe completion threshold
+        longSwipesMs={250}             // Time for long swipe detection
+        touchStartPreventDefault={false} // Better scroll handling
         watchSlidesProgress
         onSwiper={handleSwiperInit}
         onSlideChange={handleSlideChange}
         onSlideChangeTransitionStart={handleSlideChangeTransitionStart}
         onSlideChangeTransitionEnd={handleSlideChangeTransitionEnd}
+        onReachBeginning={handleReachBeginning}
+        onReachEnd={handleReachEnd}
+        onFromEdge={handleFromEdge}
         initialSlide={initialIndex}
         modules={[EffectCreative, Virtual]}
         effect="creative"
         creativeEffect={{
-          perspective: true,          // Enable 3D perspective (distance set via CSS)
+          perspective: true,
+          limitProgress: 2,            // Smoother multi-slide transitions
+          shadowPerProgress: true,     // Dynamic shadow based on progress
           prev: {
-            translate: [0, "-100%", -80],  // Slight Z depth for outgoing
-            scale: 0.96,                    // Scale down outgoing slide
-            opacity: 0.5,                   // Fade outgoing slide
+            translate: [0, "-100%", -150],   // Deeper Z for cinematic depth
+            scale: 0.88,                      // More noticeable scale for depth
+            opacity: 0.4,                     // Elegant fade
+            shadow: true,                     // Drop shadow for depth
           },
           next: {
             translate: [0, "100%", 0],
             scale: 1,
-            opacity: 0,
+            opacity: 0.6,                     // Slight fade for incoming slide
           },
         }}
         // Virtual slides - only render slides in/near viewport for 100+ episode performance
         virtual={{
           enabled: true,
-          addSlidesBefore: 2, // Pre-render 2 slides before active for smooth backward swipe
-          addSlidesAfter: 2,  // Pre-render 2 slides after active for smooth forward swipe
+          addSlidesBefore: 2,
+          addSlidesAfter: 2,
         }}
-        className="w-full h-full"
-        style={{ perspective: "1200px" }}  // 3D perspective distance for depth effect
+        className="premium-swiper w-full h-full"
+        style={{ perspective: "1000px" }}
+        data-edge={edgeState}  // Edge glow effect via CSS
       >
         {episodes.map((episode, index) => (
           <SwiperSlide
