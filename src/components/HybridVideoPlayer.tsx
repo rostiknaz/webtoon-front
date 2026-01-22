@@ -19,7 +19,9 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
 import { useDoubleTap } from "@/hooks/useDoubleTap";
+import { useHaptic } from "@/hooks/useHaptic";
 import { HeartAnimation } from "./HeartAnimation";
+import { VideoSkeleton } from "./VideoSkeleton";
 import type Player from "xgplayer";
 import "xgplayer/dist/index.min.css";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -56,6 +58,7 @@ interface EpisodeSlideProps {
   seriesTitle: string;
   showControls: boolean;
   isLiked: boolean;
+  isLoading: boolean;
   cacheStats?: { size: number; maxSize: number };
   onToggleLike: (episodeId: string) => void; // Accept episodeId to avoid inline arrow in parent
   onVideoClick: () => void;
@@ -74,12 +77,16 @@ const EpisodeSlide = memo(function EpisodeSlide({
   seriesTitle,
   showControls,
   isLiked,
+  isLoading,
   cacheStats,
   onToggleLike,
   onVideoClick,
   onLockedEpisode,
   onShowEpisodes,
 }: EpisodeSlideProps) {
+  // Haptic feedback for like interactions
+  const haptic = useHaptic();
+
   // Ref for like button to get its position for flying heart animation
   const likeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -115,10 +122,8 @@ const EpisodeSlide = memo(function EpisodeSlide({
       // Only toggle like if not already liked (Instagram behavior)
       if (!isLiked) {
         onToggleLike(episode._id);
-        // Haptic feedback for mobile
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
+        // Haptic feedback for mobile (medium intensity for like action)
+        haptic.medium();
       }
     },
     onSingleTap: onVideoClick,
@@ -143,10 +148,14 @@ const EpisodeSlide = memo(function EpisodeSlide({
             <Button onClick={onLockedEpisode}>Subscribe</Button>
           </div>
         ) : (
-          <div
-            className="player-host w-full h-full"
-            data-episode-id={episode._id}
-          />
+          <>
+            {/* Loading skeleton - shows while video is buffering */}
+            <VideoSkeleton isLoading={isLoading} />
+            <div
+              className="player-host w-full h-full"
+              data-episode-id={episode._id}
+            />
+          </>
         )}
       </div>
 
@@ -173,7 +182,15 @@ const EpisodeSlide = memo(function EpisodeSlide({
             ref={likeButtonRef}
             variant="ghost"
             size="icon"
-            onClick={() => onToggleLike(episode._id)}
+            onClick={() => {
+              onToggleLike(episode._id);
+              // Haptic feedback: medium for like, light for unlike
+              if (isLiked) {
+                haptic.light();
+              } else {
+                haptic.medium();
+              }
+            }}
             className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
               isLiked ? "text-red-500" : "text-white"
             }`}
@@ -621,6 +638,10 @@ export function HybridVideoPlayer({
   // Debug: show cache stats only in dev (avoid unnecessary object creation in production)
   const cacheStats = import.meta.env.DEV ? cache.getCacheStats() : undefined;
 
+  // Subscribe to loading state changes by accessing loadingStateVersion
+  // This triggers re-renders when any player's loading state changes
+  void cache.loadingStateVersion;
+
   return (
     <div
       className="hybrid-video-player relative w-full h-full bg-black overflow-hidden"
@@ -683,6 +704,7 @@ export function HybridVideoPlayer({
                 seriesTitle={seriesTitle}
                 showControls={showControls}
                 isLiked={!!likedEpisodes[episode._id]}
+                isLoading={cache.isEpisodeLoading(episode._id)}
                 cacheStats={cacheStats}
                 onToggleLike={toggleLike}
                 onVideoClick={handleVideoClick}

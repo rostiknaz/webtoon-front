@@ -218,15 +218,37 @@ After testing Option A, consider these additional enhancements:
 - [ ] Add parallax to action buttons (like, share, episodes)
 - [ ] Test different parallax values for optimal feel
 
-### Phase 2: Haptic Feedback
-- [ ] Add vibration on slide change (for PWA/native)
-- [ ] Add haptic on like button tap
-- [ ] Test haptic intensity levels
+### Phase 2: Haptic Feedback ✅ COMPLETED
+- [x] Add haptic on double-tap like - *useHaptic hook with medium intensity (25ms)*
+- [x] Add haptic on like button tap - *useHaptic hook: medium for like, light for unlike*
+- [x] Test haptic intensity levels - *Patterns defined: light (10ms), medium (25ms), tap (50ms), success, error, heavy*
 
-### Phase 3: Preload Indicators
-- [ ] Add subtle loading indicator for next video
-- [ ] Show buffering state during transitions
-- [ ] Implement skeleton loading for slide content
+**Implementation Details (Phase 2):**
+- `useHaptic.ts` - Custom hook wrapping Web Vibration API with:
+  - Feature detection (`isVibrationSupported()`)
+  - Predefined patterns: `light`, `medium`, `tap`, `success`, `error`, `heavy`
+  - Safe fallback for unsupported browsers (iOS Safari, desktop)
+- Applied in `HybridVideoPlayer.tsx`:
+  - Double-tap like: `haptic.medium()` (25ms) when liking
+  - Like button: `haptic.medium()` for like, `haptic.light()` for unlike
+- Note: Vibration API not supported on iOS Safari (security restriction)
+
+### Phase 3: Preload Indicators ✅ COMPLETED
+- [x] Add subtle loading indicator for next video - *VideoSkeleton component*
+- [x] Show buffering state during transitions - *xgplayer WAITING/CANPLAY events*
+- [x] Implement skeleton loading for slide content - *TikTok-style animated skeleton*
+
+**Implementation Details (Phase 3):**
+- `VideoSkeleton.tsx` - Framer Motion animated loading skeleton with:
+  - Pulsing gradient background
+  - Centered spinner animation
+  - Smooth fade-out transition (300ms)
+  - Top/bottom gradients mimicking player UI
+- `VideoPlayerCacheContext.tsx` - Added loading state tracking:
+  - `isLoading` property per cached player
+  - xgplayer event listeners: `LOAD_START`, `WAITING`, `CANPLAY`, `PLAYING`
+  - `isEpisodeLoading(episodeId)` method for components
+  - `loadingStateVersion` counter for triggering re-renders
 
 ### Phase 4: A/B Testing
 - [ ] Set up analytics for swipe completion rate

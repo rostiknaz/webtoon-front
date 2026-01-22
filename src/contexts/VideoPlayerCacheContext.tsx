@@ -19,7 +19,7 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import Player from 'xgplayer';
+import Player, { Events } from 'xgplayer';
 import HlsPlugin from 'xgplayer-hls';
 import 'xgplayer/dist/index.min.css';
 
@@ -31,6 +31,7 @@ interface CachedPlayer {
   currentTime: number;
   episodeId: string;
   hlsUrl: string;
+  isLoading: boolean;
 }
 
 interface VideoPlayerCacheContextValue {
@@ -83,6 +84,12 @@ interface VideoPlayerCacheContextValue {
 
   /** Get cache stats for debugging */
   getCacheStats: () => { size: number; maxSize: number; episodeIds: string[] };
+
+  /** Check if an episode is currently loading/buffering */
+  isEpisodeLoading: (episodeId: string) => boolean;
+
+  /** Loading state change counter (for triggering re-renders) */
+  loadingStateVersion: number;
 }
 
 const VideoPlayerCacheContext = createContext<VideoPlayerCacheContextValue | null>(null);
@@ -133,6 +140,41 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
 
   // Use state for active episode to trigger re-renders when it changes
   const [activeEpisodeId, setActiveEpisodeIdState] = useState<string | null>(null);
+
+  // Loading state version - increment to trigger re-renders when loading state changes
+  const [loadingStateVersion, setLoadingStateVersion] = useState(0);
+
+  // Track episodes that should auto-play when ready
+  const pendingAutoPlayRef = useRef<Set<string>>(new Set());
+
+  // Setup loading event listeners on a player
+  const setupLoadingEvents = useCallback((player: Player, episodeId: string) => {
+    const setLoading = (isLoading: boolean) => {
+      const cached = cacheRef.current.get(episodeId);
+      if (cached && cached.isLoading !== isLoading) {
+        cached.isLoading = isLoading;
+        setLoadingStateVersion(v => v + 1);
+      }
+    };
+
+    // Loading started
+    player.on(Events.LOAD_START, () => setLoading(true));
+    player.on(Events.WAITING, () => setLoading(true));
+
+    // Loading complete - auto-play if this episode was queued for autoplay
+    player.on(Events.CANPLAY, () => {
+      setLoading(false);
+
+      // Auto-play if this episode is pending autoplay
+      if (pendingAutoPlayRef.current.has(episodeId)) {
+        pendingAutoPlayRef.current.delete(episodeId);
+        player.play().catch(() => {
+          // Autoplay blocked by browser policy - this is expected
+        });
+      }
+    });
+    player.on(Events.PLAYING, () => setLoading(false));
+  }, []);
 
   // Evict oldest player when at capacity (LRU)
   const evictOldest = useCallback((protectedId?: string) => {
@@ -188,16 +230,20 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
       // Only evict AFTER successful creation (don't destroy working players if new one fails)
       evictOldest(episodeId);
 
-      // Add to cache
+      // Add to cache with initial loading state
       const cached: CachedPlayer = {
         player,
         container: hostElement,
         currentTime: 0,
         episodeId,
         hlsUrl,
+        isLoading: true, // New players start in loading state
       };
       cacheRef.current.set(episodeId, cached);
       orderRef.current.push(episodeId);
+
+      // Setup loading event listeners
+      setupLoadingEvents(player, episodeId);
 
       return { player, isNew: true };
     } catch (error) {
@@ -207,7 +253,7 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
       }
       return null;
     }
-  }, [evictOldest]);
+  }, [evictOldest, setupLoadingEvents]);
 
   // Preload player without playing (for smooth transitions)
   const preloadPlayer = useCallback((
@@ -235,23 +281,27 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
       // Only evict AFTER successful creation (don't destroy working players if new one fails)
       evictOldest(episodeId);
 
-      // Add to cache
+      // Add to cache with initial loading state
       const cached: CachedPlayer = {
         player,
         container: hostElement,
         currentTime: 0,
         episodeId,
         hlsUrl,
+        isLoading: true, // New players start in loading state
       };
       cacheRef.current.set(episodeId, cached);
       orderRef.current.push(episodeId);
+
+      // Setup loading event listeners
+      setupLoadingEvents(player, episodeId);
     } catch (error) {
       // Preload failures are non-critical, log in development only
       if (import.meta.env.DEV) {
         console.warn(`Failed to preload player for episode ${episodeId}:`, error);
       }
     }
-  }, [evictOldest]);
+  }, [evictOldest, setupLoadingEvents]);
 
   // Check if player exists
   const hasPlayer = useCallback((episodeId: string) => {
@@ -301,6 +351,9 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
 
   // Pause all players
   const pauseAll = useCallback(() => {
+    // Clear any pending autoplay requests
+    pendingAutoPlayRef.current.clear();
+
     cacheRef.current.forEach((cached) => {
       if (cached.player && !cached.player.paused) {
         cached.player.pause();
@@ -311,18 +364,25 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
   // Play a specific player
   const playPlayer = useCallback(async (episodeId: string) => {
     const cached = cacheRef.current.get(episodeId);
-    if (cached?.player) {
-      try {
-        await cached.player.play();
-      } catch (err) {
-        // These are expected browser behaviors, not errors:
-        // - "interrupted by a new load request" = rapid navigation
-        // - "interrupted by a call to pause()" = slide transition
-        // - "user didn't interact" = autoplay policy
-        // Only log in development for debugging
-        if (import.meta.env.DEV) {
-          console.debug('Play prevented:', (err as Error).message);
-        }
+    if (!cached?.player) return;
+
+    // If player is still loading, queue the play request for when CANPLAY fires
+    if (cached.isLoading) {
+      pendingAutoPlayRef.current.add(episodeId);
+      return;
+    }
+
+    // Player is ready, play immediately
+    try {
+      await cached.player.play();
+    } catch (err) {
+      // These are expected browser behaviors, not errors:
+      // - "interrupted by a new load request" = rapid navigation
+      // - "interrupted by a call to pause()" = slide transition
+      // - "user didn't interact" = autoplay policy
+      // Only log in development for debugging
+      if (import.meta.env.DEV) {
+        console.debug('Play prevented:', (err as Error).message);
       }
     }
   }, []);
@@ -344,6 +404,14 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     episodeIds: Array.from(cacheRef.current.keys()),
   }), []);
 
+  // Check if an episode is currently loading
+  const isEpisodeLoading = useCallback((episodeId: string) => {
+    const cached = cacheRef.current.get(episodeId);
+    // If no player exists yet, consider it as loading (will show skeleton)
+    if (!cached) return true;
+    return cached.isLoading;
+  }, []);
+
   // Memoize context value to prevent unnecessary re-renders of consumers
   const value = useMemo<VideoPlayerCacheContextValue>(() => ({
     initPlayerInHost,
@@ -360,6 +428,8 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     playPlayer,
     destroyAll,
     getCacheStats,
+    isEpisodeLoading,
+    loadingStateVersion,
   }), [
     initPlayerInHost,
     preloadPlayer,
@@ -375,6 +445,8 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     playPlayer,
     destroyAll,
     getCacheStats,
+    isEpisodeLoading,
+    loadingStateVersion,
   ]);
 
   return (
