@@ -161,9 +161,9 @@ npm run db:migrate:local && npm run db:seed:local
 ### Deploy to Production
 ```bash
 git push  # CI/CD deploys automatically
-# Or manually:
-npx wrangler deploy
 ```
+
+**IMPORTANT**: Never use `npx wrangler deploy` directly when developing locally. Always commit and push changes to trigger the CI/CD pipeline for deployment.
 
 ## Git Conventions
 

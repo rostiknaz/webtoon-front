@@ -20,10 +20,19 @@ import {
   type ReactNode,
 } from 'react';
 import Player, { Events } from 'xgplayer';
-import HlsPlugin from 'xgplayer-hls';
+import HlsJsPlugin from 'xgplayer-hls.js';
 import 'xgplayer/dist/index.min.css';
 
 const MAX_CACHED_PLAYERS = 5;
+
+/**
+ * Check if the browser supports native HLS playback
+ * Safari and iOS support HLS natively without MSE
+ */
+function supportsNativeHls(): boolean {
+  const video = document.createElement('video');
+  return video.canPlayType('application/vnd.apple.mpegurl') !== '';
+}
 
 interface CachedPlayer {
   player: Player;
@@ -141,15 +150,23 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
         boxShadow: '0 0 10px rgba(255, 255, 255, 0.4)',
       },
     },
-    // Use HLS plugin for MSE-based playback (creates blob: URLs instead of exposing m3u8)
-    plugins: [HlsPlugin],
-    hls: {
-      maxBufferLength: 30,
-      retryCount: 3,
-      retryDelay: 1000,
-      // MSE config for blob URL playback
-      preferMMS: false, // Use standard MediaSource, not ManagedMediaSource
-    },
+    // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
+    // Safari and iOS support HLS natively and should use native playback for better compatibility
+    // Using xgplayer-hls.js (based on hls.js) instead of xgplayer-hls for better codec compatibility
+    ...(supportsNativeHls() ? {} : {
+      plugins: [HlsJsPlugin],
+      hlsJsPlugin: {
+        // hls.js configuration
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        // Enable error recovery
+        enableWorker: true,
+        // Fragment loading configuration
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 1000,
+        fragLoadingMaxRetryTimeout: 64000,
+      },
+    }),
   };
 }
 
