@@ -12,7 +12,7 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { SubscriptionDrawer } from '@/components/SubscriptionDrawer';
@@ -158,9 +158,12 @@ const AccountPage = () => {
                   <CardDescription>Your current subscription plan and status</CardDescription>
                 </div>
                 {!subscription.hasSubscription && (
-                  <Button onClick={() => setIsSubscriptionDrawerOpen(true)}>
+                  <MotionButton
+                    onClick={() => setIsSubscriptionDrawerOpen(true)}
+                    {...buttonAnimations.hoverPress}
+                  >
                     Upgrade to Premium
-                  </Button>
+                  </MotionButton>
                 )}
               </div>
             </CardHeader>
@@ -219,9 +222,9 @@ const AccountPage = () => {
                     <p className="text-sm text-muted-foreground">Available coins</p>
                   </div>
                 </div>
-                <Button variant="outline" disabled>
+                <MotionButton variant="outline" disabled {...buttonAnimations.press}>
                   Buy Coins
-                </Button>
+                </MotionButton>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
                 Coin purchases coming soon

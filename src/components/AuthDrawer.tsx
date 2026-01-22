@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Lock, Mail, Loader2, AlertCircle, Eye, EyeOff, User } from 'lucide-react';
@@ -324,12 +325,13 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
           {mode === 'initial' && (
             <div className="space-y-4 max-w-md mx-auto">
               {/* Google Sign In Button */}
-              <Button
+              <MotionButton
                 onClick={handleGoogleSignIn}
                 variant="outline"
                 className="w-full h-12 text-base font-medium"
                 size="lg"
                 disabled={isGoogleLoading}
+                {...buttonAnimations.hoverPress}
               >
                 {isGoogleLoading ? (
                   <>
@@ -342,7 +344,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
                     Continue with Google
                   </>
                 )}
-              </Button>
+              </MotionButton>
 
               {/* Divider */}
               <div className="relative">
@@ -355,15 +357,16 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
               </div>
 
               {/* Email Sign In Button */}
-              <Button
+              <MotionButton
                 onClick={handleContinueWithEmail}
                 className="w-full h-12 text-base font-medium"
                 size="lg"
                 disabled={isGoogleLoading}
+                {...buttonAnimations.hoverPress}
               >
                 <Mail className="mr-2 h-5 w-5" aria-hidden="true" />
                 Continue with Email
-              </Button>
+              </MotionButton>
 
               <p className="text-center text-sm text-muted-foreground">
                 By continuing, you agree to our Terms of Service and Privacy Policy
@@ -431,22 +434,20 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
                             disabled={loginForm.formState.isSubmitting}
                             {...field}
                           />
-                          <Button
+                          <MotionButton
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="absolute right-0 top-0 h-11 w-11 hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            tabIndex={-1}
-                            disabled={loginForm.formState.isSubmitting}
+                            {...buttonAnimations.iconPulse}
                           >
                             {showPassword ? (
                               <EyeOff className="h-4 w-4" aria-hidden="true" />
                             ) : (
                               <Eye className="h-4 w-4" aria-hidden="true" />
                             )}
-                          </Button>
+                          </MotionButton>
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -578,22 +579,20 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
                             disabled={signupForm.formState.isSubmitting}
                             {...field}
                           />
-                          <Button
+                          <MotionButton
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="absolute right-0 top-0 h-11 w-11 hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            tabIndex={-1}
-                            disabled={signupForm.formState.isSubmitting}
+                            {...buttonAnimations.iconPulse}
                           >
                             {showPassword ? (
                               <EyeOff className="h-4 w-4" aria-hidden="true" />
                             ) : (
                               <Eye className="h-4 w-4" aria-hidden="true" />
                             )}
-                          </Button>
+                          </MotionButton>
                         </div>
                       </FormControl>
                       <FormMessage />

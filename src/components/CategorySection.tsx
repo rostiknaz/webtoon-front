@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MotionButton, buttonAnimations } from "@/components/ui/motion-button";
 import AnimeCard from "./AnimeCard";
 import { useRef } from "react";
 
@@ -46,22 +46,24 @@ const CategorySection = ({ title, subtitle, animeList }: CategorySectionProps) =
 
           {/* Navigation Arrows */}
           <div className="hidden md:flex items-center gap-2">
-            <Button
+            <MotionButton
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full border border-border hover:border-primary hover:text-primary"
               onClick={() => scroll("left")}
+              {...buttonAnimations.iconPulse}
             >
               <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
+            </MotionButton>
+            <MotionButton
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full border border-border hover:border-primary hover:text-primary"
               onClick={() => scroll("right")}
+              {...buttonAnimations.iconPulse}
             >
               <ChevronRight className="h-5 w-5" />
-            </Button>
+            </MotionButton>
           </div>
         </div>
 

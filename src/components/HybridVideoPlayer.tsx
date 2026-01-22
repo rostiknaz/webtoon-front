@@ -14,6 +14,7 @@
 import type { Episode } from "../types.ts";
 import { ArrowLeft, Heart, Share2, List } from "lucide-react";
 import { Button } from "./ui/button";
+import { MotionButton, buttonAnimations } from "./ui/motion-button";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
@@ -178,7 +179,7 @@ const EpisodeSlide = memo(function EpisodeSlide({
       >
         {/* Like Button */}
         <div className="flex flex-col items-center gap-1">
-          <Button
+          <MotionButton
             ref={likeButtonRef}
             variant="ghost"
             size="icon"
@@ -194,9 +195,10 @@ const EpisodeSlide = memo(function EpisodeSlide({
             className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
               isLiked ? "text-red-500" : "text-white"
             }`}
+            {...buttonAnimations.iconPulse}
           >
             <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
-          </Button>
+          </MotionButton>
           <span className="text-white text-xs font-semibold drop-shadow-lg">
             {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
           </span>
@@ -205,14 +207,15 @@ const EpisodeSlide = memo(function EpisodeSlide({
         {/* Episodes Button - Mobile only */}
         {onShowEpisodes && (
           <div className="flex flex-col items-center gap-1 md:hidden">
-            <Button
+            <MotionButton
               variant="ghost"
               size="icon"
               onClick={onShowEpisodes}
               className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
+              {...buttonAnimations.iconPulse}
             >
               <List className="h-6 w-6" />
-            </Button>
+            </MotionButton>
             <span className="text-white text-xs font-semibold drop-shadow-lg">
               Episodes
             </span>
@@ -221,13 +224,14 @@ const EpisodeSlide = memo(function EpisodeSlide({
 
         {/* Share Button */}
         <div className="flex flex-col items-center gap-1">
-          <Button
+          <MotionButton
             variant="ghost"
             size="icon"
             className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
+            {...buttonAnimations.iconPulse}
           >
             <Share2 className="h-6 w-6" />
-          </Button>
+          </MotionButton>
           <span className="text-white text-xs font-semibold drop-shadow-lg">
             Share
           </span>
@@ -244,13 +248,14 @@ const EpisodeSlide = memo(function EpisodeSlide({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/">
-              <Button
+              <MotionButton
                 variant="ghost"
                 size="icon"
                 className="text-white hover:text-primary hover:bg-white/10"
+                {...buttonAnimations.press}
               >
                 <ArrowLeft className="h-5 w-5" />
-              </Button>
+              </MotionButton>
             </Link>
             <div>
               <h3 className="text-white font-medium text-sm md:text-base">

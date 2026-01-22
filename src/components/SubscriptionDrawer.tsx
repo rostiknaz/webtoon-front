@@ -8,7 +8,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
-import { Button } from '@/components/ui/button';
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { Crown, Check, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { getSubscriptionPlans, subscribeToPlan } from '@/api';
 import type { Plan } from '@/types';
@@ -182,11 +182,12 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                 );
               })}
 
-              <Button
+              <MotionButton
                 onClick={handleSubscribe}
                 disabled={subscribeMutation.isPending || !selectedPlan}
                 className="w-full h-12 text-base font-medium mt-6"
                 size="lg"
+                {...buttonAnimations.hoverPress}
               >
                 {subscribeMutation.isPending ? (
                   <>
@@ -199,7 +200,7 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                     Start My {plans.find(p => p.id === selectedPlan)?.trialDays ? 'Free Trial' : 'Subscription'}
                   </>
                 )}
-              </Button>
+              </MotionButton>
 
               <p className="text-center text-xs text-muted-foreground mt-4">
                 {plans.find(p => p.id === selectedPlan)?.trialDays

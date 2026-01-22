@@ -1,5 +1,5 @@
 import { Play, Plus, Star, Info } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MotionButton, buttonAnimations } from "@/components/ui/motion-button";
 import { Badge } from "@/components/ui/badge";
 
 interface HeroSectionProps {
@@ -66,18 +66,18 @@ const HeroSection = ({ anime }: HeroSectionProps) => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="gap-2 glow-primary">
+            <MotionButton size="lg" className="gap-2 glow-primary" {...buttonAnimations.hoverPress}>
               <Play className="h-5 w-5 fill-current" />
               Watch Now
-            </Button>
-            <Button size="lg" variant="secondary" className="gap-2">
+            </MotionButton>
+            <MotionButton size="lg" variant="secondary" className="gap-2" {...buttonAnimations.press}>
               <Plus className="h-5 w-5" />
               Add to List
-            </Button>
-            <Button size="lg" variant="ghost" className="gap-2">
+            </MotionButton>
+            <MotionButton size="lg" variant="ghost" className="gap-2" {...buttonAnimations.press}>
               <Info className="h-5 w-5" />
               More Info
-            </Button>
+            </MotionButton>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button'
 import { AlertCircle } from 'lucide-react'
 
 const errorMessages: Record<string, string> = {
@@ -33,12 +33,20 @@ function AuthErrorPage() {
           {errorMessage}
         </p>
         <div className="flex flex-col gap-3">
-          <Button onClick={() => navigate({ to: '/' })} variant="default">
+          <MotionButton
+            onClick={() => navigate({ to: '/' })}
+            variant="default"
+            {...buttonAnimations.hoverPress}
+          >
             Go to Home
-          </Button>
-          <Button onClick={() => window.history.back()} variant="outline">
+          </MotionButton>
+          <MotionButton
+            onClick={() => window.history.back()}
+            variant="outline"
+            {...buttonAnimations.press}
+          >
             Try Again
-          </Button>
+          </MotionButton>
         </div>
       </div>
     </div>

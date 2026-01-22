@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { Play, Plus, Star, Info, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MotionButton, buttonAnimations } from "@/components/ui/motion-button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
@@ -159,19 +159,19 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                     )}
                   >
                     <Link to="/serials/$serialId" params={{ serialId: anime.id }}>
-                      <Button size="lg" className="gap-2 glow-primary">
+                      <MotionButton size="lg" className="gap-2 glow-primary" {...buttonAnimations.hoverPress}>
                         <Play className="h-5 w-5 fill-current" />
                         Watch Now
-                      </Button>
+                      </MotionButton>
                     </Link>
-                    <Button size="lg" variant="secondary" className="gap-2">
+                    <MotionButton size="lg" variant="secondary" className="gap-2" {...buttonAnimations.press}>
                       <Plus className="h-5 w-5" />
                       Add to List
-                    </Button>
-                    <Button size="lg" variant="ghost" className="gap-2">
+                    </MotionButton>
+                    <MotionButton size="lg" variant="ghost" className="gap-2" {...buttonAnimations.press}>
                       <Info className="h-5 w-5" />
                       More Info
-                    </Button>
+                    </MotionButton>
                   </div>
                 </div>
               </div>
@@ -182,22 +182,24 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
 
       {/* Navigation Arrows */}
       <div className="absolute bottom-32 right-8 md:right-16 z-20 hidden md:flex items-center gap-3">
-        <Button
+        <MotionButton
           variant="ghost"
           size="icon"
           onClick={scrollPrev}
           className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
+          {...buttonAnimations.iconPulse}
         >
           <ChevronLeft className="h-6 w-6" />
-        </Button>
-        <Button
+        </MotionButton>
+        <MotionButton
           variant="ghost"
           size="icon"
           onClick={scrollNext}
           className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
+          {...buttonAnimations.iconPulse}
         >
           <ChevronRight className="h-6 w-6" />
-        </Button>
+        </MotionButton>
       </div>
 
       {/* Pagination Dots */}

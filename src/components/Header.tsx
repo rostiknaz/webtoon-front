@@ -1,5 +1,6 @@
 import { Search, Menu, Bell, User, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MotionButton, buttonAnimations } from "@/components/ui/motion-button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -102,24 +103,26 @@ const Header = () => {
                   />
                 </div>
               ) : (
-                <Button
+                <MotionButton
                   variant="ghost"
                   size="icon"
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() => setIsSearchOpen(true)}
+                  {...buttonAnimations.iconPulse}
                 >
                   <Search className="h-5 w-5" />
-                </Button>
+                </MotionButton>
               )}
             </div>
 
-            <Button
+            <MotionButton
               variant="ghost"
               size="icon"
               className="hidden md:flex text-muted-foreground hover:text-foreground"
+              {...buttonAnimations.iconPulse}
             >
               <Bell className="h-5 w-5" />
-            </Button>
+            </MotionButton>
 
             {/* User Menu */}
             {session.isPending ? (
@@ -171,23 +174,25 @@ const Header = () => {
               </DropdownMenu>
             ) : (
               // Not logged in - show sign in button
-              <Button
+              <MotionButton
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={() => setIsAuthDrawerOpen(true)}
+                {...buttonAnimations.iconPulse}
               >
                 <User className="h-5 w-5" />
-              </Button>
+              </MotionButton>
             )}
 
-            <Button
+            <MotionButton
               variant="ghost"
               size="icon"
               className="lg:hidden text-muted-foreground hover:text-foreground"
+              {...buttonAnimations.iconPulse}
             >
               <Menu className="h-5 w-5" />
-            </Button>
+            </MotionButton>
           </div>
         </div>
       </header>

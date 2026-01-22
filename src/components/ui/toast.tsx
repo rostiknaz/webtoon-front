@@ -2,6 +2,7 @@ import * as React from "react";
 import * as ToastPrimitives from "@radix-ui/react-toast";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
@@ -48,15 +49,23 @@ Toast.displayName = ToastPrimitives.Root.displayName;
 const ToastAction = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Action>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
       "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors group-[.destructive]:border-muted/40 hover:bg-secondary group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 group-[.destructive]:focus:ring-destructive disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
+    asChild
     {...props}
-  />
+  >
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring" as const, stiffness: 400, damping: 17 }}
+    >
+      {children}
+    </motion.button>
+  </ToastPrimitives.Action>
 ));
 ToastAction.displayName = ToastPrimitives.Action.displayName;
 
@@ -71,9 +80,16 @@ const ToastClose = React.forwardRef<
       className,
     )}
     toast-close=""
+    asChild
     {...props}
   >
-    <X className="h-4 w-4" />
+    <motion.button
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: "spring" as const, stiffness: 400, damping: 17 }}
+    >
+      <X className="h-4 w-4" />
+    </motion.button>
   </ToastPrimitives.Close>
 ));
 ToastClose.displayName = ToastPrimitives.Close.displayName;
