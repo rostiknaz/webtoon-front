@@ -514,8 +514,14 @@ export function HybridVideoPlayer({
       <Swiper
         direction="vertical"
         slidesPerView={1}
-        speed={350}
-        resistanceRatio={0}
+        // TikTok-style animation (Option A from UX research)
+        speed={280}                    // Faster, snappier than 350
+        threshold={3}                  // More responsive to touch
+        touchRatio={1.2}              // Slightly more sensitive
+        resistanceRatio={0.65}        // Subtle bounce at edges
+        followFinger={true}           // Real-time finger tracking
+        shortSwipes={true}            // Quick flicks work
+        longSwipesRatio={0.3}         // Easier to complete swipe
         watchSlidesProgress
         onSwiper={handleSwiperInit}
         onSlideChangeTransitionStart={handleSlideChangeTransitionStart}
@@ -524,12 +530,15 @@ export function HybridVideoPlayer({
         modules={[EffectCreative, Virtual]}
         effect="creative"
         creativeEffect={{
+          perspective: true,          // Enable 3D perspective (distance set via CSS)
           prev: {
-            translate: [0, "-100%", 0],
-            opacity: 0,
+            translate: [0, "-100%", -80],  // Slight Z depth for outgoing
+            scale: 0.96,                    // Scale down outgoing slide
+            opacity: 0.5,                   // Fade outgoing slide
           },
           next: {
             translate: [0, "100%", 0],
+            scale: 1,
             opacity: 0,
           },
         }}
@@ -540,6 +549,7 @@ export function HybridVideoPlayer({
           addSlidesAfter: 2,  // Pre-render 2 slides after active for smooth forward swipe
         }}
         className="w-full h-full"
+        style={{ perspective: "1200px" }}  // 3D perspective distance for depth effect
       >
         {episodes.map((episode, index) => (
           <SwiperSlide
