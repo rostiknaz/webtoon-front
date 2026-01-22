@@ -18,6 +18,8 @@ import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
+import { useDoubleTap } from "@/hooks/useDoubleTap";
+import { HeartAnimation } from "./HeartAnimation";
 import type Player from "xgplayer";
 import "xgplayer/dist/index.min.css";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -78,10 +80,59 @@ const EpisodeSlide = memo(function EpisodeSlide({
   onLockedEpisode,
   onShowEpisodes,
 }: EpisodeSlideProps) {
+  // Ref for like button to get its position for flying heart animation
+  const likeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Heart animation state for double-tap like
+  const [heartAnimation, setHeartAnimation] = useState<{
+    show: boolean;
+    x: number;
+    y: number;
+    targetPosition: { x: number; y: number } | null;
+  }>({ show: false, x: 0, y: 0, targetPosition: null });
+
+  // Double-tap detection for Instagram-style like
+  const { handlers: doubleTapHandlers } = useDoubleTap({
+    onDoubleTap: (position) => {
+      // Get like button position for flying animation
+      let targetPosition: { x: number; y: number } | null = null;
+      if (likeButtonRef.current) {
+        const rect = likeButtonRef.current.getBoundingClientRect();
+        targetPosition = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+      }
+
+      // Show heart animation with target position
+      setHeartAnimation({
+        show: true,
+        x: position.x,
+        y: position.y,
+        targetPosition,
+      });
+
+      // Only toggle like if not already liked (Instagram behavior)
+      if (!isLiked) {
+        onToggleLike(episode._id);
+        // Haptic feedback for mobile
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      }
+    },
+    onSingleTap: onVideoClick,
+    threshold: 300,
+  });
+
+  const handleHeartAnimationComplete = useCallback(() => {
+    setHeartAnimation((prev) => ({ ...prev, show: false }));
+  }, []);
+
   return (
     <div
       className="relative w-full h-full"
-      onClick={episode.isLocked ? undefined : onVideoClick}
+      {...(episode.isLocked ? {} : doubleTapHandlers)}
     >
       {/* Video content */}
       <div className="w-full h-full flex items-center justify-center">
@@ -119,6 +170,7 @@ const EpisodeSlide = memo(function EpisodeSlide({
         {/* Like Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
+            ref={likeButtonRef}
             variant="ghost"
             size="icon"
             onClick={() => onToggleLike(episode._id)}
@@ -195,6 +247,15 @@ const EpisodeSlide = memo(function EpisodeSlide({
           </div>
         </div>
       </div>
+
+      {/* Double-tap heart animation - flies to like button */}
+      <HeartAnimation
+        show={heartAnimation.show}
+        x={heartAnimation.x}
+        y={heartAnimation.y}
+        targetPosition={heartAnimation.targetPosition}
+        onComplete={handleHeartAnimationComplete}
+      />
     </div>
   );
 });
