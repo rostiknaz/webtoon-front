@@ -27,6 +27,8 @@ npm run test:ui          # Interactive Playwright UI
 npx playwright test --grep "test name"  # Run specific test
 ```
 
+**Mobile Testing**: To properly emulate mobile devices in Playwright, always use "Toggle device toolbar" from the browser dev console (or device emulation with `isMobile: true, hasTouch: true`). Simply resizing the viewport does NOT trigger mobile CSS media queries like `(hover: none) and (pointer: coarse)`.
+
 ### Database
 ```bash
 npm run db:generate      # Generate migrations from schema changes
