@@ -268,10 +268,11 @@ h1, h2, h3, h4, h5, h6 {
   transition: opacity 0.3s ease, visibility 0.3s ease !important;
 }
 
-/* Always show controls when video is paused or not started */
+/* Always show controls when video is paused, not started, or errored */
 .xgplayer.xgplayer-pause .xgplayer-controls,
 .xgplayer.xgplayer-nostart .xgplayer-controls,
 .xgplayer.xgplayer-ended .xgplayer-controls,
+.xgplayer.xgplayer-is-error .xgplayer-controls,
 .xgplayer.not-allow-autoplay .xgplayer-controls {
   opacity: 1 !important;
   visibility: visible !important;
@@ -604,7 +605,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* Hide playback rate on mobile to save space */
-  .xgplayer .xg-playrate {
+  .xgplayer .xgplayer-playbackrate {
     display: none !important;
   }
 
