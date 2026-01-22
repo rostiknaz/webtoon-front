@@ -490,83 +490,135 @@ h1, h2, h3, h4, h5, h6 {
 
 /* --------------------------------------------------------------------------
    Mobile-specific adjustments - Enhanced for touch devices
+   Matching reference design: full-width progress bar, single row controls
    -------------------------------------------------------------------------- */
 @media (hover: none) and (pointer: coarse) {
-  /* Taller controls bar for easier interaction */
+  /* Controls container - clean bottom bar */
   .xgplayer .xgplayer-controls {
-    height: 72px !important;
+    height: auto !important;
+    min-height: 52px !important;
+    padding-top: 8px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
   }
 
-  /* Taller inner controls with more padding */
-  .xgplayer .xg-inner-controls {
-    height: 56px !important;
-    padding: 0 8px !important;
-    gap: 4px !important;
-  }
-
-  /* Full-width progress bar on mobile - no side padding */
+  /* Full-width progress bar - edge to edge, no padding */
   .xgplayer .xgplayer-progress {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     padding: 0 !important;
-    height: 32px !important;
-    top: -16px !important;
+    margin: 0 !important;
+    height: 20px !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
-  /* Thicker progress bar for easier tapping */
+  /* Progress bar track - thicker for touch */
   .xgplayer .xgplayer-progress-outer {
-    height: 5px !important;
+    height: 3px !important;
+    margin: 0 !important;
+    border-radius: 2px !important;
   }
 
   .xgplayer .xgplayer-progress.active .xgplayer-progress-outer,
   .xgplayer .xgplayer-progress:hover .xgplayer-progress-outer {
-    height: 8px !important;
+    height: 5px !important;
   }
 
-  /* Larger progress slider thumb for touch */
+  /* Progress slider thumb */
   .xgplayer .xgplayer-progress-btn {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Inner controls - single row, fluid layout */
+  .xgplayer .xg-inner-controls {
+    height: 44px !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Left grid - play, skip, time aligned left */
+  .xgplayer .xg-left-grid {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Right grid - volume, settings aligned right */
+  .xgplayer .xg-right-grid {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-end !important;
+  }
+
+  /* Hide center grid on mobile - not needed */
+  .xgplayer .xg-center-grid {
+    display: none !important;
+  }
+
+  /* Touch-friendly icon sizes */
+  .xgplayer xg-icon {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Icon SVGs - consistent size */
+  .xgplayer xg-icon svg {
     width: 24px !important;
     height: 24px !important;
   }
 
-  /* Larger touch targets for all icons */
-  .xgplayer xg-icon {
-    min-width: 48px !important;
-    min-height: 48px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  /* Larger SVG icons inside the touch targets */
-  .xgplayer xg-icon svg {
+  /* Play/pause slightly larger */
+  .xgplayer .xg-icon-play svg,
+  .xgplayer .xg-icon-pause svg {
     width: 28px !important;
     height: 28px !important;
   }
 
-  /* Even larger play/pause button in controls */
-  .xgplayer .xg-left-grid xg-icon:first-child svg,
-  .xgplayer .xg-icon-play svg,
-  .xgplayer .xg-icon-pause svg {
-    width: 32px !important;
-    height: 32px !important;
-  }
-
-  /* Larger time text for readability */
+  /* Time display - inline with controls */
   .xgplayer .xg-time {
-    font-size: 14px !important;
-    padding: 0 4px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    padding: 0 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
-  /* Larger center play button on mobile */
+  /* Hide playback rate on mobile to save space */
+  .xgplayer .xg-playrate {
+    display: none !important;
+  }
+
+  /* Center play button - mobile optimized */
   .xgplayer .xg-start,
   .xgplayer .xg-replay {
-    width: 72px !important;
-    height: 72px !important;
+    width: 64px !important;
+    height: 64px !important;
   }
 
   .xgplayer .xg-start svg,
   .xgplayer .xg-replay svg {
-    width: 36px !important;
-    height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 }
 
