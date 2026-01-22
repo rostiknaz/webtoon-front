@@ -492,88 +492,103 @@ h1, h2, h3, h4, h5, h6 {
 /* --------------------------------------------------------------------------
    Mobile-specific adjustments - Enhanced for touch devices
    Matching reference design: full-width progress bar, single row controls
+   Reference: https://my-drama.com - progress bar above control row
    -------------------------------------------------------------------------- */
 @media (hover: none) and (pointer: coarse) {
-  /* Controls container - clean bottom bar */
+  /* Controls container - vertical layout: progress on top, buttons below */
   .xgplayer .xgplayer-controls {
     height: auto !important;
-    min-height: 52px !important;
-    padding-top: 8px !important;
+    min-height: 56px !important;
+    padding: 0 !important;
     padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%) !important;
   }
 
-  /* Full-width progress bar - edge to edge, no padding */
+  /* Full-width progress bar - positioned at top of controls */
   .xgplayer .xgplayer-progress {
     position: relative !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    height: 20px !important;
+    order: -1 !important; /* Move to top */
     width: 100% !important;
+    height: 24px !important;
+    padding: 8px 0 !important;
+    margin: 0 !important;
     display: flex !important;
     align-items: center !important;
   }
 
-  /* Progress bar track - thicker for touch */
+  /* Progress bar track - visible thickness */
   .xgplayer .xgplayer-progress-outer {
     height: 3px !important;
-    margin: 0 !important;
+    margin: 0 12px !important;
     border-radius: 2px !important;
+    background: rgba(255, 255, 255, 0.3) !important;
   }
 
+  /* Thicker on active/touch */
   .xgplayer .xgplayer-progress.active .xgplayer-progress-outer,
-  .xgplayer .xgplayer-progress:hover .xgplayer-progress-outer {
-    height: 5px !important;
+  .xgplayer .xgplayer-progress:active .xgplayer-progress-outer {
+    height: 6px !important;
   }
 
-  /* Progress slider thumb */
+  /* Progress slider thumb - larger for touch */
   .xgplayer .xgplayer-progress-btn {
-    width: 16px !important;
-    height: 16px !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    background: #fff !important;
+    box-shadow: 0 0 8px rgba(255,255,255,0.5) !important;
   }
 
-  /* Inner controls - single row, fluid layout */
+  /* Inner controls - single row layout */
   .xgplayer .xg-inner-controls {
     height: 44px !important;
-    padding: 0 12px !important;
+    padding: 0 8px !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     gap: 0 !important;
     width: 100% !important;
+    order: 1 !important;
   }
 
-  /* Left grid - play, skip, time aligned left */
+  /* Left grid - play button and time */
   .xgplayer .xg-left-grid {
     display: flex !important;
     align-items: center !important;
-    gap: 4px !important;
-    flex: 1 !important;
-    justify-content: flex-start !important;
+    gap: 0 !important;
+    flex: 0 0 auto !important;
   }
 
-  /* Right grid - volume, settings aligned right */
-  .xgplayer .xg-right-grid {
+  /* Center grid - contains time, hide duplicate */
+  .xgplayer .xg-center-grid {
     display: flex !important;
     align-items: center !important;
-    gap: 4px !important;
-    flex: 0 0 auto !important;
-    justify-content: flex-end !important;
+    flex: 1 !important;
+    padding: 0 8px !important;
   }
 
-  /* Hide center grid on mobile - not needed */
-  .xgplayer .xg-center-grid {
+  /* Hide the time in center grid (use left grid time instead) */
+  .xgplayer .xg-center-grid .xg-time-left {
     display: none !important;
   }
 
+  /* Right grid - volume, fullscreen */
+  .xgplayer .xg-right-grid {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+  }
+
   /* Touch-friendly icon sizes */
-  .xgplayer xg-icon {
-    min-width: 40px !important;
-    min-height: 40px !important;
-    width: 40px !important;
-    height: 40px !important;
+  .xgplayer .xg-inner-controls xg-icon {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -581,27 +596,38 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0 !important;
   }
 
-  /* Icon SVGs - consistent size */
-  .xgplayer xg-icon svg {
-    width: 24px !important;
-    height: 24px !important;
+  /* Icon SVGs - clear visibility */
+  .xgplayer .xg-inner-controls xg-icon svg {
+    width: 22px !important;
+    height: 22px !important;
+    fill: #fff !important;
   }
 
-  /* Play/pause slightly larger */
-  .xgplayer .xg-icon-play svg,
-  .xgplayer .xg-icon-pause svg {
-    width: 28px !important;
-    height: 28px !important;
+  /* Play/pause icon slightly larger */
+  .xgplayer .xgplayer-play svg {
+    width: 26px !important;
+    height: 26px !important;
   }
 
-  /* Time display - inline with controls */
-  .xgplayer .xg-time {
+  /* Time display - between play and volume */
+  .xgplayer .xgplayer-time {
     font-size: 13px !important;
     font-weight: 500 !important;
     color: rgba(255, 255, 255, 0.9) !important;
-    padding: 0 8px !important;
+    padding: 0 4px !important;
     white-space: nowrap !important;
-    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: 44px !important;
+    width: auto !important;
+    min-width: unset !important;
+  }
+
+  /* Time separator */
+  .xgplayer .xgplayer-time .time-separator {
+    opacity: 0.6 !important;
+    padding: 0 2px !important;
   }
 
   /* Hide playback rate on mobile to save space */
@@ -609,17 +635,29 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 
-  /* Center play button - mobile optimized */
+  /* Hide fullscreen on mobile (use native) */
+  .xgplayer .xgplayer-fullscreen {
+    display: none !important;
+  }
+
+  /* Center play button overlay - larger for mobile */
   .xgplayer .xg-start,
   .xgplayer .xg-replay {
-    width: 64px !important;
-    height: 64px !important;
+    width: 72px !important;
+    height: 72px !important;
+    background: rgba(0,0,0,0.5) !important;
+    border-radius: 50% !important;
   }
 
   .xgplayer .xg-start svg,
   .xgplayer .xg-replay svg {
-    width: 32px !important;
-    height: 32px !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Ensure controls are always on top */
+  .xgplayer .xgplayer-controls {
+    z-index: 50 !important;
   }
 }
 
