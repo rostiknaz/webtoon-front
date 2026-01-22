@@ -28,11 +28,18 @@ const MAX_CACHED_PLAYERS = 5;
 /**
  * Check if the browser supports native HLS playback
  * Safari and iOS support HLS natively without MSE
+ * Result is cached since browser capability doesn't change during session
  */
-function supportsNativeHls(): boolean {
-  const video = document.createElement('video');
-  return video.canPlayType('application/vnd.apple.mpegurl') !== '';
-}
+const supportsNativeHls = (() => {
+  let cached: boolean | null = null;
+  return (): boolean => {
+    if (cached === null) {
+      const video = document.createElement('video');
+      cached = video.canPlayType('application/vnd.apple.mpegurl') !== '';
+    }
+    return cached;
+  };
+})();
 
 interface CachedPlayer {
   player: Player;
