@@ -125,13 +125,17 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
     'webkit-playsinline': true,
     closeVideoClick: true, // Disable xgplayer's click - we handle it via container onClick
     closeVideoDblclick: true,
-    closePauseVideoFocus: true,
+    closePauseVideoFocus: false, // Keep controls visible when paused
     closePlayVideoFocus: true,
     fitVideoSize: 'fixWidth',
     cssFullscreen: false,
     fluid: false,
     miniprogress: true,
     videoInit: true,
+    // Controls configuration - always show when not playing
+    controls: {
+      initShow: true, // Show controls on initial load
+    },
     mobile: {
       gestureX: true,
       gestureY: false, // Disable to not interfere with Swiper
