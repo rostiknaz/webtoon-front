@@ -218,11 +218,22 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* xgplayer styling for TikTok-style vertical video */
+/* ==========================================================================
+   xgplayer Premium Styling
+   Customized to match the brand design system with premium feel
+   ========================================================================== */
+
+/* Base player container */
 .xgplayer {
   width: 100% !important;
   height: 100% !important;
   max-width: 100% !important;
+  --xg-primary: hsl(10, 85%, 58%);
+  --xg-primary-light: hsl(10, 85%, 68%);
+  --xg-primary-glow: hsl(10, 85%, 58%, 0.4);
+  --xg-accent: hsl(280, 75%, 60%);
+  --xg-muted: hsl(240, 10%, 25%);
+  --xg-muted-light: hsl(240, 10%, 35%);
 }
 
 .xgplayer video {
@@ -231,16 +242,275 @@ h1, h2, h3, h4, h5, h6 {
   height: 100% !important;
 }
 
-.xgplayer-controls {
-  z-index: 30 !important;
-}
-
 /* Desktop: Fixed width container for vertical video */
 @media (min-width: 768px) {
   .xgplayer {
     aspect-ratio: 9 / 16 !important;
     width: auto !important;
     height: 100% !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Controls Bar - Premium glass morphism effect
+   -------------------------------------------------------------------------- */
+.xgplayer .xgplayer-controls {
+  z-index: 30 !important;
+  background: linear-gradient(
+    to top,
+    hsl(240, 10%, 4%, 0.95) 0%,
+    hsl(240, 10%, 6%, 0.85) 40%,
+    transparent 100%
+  ) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  height: 56px !important;
+  transition: opacity 0.3s ease, visibility 0.3s ease !important;
+}
+
+/* Inner controls layout */
+.xgplayer .xg-inner-controls {
+  height: 44px !important;
+  padding: 0 12px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Progress Bar - Brand colored with glow effects
+   -------------------------------------------------------------------------- */
+.xgplayer .xgplayer-progress {
+  height: 24px !important;
+}
+
+.xgplayer .xgplayer-progress-outer {
+  height: 3px !important;
+  border-radius: 4px !important;
+  background: var(--xg-muted) !important;
+  transition: height 0.2s ease !important;
+}
+
+/* Expand progress bar on hover/active */
+.xgplayer .xgplayer-progress.active .xgplayer-progress-outer,
+.xgplayer .xgplayer-progress:hover .xgplayer-progress-outer {
+  height: 5px !important;
+}
+
+/* Progress bar inner track */
+.xgplayer .xgplayer-progress-inner {
+  background: var(--xg-muted) !important;
+  border-radius: 4px !important;
+}
+
+/* Played progress - brand gradient */
+.xgplayer .xgplayer-progress-played {
+  background: linear-gradient(
+    90deg,
+    var(--xg-primary) 0%,
+    var(--xg-primary-light) 100%
+  ) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 8px var(--xg-primary-glow);
+}
+
+/* Cached/buffered progress */
+.xgplayer .xgplayer-progress-cache {
+  background: var(--xg-muted-light) !important;
+  border-radius: 4px !important;
+}
+
+/* Progress slider thumb/handle - premium glow effect */
+.xgplayer .xgplayer-progress-btn {
+  width: 16px !important;
+  height: 16px !important;
+  background: radial-gradient(
+    circle at center,
+    white 0%,
+    white 45%,
+    var(--xg-primary) 50%,
+    var(--xg-primary) 100%
+  ) !important;
+  border: none !important;
+  box-shadow:
+    0 0 0 3px hsl(10, 85%, 58%, 0.2),
+    0 0 12px var(--xg-primary-glow),
+    0 2px 8px hsl(0, 0%, 0%, 0.3) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.xgplayer .xgplayer-progress-btn::before {
+  display: none !important;
+}
+
+/* Thumb hover/active states */
+.xgplayer .xgplayer-progress.active .xgplayer-progress-btn,
+.xgplayer .xgplayer-progress:hover .xgplayer-progress-btn {
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  box-shadow:
+    0 0 0 4px hsl(10, 85%, 58%, 0.25),
+    0 0 20px var(--xg-primary-glow),
+    0 2px 12px hsl(0, 0%, 0%, 0.4) !important;
+}
+
+/* Mini progress bar (shows when controls hidden) */
+.xg-mini-progress {
+  height: 3px !important;
+  background: var(--xg-muted) !important;
+}
+
+.xg-mini-progress xg-mini-progress-played {
+  background: linear-gradient(
+    90deg,
+    var(--xg-primary) 0%,
+    var(--xg-primary-light) 100%
+  ) !important;
+  box-shadow: 0 0 6px var(--xg-primary-glow);
+}
+
+.xg-mini-progress xg-mini-progress-cache {
+  background: var(--xg-muted-light) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Control Icons - Consistent styling
+   -------------------------------------------------------------------------- */
+.xgplayer xg-icon {
+  color: white !important;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+.xgplayer xg-icon:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.xgplayer xg-icon:active {
+  transform: scale(0.95);
+}
+
+/* Play/pause button in controls */
+.xgplayer .xg-left-grid xg-icon:first-child,
+.xgplayer .xg-center-grid xg-icon {
+  color: white !important;
+}
+
+/* Time display */
+.xgplayer .xg-time {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: hsl(0, 0%, 85%) !important;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------------------------
+   Center Play Button (Start/Replay) - Premium branded styling
+   -------------------------------------------------------------------------- */
+.xgplayer .xg-start,
+.xgplayer .xg-replay {
+  background: hsl(10, 85%, 58%, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid hsl(10, 85%, 58%, 0.3) !important;
+  border-radius: 50% !important;
+  box-shadow:
+    0 0 30px hsl(10, 85%, 58%, 0.2),
+    inset 0 1px 0 hsl(0, 0%, 100%, 0.1) !important;
+  transition: all 0.3s ease !important;
+}
+
+.xgplayer .xg-start:hover,
+.xgplayer .xg-replay:hover {
+  background: hsl(10, 85%, 58%, 0.25) !important;
+  border-color: hsl(10, 85%, 58%, 0.5) !important;
+  box-shadow:
+    0 0 40px hsl(10, 85%, 58%, 0.3),
+    inset 0 1px 0 hsl(0, 0%, 100%, 0.15) !important;
+  transform: scale(1.05);
+}
+
+.xgplayer .xg-start svg,
+.xgplayer .xg-replay svg {
+  fill: white !important;
+  filter: drop-shadow(0 2px 4px hsl(0, 0%, 0%, 0.3));
+}
+
+/* --------------------------------------------------------------------------
+   Loading Spinner - Brand colored
+   -------------------------------------------------------------------------- */
+.xgplayer .xgplayer-loading {
+  border-color: hsl(10, 85%, 58%, 0.2) !important;
+  border-top-color: var(--xg-primary) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Volume Control - Premium styling
+   -------------------------------------------------------------------------- */
+.xgplayer .xg-volume-bar {
+  background: var(--xg-muted) !important;
+  border-radius: 3px !important;
+}
+
+.xgplayer .xg-volume-bar-inner {
+  background: linear-gradient(
+    to right,
+    var(--xg-primary),
+    var(--xg-primary-light)
+  ) !important;
+  border-radius: 3px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Tooltips and Popovers
+   -------------------------------------------------------------------------- */
+.xgplayer .xg-tips,
+.xgplayer .xg-options-list {
+  background: hsl(240, 10%, 10%, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid hsl(240, 10%, 20%) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px hsl(0, 0%, 0%, 0.4) !important;
+}
+
+.xgplayer .xg-tips {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Error State
+   -------------------------------------------------------------------------- */
+.xgplayer .xg-error {
+  background: hsl(240, 10%, 8%) !important;
+}
+
+.xgplayer .xg-error-tips {
+  color: hsl(0, 84%, 60%) !important;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile-specific adjustments
+   -------------------------------------------------------------------------- */
+@media (hover: none) and (pointer: coarse) {
+  .xgplayer .xgplayer-controls {
+    height: 52px !important;
+  }
+
+  .xgplayer .xgplayer-progress-outer {
+    height: 4px !important;
+  }
+
+  .xgplayer .xgplayer-progress-btn {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* Larger touch targets on mobile */
+  .xgplayer xg-icon {
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 }
 
