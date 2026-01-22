@@ -437,10 +437,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* --------------------------------------------------------------------------
-   Loading Spinner - Hide native xgplayer loading (we use custom VideoSkeleton)
+   Loading Spinner - Brand colored
    -------------------------------------------------------------------------- */
 .xgplayer .xgplayer-loading {
-  display: none !important;
+  border-color: hsl(10, 85%, 58%, 0.2) !important;
+  border-top-color: var(--xg-primary) !important;
 }
 
 /* --------------------------------------------------------------------------
