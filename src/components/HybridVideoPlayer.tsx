@@ -387,14 +387,26 @@ export function HybridVideoPlayer({
 
       // Check if player already exists using context
       if (cache.hasPlayer(episode._id)) {
-        // Player exists - restore position and play
         const cached = cache.getCachedPlayer(episode._id);
         if (cached) {
-          setupPlayerEvents(cached.player, slideIndex);
-          cache.restorePosition(episode._id);
-          cache.playPlayer(episode._id);
+          // IMPORTANT: Check if the cached player's container matches the current host
+          // Virtual Slides may have destroyed and re-created the slide element,
+          // leaving the cache with a stale reference to a detached DOM node
+          const isCacheStale = cached.container !== host || !cached.container.isConnected;
+
+          if (isCacheStale) {
+            // Destroy the old player and remove from cache
+            cached.player.destroy();
+            cache.removePlayer(episode._id);
+            // Don't return - fall through to create new player in the new host
+          } else {
+            // Cache is valid - restore position and play
+            setupPlayerEvents(cached.player, slideIndex);
+            cache.restorePosition(episode._id);
+            cache.playPlayer(episode._id);
+            return;
+          }
         }
-        return;
       }
 
       // Check if host already has video (player was created)
@@ -513,6 +525,49 @@ export function HybridVideoPlayer({
     [episodes, cache, initPlayer, preloadEpisode]
   );
 
+  // Handle slide change - PRIMARY handler for player initialization
+  // With Virtual Slides, slideChangeTransitionEnd doesn't fire for distant jumps
+  // because the target slide doesn't exist in DOM yet. onSlideChange fires immediately
+  // when activeIndex changes, regardless of whether a transition animation occurs.
+  const handleSlideChange = useCallback(
+    (swiper: SwiperType) => {
+      const newIndex = swiper.activeIndex;
+      onEpisodeChange(newIndex);
+
+      const episode = episodes[newIndex];
+      if (!episode || episode.isLocked) return;
+
+      cache.setActiveEpisode(episode._id);
+
+      // Initialize player after a short delay to let Virtual Slides render the DOM
+      // Virtual Slides renders asynchronously, so we need to wait for the element
+      const tryInitPlayer = (retries = 0) => {
+        // Guard against destroyed swiper
+        if (!swiper?.el) return;
+
+        const activeSlide = swiper.el.querySelector(
+          `[data-episode-id="${episode._id}"]`
+        ) as HTMLElement;
+
+        const playerHost = activeSlide?.querySelector('.player-host') as HTMLElement;
+        const isHostReady = playerHost?.isConnected;
+
+        if (activeSlide && isHostReady) {
+          initPlayer(activeSlide, newIndex);
+          preloadAdjacentEpisodes(swiper, newIndex);
+        } else if (retries < 20) {
+          // Virtual Slides needs time to render - use exponential backoff
+          const delay = Math.min(20 * Math.pow(1.3, retries), 200);
+          setTimeout(() => tryInitPlayer(retries + 1), delay);
+        }
+      };
+
+      // Start after a frame to let Virtual Slides update DOM
+      requestAnimationFrame(() => tryInitPlayer(0));
+    },
+    [episodes, cache, initPlayer, onEpisodeChange, preloadAdjacentEpisodes]
+  );
+
   // Handle slide change start - save position and preload target
   const handleSlideChangeTransitionStart = useCallback(
     (swiper: SwiperType) => {
@@ -536,49 +591,20 @@ export function HybridVideoPlayer({
     [episodes, cache, preloadEpisode]
   );
 
-  // Handle slide change end - play the preloaded episode (for swipe gestures)
+  // Handle slide change transition end - fires for swipe gestures on adjacent slides
+  // Note: This does NOT fire for distant jumps with Virtual Slides because the target
+  // slide doesn't exist in DOM. handleSlideChange is the primary initialization handler.
   const handleSlideChangeTransitionEnd = useCallback(
-    (swiper: SwiperType) => {
-      const newIndex = swiper.activeIndex;
-      onEpisodeChange(newIndex);
-
-      const episode = episodes[newIndex];
-      if (episode) {
-        cache.setActiveEpisode(episode._id);
-
-        // IMPORTANT: With Virtual Slides, when jumping to distant slides (e.g., from 1 to 12),
-        // the DOM elements may not exist yet when this callback fires.
-        // Virtual slides renders asynchronously, so we need to retry until the element appears.
-        const tryInitPlayer = (retries = 0) => {
-          // Guard against destroyed swiper instance
-          if (!swiper?.el) return;
-
-          // Find active slide by episode ID (works with virtual slides)
-          const activeSlide = swiper.el.querySelector(
-            `[data-episode-id="${episode._id}"]`
-          ) as HTMLElement;
-
-          if (activeSlide) {
-            // initPlayer will either play cached player or create new one if needed
-            initPlayer(activeSlide, newIndex);
-            // Pre-cache adjacent episodes during idle time for next transitions
-            preloadAdjacentEpisodes(swiper, newIndex);
-          } else if (retries < 5) {
-            // Virtual slides may need more time to render after programmatic slideTo
-            // Retry with increasing delay (16ms, 32ms, 48ms, 64ms, 80ms)
-            setTimeout(() => tryInitPlayer(retries + 1), 16);
-          }
-        };
-
-        // Start with requestAnimationFrame to sync with render
-        requestAnimationFrame(() => tryInitPlayer(0));
-      }
+    (_swiper: SwiperType) => {
+      // Most work is now done in handleSlideChange
+      // This callback mainly ensures we catch any edge cases for adjacent swipes
     },
-    [episodes, cache, initPlayer, onEpisodeChange, preloadAdjacentEpisodes]
+    []
   );
 
 
   // Navigate to specific episode (called from parent via initialIndex change)
+  // Player initialization is handled by handleSlideChange when slideTo triggers onSlideChange
   useEffect(() => {
     const swiper = swiperRef.current;
     if (!swiper || swiper.activeIndex === initialIndex) return;
@@ -591,39 +617,9 @@ export function HybridVideoPlayer({
     }
     cache.pauseAll();
 
-    // Navigate to the new slide
+    // Navigate to the new slide - handleSlideChange will initialize the player
     swiper.slideTo(initialIndex);
-
-    // IMPORTANT: Swiper's onSlideChangeTransitionEnd doesn't fire reliably when
-    // slideTo() is called during React re-renders. We need to manually initialize
-    // the player after the transition completes.
-    const episode = episodes[initialIndex];
-    if (episode && !episode.isLocked) {
-      cache.setActiveEpisode(episode._id);
-
-      // Wait for transition to complete and virtual slides to render
-      const tryInitPlayer = (retries = 0) => {
-        if (!swiper?.el) return;
-
-        const activeSlide = swiper.el.querySelector(
-          `[data-episode-id="${episode._id}"]`
-        ) as HTMLElement;
-
-        if (activeSlide) {
-          initPlayer(activeSlide, initialIndex);
-          preloadAdjacentEpisodes(swiper, initialIndex);
-        } else if (retries < 10) {
-          // More retries since we're not waiting for transition event
-          setTimeout(() => tryInitPlayer(retries + 1), 50);
-        }
-      };
-
-      // Wait for transition animation to complete (speed is 280ms)
-      setTimeout(() => {
-        requestAnimationFrame(() => tryInitPlayer(0));
-      }, 300);
-    }
-  }, [initialIndex, episodes, cache, initPlayer, preloadAdjacentEpisodes]);
+  }, [initialIndex, episodes, cache]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -662,6 +658,7 @@ export function HybridVideoPlayer({
         longSwipesRatio={0.3}         // Easier to complete swipe
         watchSlidesProgress
         onSwiper={handleSwiperInit}
+        onSlideChange={handleSlideChange}
         onSlideChangeTransitionStart={handleSlideChangeTransitionStart}
         onSlideChangeTransitionEnd={handleSlideChangeTransitionEnd}
         initialSlide={initialIndex}

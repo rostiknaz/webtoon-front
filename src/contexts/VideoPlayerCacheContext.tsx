@@ -82,6 +82,9 @@ interface VideoPlayerCacheContextValue {
   /** Destroy all cached players (cleanup) */
   destroyAll: () => void;
 
+  /** Remove a specific player from cache (for handling stale references) */
+  removePlayer: (episodeId: string) => void;
+
   /** Get cache stats for debugging */
   getCacheStats: () => { size: number; maxSize: number; episodeIds: string[] };
 
@@ -397,6 +400,16 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     setActiveEpisodeIdState(null);
   }, []);
 
+  // Remove a specific player from cache (for handling stale references)
+  const removePlayer = useCallback((episodeId: string) => {
+    const cached = cacheRef.current.get(episodeId);
+    if (cached) {
+      // Don't destroy here - caller may have already destroyed or wants to handle it
+      cacheRef.current.delete(episodeId);
+      orderRef.current = orderRef.current.filter(id => id !== episodeId);
+    }
+  }, []);
+
   // Get cache stats
   const getCacheStats = useCallback(() => ({
     size: cacheRef.current.size,
@@ -427,6 +440,7 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     pauseAll,
     playPlayer,
     destroyAll,
+    removePlayer,
     getCacheStats,
     isEpisodeLoading,
     loadingStateVersion,
@@ -444,6 +458,7 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     pauseAll,
     playPlayer,
     destroyAll,
+    removePlayer,
     getCacheStats,
     isEpisodeLoading,
     loadingStateVersion,
