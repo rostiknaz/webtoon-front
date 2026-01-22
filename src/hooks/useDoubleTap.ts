@@ -33,6 +33,14 @@ export function useDoubleTap({
     // Only handle primary pointer (left click / first touch)
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
+    // Ignore taps on interactive elements - let them handle their own events
+    // This prevents play/pause from triggering when tapping buttons, links, or control overlays
+    const target = e.target as HTMLElement;
+    const interactiveElement = target.closest(
+      'button, a, input, select, textarea, [role="button"], [role="link"], .custom-controls'
+    );
+    if (interactiveElement) return;
+
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTimeRef.current;
     const position = { x: e.clientX, y: e.clientY };
