@@ -179,11 +179,11 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     // Loading started
     player.on(Events.LOAD_START, () => setLoading(true));
     player.on(Events.WAITING, () => setLoading(true));
+    player.on(Events.ERROR, () => setLoading(false)); // Hide skeleton on error (show xgplayer error UI)
 
-    // Loading complete - auto-play if this episode was queued for autoplay
+    // CANPLAY fires when metadata loads, but video may not be ready to render
+    // We use it only to trigger pending autoplay, not to hide skeleton
     player.on(Events.CANPLAY, () => {
-      setLoading(false);
-
       // Auto-play if this episode is pending autoplay
       if (pendingAutoPlayRef.current.has(episodeId)) {
         pendingAutoPlayRef.current.delete(episodeId);
@@ -192,7 +192,18 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
         });
       }
     });
+
+    // Loading complete - only when video is actually playing/rendering
+    // PLAYING fires when playback actually starts after buffering
+    // TIME_UPDATE fires when playback position changes (video is rendering)
     player.on(Events.PLAYING, () => setLoading(false));
+
+    // Use first TIME_UPDATE as backup - guarantees video is rendering frames
+    const onFirstTimeUpdate = () => {
+      setLoading(false);
+      player.off(Events.TIME_UPDATE, onFirstTimeUpdate);
+    };
+    player.on(Events.TIME_UPDATE, onFirstTimeUpdate);
   }, []);
 
   // Evict oldest player when at capacity (LRU)

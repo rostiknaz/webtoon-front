@@ -103,7 +103,7 @@ export const VideoSkeleton = memo(function VideoSkeleton({
     <AnimatePresence mode="wait">
       {isLoading && (
         <motion.div
-          className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none overflow-hidden"
+          className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none overflow-hidden"
           style={{
             background: `linear-gradient(180deg, ${COLORS.background} 0%, hsl(240 10% 4%) 50%, ${COLORS.background} 100%)`,
           }}
