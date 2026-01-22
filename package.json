@@ -80,7 +80,6 @@
     "tailwindcss": "^4.1.18",
     "vaul": "^1.1.2",
     "xgplayer": "^3.0.23",
-    "xgplayer-hls": "^3.0.23",
     "xgplayer-hls.js": "^3.0.23",
     "zod": "^4.3.5"
   },
