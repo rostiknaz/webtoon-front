@@ -443,7 +443,8 @@ h1, h2, h3, h4, h5, h6 {
 .xgplayer .xgplayer-loading,
 .xgplayer .xgplayer-enter,
 .xgplayer .xgplayer-enter-spinner,
-.xgplayer .xgplayer-start {
+.xgplayer .xgplayer-start,
+.xgplayer .xgplayer-poster {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
