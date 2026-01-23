@@ -236,7 +236,9 @@ export function VideoPlayerCacheProvider({
 
       try {
         await player.play();
-        // Autoplay worked - video is playing (muted)
+        // Autoplay worked - hide xgplayer spinner explicitly
+        // Safari with native HLS may not auto-hide the spinner
+        hidePlayerSpinner(player);
       } catch {
         // Even muted autoplay blocked - hide spinner, show first frame
         // This can happen in strict browser contexts (e.g., Playwright without user gesture)
@@ -283,7 +285,11 @@ export function VideoPlayerCacheProvider({
       });
 
       // Only hide skeleton when video is actually playing (has visible content)
-      player.on(Events.PLAYING, () => setLoading(false));
+      player.on(Events.PLAYING, () => {
+        setLoading(false);
+        // Also hide xgplayer's enter spinner - Safari with native HLS may not auto-hide it
+        hidePlayerSpinner(player);
+      });
 
       // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
       let hasHiddenSkeleton = false;
@@ -294,7 +300,7 @@ export function VideoPlayerCacheProvider({
         }
       });
     },
-    [cache, tryPlayWithFallback]
+    [cache, tryPlayWithFallback, hidePlayerSpinner]
   );
 
   /**
