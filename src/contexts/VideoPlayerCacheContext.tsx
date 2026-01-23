@@ -207,10 +207,9 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     player.on(Events.LOAD_START, () => setLoading(true));
     player.on(Events.WAITING, () => setLoading(true));
 
-    // Loading complete - auto-play if this episode was queued for autoplay
+    // CANPLAY means video has enough data to start, but hasn't rendered frames yet
+    // Don't hide skeleton here - wait for PLAYING event when video actually shows content
     player.on(Events.CANPLAY, () => {
-      setLoading(false);
-
       // Auto-play if this episode is pending autoplay
       if (pendingAutoPlayRef.current.has(episodeId)) {
         pendingAutoPlayRef.current.delete(episodeId);
@@ -219,7 +218,19 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
         });
       }
     });
+
+    // Only hide skeleton when video is actually playing (has visible content)
+    // This fixes the "pulsing dot" issue where preloaded episodes showed black screen
     player.on(Events.PLAYING, () => setLoading(false));
+
+    // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
+    let hasHiddenSkeleton = false;
+    player.on(Events.TIME_UPDATE, () => {
+      if (!hasHiddenSkeleton) {
+        hasHiddenSkeleton = true;
+        setLoading(false);
+      }
+    });
   }, []);
 
   // Evict oldest player when at capacity (LRU)
