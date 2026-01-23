@@ -442,21 +442,25 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     const cached = cacheRef.current.get(episodeId);
     if (!cached?.player) return;
 
-    // If player is still loading, queue the play request for when CANPLAY fires
-    if (cached.isLoading) {
+    // Get the underlying video element to check readiness
+    const video = cached.player.video as HTMLVideoElement | undefined;
+    const isVideoReady = video && video.readyState >= 3; // HAVE_FUTURE_DATA or higher
+
+    // If player is loading but video is actually ready (CANPLAY already fired during preload),
+    // we can play immediately - don't wait for CANPLAY again since it won't fire
+    if (cached.isLoading && !isVideoReady) {
       pendingAutoPlayRef.current.add(episodeId);
       return;
     }
 
-    // Player is ready, play immediately
+    // Video is ready to play - try to play immediately
     try {
       await cached.player.play();
+      // If play succeeds, PLAYING event will fire and hide skeleton
     } catch (err) {
-      // These are expected browser behaviors, not errors:
-      // - "interrupted by a new load request" = rapid navigation
-      // - "interrupted by a call to pause()" = slide transition
-      // - "user didn't interact" = autoplay policy
-      // Only log in development for debugging
+      // Autoplay blocked by browser policy - this is expected on mobile
+      // The video is ready but won't play until user taps
+      // Keep skeleton visible (isLoading stays true) until user interaction
       if (import.meta.env.DEV) {
         console.debug('Play prevented:', (err as Error).message);
       }
