@@ -236,7 +236,18 @@ export function VideoPlayerCacheProvider({
 
       try {
         await player.play();
-        // Autoplay worked - hide xgplayer spinner explicitly
+
+        // Mobile Safari may silently block autoplay even when promise resolves
+        // Check if video is actually playing - if still paused, autoplay was blocked
+        if (video?.paused) {
+          // Autoplay silently blocked - hide skeleton to show video element
+          // User can tap to play
+          if (activeEpisodeIdRef.current === episodeId) {
+            cache.update(episodeId, { isLoading: false });
+          }
+        }
+
+        // Hide xgplayer spinner explicitly
         // Safari with native HLS may not auto-hide the spinner
         hidePlayerSpinner(player);
       } catch {
