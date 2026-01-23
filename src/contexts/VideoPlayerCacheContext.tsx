@@ -4,7 +4,7 @@
  * Provides player caching with LRU eviction for use with Swiper or standalone.
  *
  * Features:
- * 1. LRU eviction (max 5 players) for memory management
+ * 1. LRU eviction (max 3 players) for memory management
  * 2. Position saving/restoration for seamless resume
  * 3. Works with Swiper slides (initPlayerInHost) or standalone containers
  * 4. Prevents m3u8 reloads when switching back to cached episodes
@@ -23,7 +23,12 @@ import Player, { Events } from 'xgplayer';
 import HlsJsPlugin from 'xgplayer-hls.js';
 import 'xgplayer/dist/index.min.css';
 
-const MAX_CACHED_PLAYERS = 5;
+/**
+ * Reduced from 5 to 3 to minimize Cloudflare Stream bandwidth costs.
+ * Each cached player buffers video segments, so fewer players = less streaming.
+ * 3 players covers: current + prev + next (optimal for smooth swiping)
+ */
+const MAX_CACHED_PLAYERS = 3;
 
 /**
  * Check if the browser supports native HLS playback
@@ -114,8 +119,8 @@ interface VideoPlayerCacheContextValue {
 const VideoPlayerCacheContext = createContext<VideoPlayerCacheContextValue | null>(null);
 
 /**
- * Default xgplayer configuration for HLS streaming
- * Styled to match the premium design system
+ * Create xgplayer configuration
+ * Buffer reduced to 10 seconds to minimize Cloudflare Stream bandwidth costs
  */
 function createPlayerConfig(container: HTMLElement, hlsUrl: string): ConstructorParameters<typeof Player>[0] {
   return {
@@ -163,10 +168,8 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
     ...(supportsNativeHls() ? {} : {
       plugins: [HlsJsPlugin],
       hlsJsPlugin: {
-        // hls.js configuration
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        // Enable error recovery
+        maxBufferLength: 10,       // Reduced from 30 to minimize bandwidth
+        maxMaxBufferLength: 20,    // Reduced from 60
         enableWorker: true,
         // Fragment loading configuration
         fragLoadingMaxRetry: 6,
