@@ -443,6 +443,7 @@ h1, h2, h3, h4, h5, h6 {
 .xgplayer .xgplayer-loading,
 .xgplayer .xgplayer-enter,
 .xgplayer .xgplayer-enter-spinner,
+.xgplayer [class^="xgplayer-enter-bar"],
 .xgplayer .xgplayer-start,
 .xgplayer .xgplayer-poster {
   display: none !important;

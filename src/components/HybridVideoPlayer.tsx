@@ -17,7 +17,10 @@ import { Button } from "./ui/button";
 import { MotionButton, buttonAnimations } from "./ui/motion-button";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
+import {
+  useVideoPlayerCache,
+  useIsEpisodeLoading,
+} from "@/contexts/VideoPlayerCacheContext";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
 import { useDoubleTap } from "@/hooks/useDoubleTap";
 import { useHaptic } from "@/hooks/useHaptic";
@@ -59,7 +62,6 @@ interface EpisodeSlideProps {
   seriesTitle: string;
   showControls: boolean;
   isLiked: boolean;
-  isLoading: boolean;
   cacheStats?: { size: number; maxSize: number };
   onToggleLike: (episodeId: string) => void; // Accept episodeId to avoid inline arrow in parent
   onVideoClick: () => void;
@@ -78,13 +80,16 @@ const EpisodeSlide = memo(function EpisodeSlide({
   seriesTitle,
   showControls,
   isLiked,
-  isLoading,
   cacheStats,
   onToggleLike,
   onVideoClick,
   onLockedEpisode,
   onShowEpisodes,
 }: EpisodeSlideProps) {
+  // Subscribe to this episode's loading state using useSyncExternalStore
+  // This ensures only this slide re-renders when its loading state changes
+  const isLoading = useIsEpisodeLoading(episode._id);
+
   // Haptic feedback for like interactions
   const haptic = useHaptic();
 
@@ -152,8 +157,9 @@ const EpisodeSlide = memo(function EpisodeSlide({
           <>
             {/* Loading skeleton - shows while video is buffering */}
             <VideoSkeleton isLoading={isLoading} />
+            {/* Player host with dark background as fallback when neither skeleton nor video shows */}
             <div
-              className="player-host w-full h-full"
+              className="player-host w-full h-full bg-background"
               data-episode-id={episode._id}
             />
           </>
@@ -656,9 +662,8 @@ export function HybridVideoPlayer({
   // Debug: show cache stats only in dev (avoid unnecessary object creation in production)
   const cacheStats = import.meta.env.DEV ? cache.getCacheStats() : undefined;
 
-  // Subscribe to loading state changes by accessing loadingStateVersion
-  // This triggers re-renders when any player's loading state changes
-  void cache.loadingStateVersion;
+  // Note: Loading state subscriptions are now handled per-slide via useIsEpisodeLoading
+  // This provides more efficient re-renders - only the affected slide re-renders
 
   return (
     <div
@@ -732,7 +737,6 @@ export function HybridVideoPlayer({
                 seriesTitle={seriesTitle}
                 showControls={showControls}
                 isLiked={!!likedEpisodes[episode._id]}
-                isLoading={cache.isEpisodeLoading(episode._id)}
                 cacheStats={cacheStats}
                 onToggleLike={toggleLike}
                 onVideoClick={handleVideoClick}

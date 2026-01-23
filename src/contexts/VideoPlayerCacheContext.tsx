@@ -8,6 +8,7 @@
  * 2. Position saving/restoration for seamless resume
  * 3. Works with Swiper slides (initPlayerInHost) or standalone containers
  * 4. Prevents m3u8 reloads when switching back to cached episodes
+ * 5. Uses useSyncExternalStore for efficient React re-renders
  */
 
 import {
@@ -18,10 +19,16 @@ import {
   useState,
   useMemo,
   type ReactNode,
-} from 'react';
-import Player, { Events } from 'xgplayer';
-import HlsJsPlugin from 'xgplayer-hls.js';
-import 'xgplayer/dist/index.min.css';
+} from "react";
+import Player, { Events } from "xgplayer";
+import HlsJsPlugin from "xgplayer-hls.js";
+import "xgplayer/dist/index.min.css";
+
+import {
+  LRUPlayerCache,
+  usePlayerLoadingState,
+  type CachedPlayer,
+} from "@/lib/player";
 
 /**
  * Reduced from 5 to 3 to minimize Cloudflare Stream bandwidth costs.
@@ -39,21 +46,12 @@ const supportsNativeHls = (() => {
   let cached: boolean | null = null;
   return (): boolean => {
     if (cached === null) {
-      const video = document.createElement('video');
-      cached = video.canPlayType('application/vnd.apple.mpegurl') !== '';
+      const video = document.createElement("video");
+      cached = video.canPlayType("application/vnd.apple.mpegurl") !== "";
     }
     return cached;
   };
 })();
-
-interface CachedPlayer {
-  player: Player;
-  container: HTMLElement;
-  currentTime: number;
-  episodeId: string;
-  hlsUrl: string;
-  isLoading: boolean;
-}
 
 interface VideoPlayerCacheContextValue {
   /** Initialize player in a host element (for Swiper slides). Returns null if initialization fails. */
@@ -108,21 +106,26 @@ interface VideoPlayerCacheContextValue {
 
   /** Get cache stats for debugging */
   getCacheStats: () => { size: number; maxSize: number; episodeIds: string[] };
-
-  /** Check if an episode is currently loading/buffering */
-  isEpisodeLoading: (episodeId: string) => boolean;
-
-  /** Loading state change counter (for triggering re-renders) */
-  loadingStateVersion: number;
 }
 
-const VideoPlayerCacheContext = createContext<VideoPlayerCacheContextValue | null>(null);
+const VideoPlayerCacheContext =
+  createContext<VideoPlayerCacheContextValue | null>(null);
+
+/**
+ * Separate context for the raw cache instance.
+ * This allows hooks like useIsEpisodeLoading to access the cache directly
+ * for useSyncExternalStore without coupling to the full context.
+ */
+const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
 
 /**
  * Create xgplayer configuration
  * Buffer reduced to 10 seconds to minimize Cloudflare Stream bandwidth costs
  */
-function createPlayerConfig(container: HTMLElement, hlsUrl: string): ConstructorParameters<typeof Player>[0] {
+function createPlayerConfig(
+  container: HTMLElement,
+  hlsUrl: string
+): ConstructorParameters<typeof Player>[0] {
   return {
     el: container,
     url: hlsUrl,
@@ -130,14 +133,14 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
     loop: false,
     defaultPlaybackRate: 1,
     playsinline: true,
-    'x5-video-player-type': 'h5',
-    'x5-video-orientation': 'portrait',
-    'webkit-playsinline': true,
+    "x5-video-player-type": "h5",
+    "x5-video-orientation": "portrait",
+    "webkit-playsinline": true,
     closeVideoClick: true, // Disable xgplayer's click - we handle it via container onClick
     closeVideoDblclick: true,
     closePauseVideoFocus: false, // Keep controls visible when paused
     closePlayVideoFocus: true,
-    fitVideoSize: 'fixWidth',
+    fitVideoSize: "fixWidth",
     cssFullscreen: false,
     fluid: false,
     miniprogress: true,
@@ -153,406 +156,470 @@ function createPlayerConfig(container: HTMLElement, hlsUrl: string): Constructor
     },
     // White styling to match control icons
     commonStyle: {
-      playedColor: 'rgba(255, 255, 255, 0.9)',      // Progress played color
-      cachedColor: 'rgba(255, 255, 255, 0.35)',     // Buffered/cached color
-      progressColor: 'rgba(255, 255, 255, 0.2)',    // Progress bar background
-      volumeColor: 'rgba(255, 255, 255, 0.9)',      // Volume bar color
+      playedColor: "rgba(255, 255, 255, 0.9)", // Progress played color
+      cachedColor: "rgba(255, 255, 255, 0.35)", // Buffered/cached color
+      progressColor: "rgba(255, 255, 255, 0.2)", // Progress bar background
+      volumeColor: "rgba(255, 255, 255, 0.9)", // Volume bar color
       sliderBtnStyle: {
-        background: '#ffffff',
-        boxShadow: '0 0 10px rgba(255, 255, 255, 0.4)',
+        background: "#ffffff",
+        boxShadow: "0 0 10px rgba(255, 255, 255, 0.4)",
       },
     },
     // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
     // Safari and iOS support HLS natively and should use native playback for better compatibility
     // Using xgplayer-hls.js (based on hls.js) instead of xgplayer-hls for better codec compatibility
-    ...(supportsNativeHls() ? {} : {
-      plugins: [HlsJsPlugin],
-      hlsJsPlugin: {
-        maxBufferLength: 10,       // Reduced from 30 to minimize bandwidth
-        maxMaxBufferLength: 20,    // Reduced from 60
-        enableWorker: true,
-        // Fragment loading configuration
-        fragLoadingMaxRetry: 6,
-        fragLoadingRetryDelay: 1000,
-        fragLoadingMaxRetryTimeout: 64000,
-      },
-    }),
+    ...(supportsNativeHls()
+      ? {}
+      : {
+          plugins: [HlsJsPlugin],
+          hlsJsPlugin: {
+            maxBufferLength: 10, // Reduced from 30 to minimize bandwidth
+            maxMaxBufferLength: 20, // Reduced from 60
+            enableWorker: true,
+            // Fragment loading configuration
+            fragLoadingMaxRetry: 6,
+            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetryTimeout: 64000,
+          },
+        }),
   };
 }
 
-export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) {
-  const cacheRef = useRef<Map<string, CachedPlayer>>(new Map());
-  const orderRef = useRef<string[]>([]);
+export function VideoPlayerCacheProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  // LRU cache instance - persists across renders
+  const cache = useRef(new LRUPlayerCache(MAX_CACHED_PLAYERS)).current;
 
   // Use state for active episode to trigger re-renders when it changes
-  const [activeEpisodeId, setActiveEpisodeIdState] = useState<string | null>(null);
+  const [activeEpisodeId, setActiveEpisodeIdState] = useState<string | null>(
+    null
+  );
 
   // Ref to track active episode (for event handlers to access current value)
   const activeEpisodeIdRef = useRef<string | null>(null);
 
-  // Loading state version - increment to trigger re-renders when loading state changes
-  const [loadingStateVersion, setLoadingStateVersion] = useState(0);
-
   // Track episodes that should auto-play when ready
   const pendingAutoPlayRef = useRef<Set<string>>(new Set());
 
-  // Setup loading event listeners on a player
-  const setupLoadingEvents = useCallback((player: Player, episodeId: string) => {
-    const setLoading = (isLoading: boolean) => {
-      const cached = cacheRef.current.get(episodeId);
-      if (!cached) return;
+  /**
+   * Hide xgplayer's enter spinner (shown before first play).
+   * Called when autoplay is blocked to show video poster/first frame instead of spinner.
+   */
+  const hidePlayerSpinner = useCallback((player: Player) => {
+    const container = player.root;
+    if (!container) return;
 
-      // Only allow hiding skeleton (isLoading: false) for the ACTIVE episode
-      // This prevents preloaded episodes from hiding their skeleton prematurely
-      if (!isLoading && activeEpisodeIdRef.current !== episodeId) {
-        return;
-      }
-
-      if (cached.isLoading !== isLoading) {
-        cached.isLoading = isLoading;
-        setLoadingStateVersion(v => v + 1);
-      }
-    };
-
-    // Loading started
-    player.on(Events.LOAD_START, () => setLoading(true));
-    player.on(Events.WAITING, () => setLoading(true));
-
-    // CANPLAY means video has enough data to start, but hasn't rendered frames yet
-    // Don't hide skeleton here - wait for PLAYING event when video actually shows content
-    player.on(Events.CANPLAY, () => {
-      // Auto-play if this episode is pending autoplay
-      if (pendingAutoPlayRef.current.has(episodeId)) {
-        pendingAutoPlayRef.current.delete(episodeId);
-        player.play().catch(() => {
-          // Autoplay blocked by browser policy - this is expected
-        });
-      }
-    });
-
-    // Only hide skeleton when video is actually playing (has visible content)
-    player.on(Events.PLAYING, () => setLoading(false));
-
-    // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
-    let hasHiddenSkeleton = false;
-    player.on(Events.TIME_UPDATE, () => {
-      if (!hasHiddenSkeleton && activeEpisodeIdRef.current === episodeId) {
-        hasHiddenSkeleton = true;
-        setLoading(false);
-      }
-    });
-  }, []);
-
-  // Evict oldest player when at capacity (LRU)
-  const evictOldest = useCallback((protectedId?: string) => {
-    while (cacheRef.current.size >= MAX_CACHED_PLAYERS && orderRef.current.length > 0) {
-      // Find oldest that isn't protected
-      const oldestIdx = orderRef.current.findIndex(id => id !== protectedId);
-      if (oldestIdx === -1) break;
-
-      const oldestId = orderRef.current[oldestIdx];
-      orderRef.current.splice(oldestIdx, 1);
-
-      const cached = cacheRef.current.get(oldestId);
-      if (cached) {
-        // Save position before destroying
-        cached.currentTime = cached.player.currentTime || 0;
-        cached.player.destroy();
-        // Clear container contents but keep the container in DOM
-        // (container is managed by parent component like HybridVideoPlayer)
-        while (cached.container.firstChild) {
-          cached.container.removeChild(cached.container.firstChild);
-        }
-        cacheRef.current.delete(oldestId);
-      }
+    // Hide xgplayer's enter spinner
+    const spinner = container.querySelector('.xgplayer-enter-spinner') as HTMLElement;
+    if (spinner) {
+      spinner.style.display = 'none';
     }
   }, []);
+
+  /**
+   * Try to play video with muted autoplay (most reliable for autoplay).
+   * Muted autoplay is allowed by most browsers without user interaction.
+   * User can unmute via player controls after video starts.
+   */
+  const tryPlayWithFallback = useCallback(
+    async (player: Player, episodeId: string) => {
+      const video = player.video as HTMLVideoElement | undefined;
+
+      // Start muted for reliable autoplay (Chrome/Safari policy)
+      // User can unmute via player controls
+      if (video) {
+        video.muted = true;
+      }
+
+      try {
+        await player.play();
+        // Autoplay worked - video is playing (muted)
+      } catch {
+        // Even muted autoplay blocked - hide spinner, show first frame
+        // This can happen in strict browser contexts (e.g., Playwright without user gesture)
+        if (activeEpisodeIdRef.current === episodeId) {
+          cache.update(episodeId, { isLoading: false });
+          hidePlayerSpinner(player);
+        }
+      }
+    },
+    [cache, hidePlayerSpinner]
+  );
+
+  // Setup loading event listeners on a player
+  const setupLoadingEvents = useCallback(
+    (player: Player, episodeId: string) => {
+      const setLoading = (isLoading: boolean) => {
+        const cached = cache.get(episodeId);
+        if (!cached) return;
+
+        // Only allow hiding skeleton (isLoading: false) for the ACTIVE episode
+        // This prevents preloaded episodes from hiding their skeleton prematurely
+        if (!isLoading && activeEpisodeIdRef.current !== episodeId) {
+          return;
+        }
+
+        if (cached.isLoading !== isLoading) {
+          // Update via cache.update which triggers subscribers (useSyncExternalStore)
+          cache.update(episodeId, { isLoading });
+        }
+      };
+
+      // Loading started
+      player.on(Events.LOAD_START, () => setLoading(true));
+      player.on(Events.WAITING, () => setLoading(true));
+
+      // CANPLAY means video has enough data to start, but hasn't rendered frames yet
+      // Don't hide skeleton here - wait for PLAYING event when video actually shows content
+      player.on(Events.CANPLAY, () => {
+        // Auto-play if this episode is pending autoplay
+        if (pendingAutoPlayRef.current.has(episodeId)) {
+          pendingAutoPlayRef.current.delete(episodeId);
+          tryPlayWithFallback(player, episodeId);
+        }
+      });
+
+      // Only hide skeleton when video is actually playing (has visible content)
+      player.on(Events.PLAYING, () => setLoading(false));
+
+      // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
+      let hasHiddenSkeleton = false;
+      player.on(Events.TIME_UPDATE, () => {
+        if (!hasHiddenSkeleton && activeEpisodeIdRef.current === episodeId) {
+          hasHiddenSkeleton = true;
+          setLoading(false);
+        }
+      });
+    },
+    [cache, tryPlayWithFallback]
+  );
+
+  /**
+   * Create or retrieve a player from cache.
+   * Unified internal method used by both initPlayerInHost and preloadPlayer.
+   */
+  const createOrGetPlayer = useCallback(
+    (
+      episodeId: string,
+      hlsUrl: string,
+      hostElement: HTMLElement,
+      options: { returnResult: boolean }
+    ): { player: Player; isNew: boolean } | null => {
+      const existing = cache.get(episodeId);
+
+      if (existing) {
+        // Mark as recently used
+        cache.touch(episodeId);
+
+        // Check if URL changed
+        if (existing.hlsUrl !== hlsUrl) {
+          existing.player.src = hlsUrl;
+          cache.update(episodeId, { hlsUrl });
+        }
+
+        return options.returnResult
+          ? { player: existing.player, isNew: false }
+          : null;
+      }
+
+      // Skip if host already has video content
+      if (hostElement.querySelector("video")) {
+        return null;
+      }
+
+      try {
+        // Create new player in the host element
+        const player = new Player(createPlayerConfig(hostElement, hlsUrl));
+
+        // Create cached player entry
+        const cachedPlayer: CachedPlayer = {
+          player,
+          container: hostElement,
+          currentTime: 0,
+          episodeId,
+          hlsUrl,
+          isLoading: true, // New players start in loading state
+        };
+
+        // Add to cache (handles eviction automatically, protects active episode)
+        cache.set(
+          episodeId,
+          cachedPlayer,
+          activeEpisodeIdRef.current ?? undefined
+        );
+
+        // Setup loading event listeners
+        setupLoadingEvents(player, episodeId);
+
+        return options.returnResult ? { player, isNew: true } : null;
+      } catch (error) {
+        // Log error in development, fail gracefully in production
+        if (import.meta.env.DEV) {
+          console.error(
+            `Failed to initialize player for episode ${episodeId}:`,
+            error
+          );
+        }
+        return null;
+      }
+    },
+    [cache, setupLoadingEvents]
+  );
 
   // Initialize player in a host element (for Swiper slides)
-  const initPlayerInHost = useCallback((
-    episodeId: string,
-    hlsUrl: string,
-    hostElement: HTMLElement
-  ): { player: Player; isNew: boolean } | null => {
-    const existing = cacheRef.current.get(episodeId);
-
-    if (existing) {
-      // Move to end of order (most recently used)
-      orderRef.current = orderRef.current.filter(id => id !== episodeId);
-      orderRef.current.push(episodeId);
-
-      // Check if URL changed
-      if (existing.hlsUrl !== hlsUrl) {
-        existing.player.src = hlsUrl;
-        existing.hlsUrl = hlsUrl;
-      }
-
-      return { player: existing.player, isNew: false };
-    }
-
-    try {
-      // Create new player in the host element FIRST
-      const player = new Player(createPlayerConfig(hostElement, hlsUrl));
-
-      // Only evict AFTER successful creation (don't destroy working players if new one fails)
-      evictOldest(episodeId);
-
-      // Add to cache with initial loading state
-      const cached: CachedPlayer = {
-        player,
-        container: hostElement,
-        currentTime: 0,
-        episodeId,
-        hlsUrl,
-        isLoading: true, // New players start in loading state
-      };
-      cacheRef.current.set(episodeId, cached);
-      orderRef.current.push(episodeId);
-
-      // Setup loading event listeners
-      setupLoadingEvents(player, episodeId);
-
-      return { player, isNew: true };
-    } catch (error) {
-      // Log error in development, fail gracefully in production
-      if (import.meta.env.DEV) {
-        console.error(`Failed to initialize player for episode ${episodeId}:`, error);
-      }
-      return null;
-    }
-  }, [evictOldest, setupLoadingEvents]);
+  const initPlayerInHost = useCallback(
+    (
+      episodeId: string,
+      hlsUrl: string,
+      hostElement: HTMLElement
+    ): { player: Player; isNew: boolean } | null => {
+      return createOrGetPlayer(episodeId, hlsUrl, hostElement, {
+        returnResult: true,
+      });
+    },
+    [createOrGetPlayer]
+  );
 
   // Preload player without playing (for smooth transitions)
-  const preloadPlayer = useCallback((
-    episodeId: string,
-    hlsUrl: string,
-    hostElement: HTMLElement
-  ) => {
-    // Skip if already cached
-    if (cacheRef.current.has(episodeId)) {
-      // Just update LRU order
-      orderRef.current = orderRef.current.filter(id => id !== episodeId);
-      orderRef.current.push(episodeId);
-      return;
-    }
-
-    // Skip if host already has content
-    if (hostElement.querySelector('video')) {
-      return;
-    }
-
-    try {
-      // Create player FIRST (will start loading manifest and first segment due to videoInit: true)
-      const player = new Player(createPlayerConfig(hostElement, hlsUrl));
-
-      // Only evict AFTER successful creation (don't destroy working players if new one fails)
-      evictOldest(episodeId);
-
-      // Add to cache with initial loading state
-      const cached: CachedPlayer = {
-        player,
-        container: hostElement,
-        currentTime: 0,
-        episodeId,
-        hlsUrl,
-        isLoading: true, // New players start in loading state
-      };
-      cacheRef.current.set(episodeId, cached);
-      orderRef.current.push(episodeId);
-
-      // Setup loading event listeners
-      setupLoadingEvents(player, episodeId);
-    } catch (error) {
-      // Preload failures are non-critical, log in development only
-      if (import.meta.env.DEV) {
-        console.warn(`Failed to preload player for episode ${episodeId}:`, error);
-      }
-    }
-  }, [evictOldest, setupLoadingEvents]);
+  const preloadPlayer = useCallback(
+    (episodeId: string, hlsUrl: string, hostElement: HTMLElement) => {
+      createOrGetPlayer(episodeId, hlsUrl, hostElement, { returnResult: false });
+    },
+    [createOrGetPlayer]
+  );
 
   // Check if player exists
-  const hasPlayer = useCallback((episodeId: string) => {
-    return cacheRef.current.has(episodeId);
-  }, []);
+  const hasPlayer = useCallback(
+    (episodeId: string) => {
+      return cache.has(episodeId);
+    },
+    [cache]
+  );
 
   // Get cached player
-  const getCachedPlayer = useCallback((episodeId: string) => {
-    return cacheRef.current.get(episodeId);
-  }, []);
+  const getCachedPlayer = useCallback(
+    (episodeId: string) => {
+      return cache.get(episodeId);
+    },
+    [cache]
+  );
 
   // Save position
-  const savePosition = useCallback((episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    if (cached?.player) {
-      cached.currentTime = cached.player.currentTime || 0;
-    }
-  }, []);
+  const savePosition = useCallback(
+    (episodeId: string) => {
+      const cached = cache.get(episodeId);
+      if (cached?.player) {
+        cache.update(episodeId, {
+          currentTime: cached.player.currentTime || 0,
+        });
+      }
+    },
+    [cache]
+  );
 
   // Get saved position
-  const getSavedPosition = useCallback((episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    return cached?.currentTime || 0;
-  }, []);
+  const getSavedPosition = useCallback(
+    (episodeId: string) => {
+      const cached = cache.get(episodeId);
+      return cached?.currentTime || 0;
+    },
+    [cache]
+  );
 
   // Restore saved position
-  const restorePosition = useCallback((episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    if (cached?.player && cached.currentTime > 0) {
-      cached.player.currentTime = cached.currentTime;
-    }
-  }, []);
+  const restorePosition = useCallback(
+    (episodeId: string) => {
+      const cached = cache.get(episodeId);
+      if (cached?.player && cached.currentTime > 0) {
+        cached.player.currentTime = cached.currentTime;
+      }
+    },
+    [cache]
+  );
 
   // Set active episode
-  const setActiveEpisode = useCallback((episodeId: string) => {
-    setActiveEpisodeIdState(episodeId);
-    activeEpisodeIdRef.current = episodeId;
+  const setActiveEpisode = useCallback(
+    (episodeId: string) => {
+      setActiveEpisodeIdState(episodeId);
+      activeEpisodeIdRef.current = episodeId;
 
-    // Reset loading state for the newly active episode
-    // This ensures skeleton shows until video is actually playing visible content
-    const cached = cacheRef.current.get(episodeId);
-    if (cached) {
-      cached.isLoading = true;
-      setLoadingStateVersion(v => v + 1);
-    }
-  }, []);
+      // Reset loading state for the newly active episode
+      // This ensures skeleton shows until video is actually playing visible content
+      const cached = cache.get(episodeId);
+      if (cached) {
+        cache.update(episodeId, { isLoading: true });
+      }
+    },
+    [cache]
+  );
 
   // Pause all except specified
-  const pauseOthers = useCallback((activeId: string) => {
-    cacheRef.current.forEach((cached, id) => {
-      if (id !== activeId && cached.player && !cached.player.paused) {
-        cached.player.pause();
-      }
-    });
-  }, []);
+  const pauseOthers = useCallback(
+    (activeId: string) => {
+      cache.forEach((cached, id) => {
+        if (id !== activeId && cached.player && !cached.player.paused) {
+          cached.player.pause();
+        }
+      });
+    },
+    [cache]
+  );
 
   // Pause all players
   const pauseAll = useCallback(() => {
     // Clear any pending autoplay requests
     pendingAutoPlayRef.current.clear();
 
-    cacheRef.current.forEach((cached) => {
+    cache.forEach((cached) => {
       if (cached.player && !cached.player.paused) {
         cached.player.pause();
       }
     });
-  }, []);
+  }, [cache]);
 
   // Play a specific player
-  const playPlayer = useCallback(async (episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    if (!cached?.player) return;
+  const playPlayer = useCallback(
+    async (episodeId: string) => {
+      const cached = cache.get(episodeId);
+      if (!cached?.player) return;
 
-    // Get the underlying video element to check readiness
-    const video = cached.player.video as HTMLVideoElement | undefined;
-    const isVideoReady = video && video.readyState >= 3; // HAVE_FUTURE_DATA or higher
+      // Get the underlying video element to check readiness
+      const video = cached.player.video as HTMLVideoElement | undefined;
+      const isVideoReady = video && video.readyState >= 3; // HAVE_FUTURE_DATA or higher
 
-    // If player is loading but video is actually ready (CANPLAY already fired during preload),
-    // we can play immediately - don't wait for CANPLAY again since it won't fire
-    if (cached.isLoading && !isVideoReady) {
-      pendingAutoPlayRef.current.add(episodeId);
-      return;
-    }
-
-    // Video is ready to play - try to play immediately
-    try {
-      await cached.player.play();
-      // If play succeeds, PLAYING event will fire and hide skeleton
-    } catch (err) {
-      // Autoplay blocked by browser policy - this is expected on mobile
-      // The video is ready but won't play until user taps
-      // Keep skeleton visible (isLoading stays true) until user interaction
-      if (import.meta.env.DEV) {
-        console.debug('Play prevented:', (err as Error).message);
+      // If player is loading but video is actually ready (CANPLAY already fired during preload),
+      // we can play immediately - don't wait for CANPLAY again since it won't fire
+      if (cached.isLoading && !isVideoReady) {
+        pendingAutoPlayRef.current.add(episodeId);
+        return;
       }
-    }
-  }, []);
+
+      // Video is ready to play - try to play with fallback to muted autoplay
+      await tryPlayWithFallback(cached.player, episodeId);
+    },
+    [cache, tryPlayWithFallback]
+  );
 
   // Destroy all players
   const destroyAll = useCallback(() => {
-    cacheRef.current.forEach((cached) => {
-      cached.player.destroy();
-    });
-    cacheRef.current.clear();
-    orderRef.current = [];
+    cache.destroyAll();
     setActiveEpisodeIdState(null);
     activeEpisodeIdRef.current = null;
-  }, []);
+  }, [cache]);
 
   // Remove a specific player from cache (for handling stale references)
-  const removePlayer = useCallback((episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    if (cached) {
-      // Don't destroy here - caller may have already destroyed or wants to handle it
-      cacheRef.current.delete(episodeId);
-      orderRef.current = orderRef.current.filter(id => id !== episodeId);
-    }
-  }, []);
+  const removePlayer = useCallback(
+    (episodeId: string) => {
+      cache.delete(episodeId);
+    },
+    [cache]
+  );
 
   // Get cache stats
-  const getCacheStats = useCallback(() => ({
-    size: cacheRef.current.size,
-    maxSize: MAX_CACHED_PLAYERS,
-    episodeIds: Array.from(cacheRef.current.keys()),
-  }), []);
-
-  // Check if an episode is currently loading
-  const isEpisodeLoading = useCallback((episodeId: string) => {
-    const cached = cacheRef.current.get(episodeId);
-    // If no player exists yet, consider it as loading (will show skeleton)
-    if (!cached) return true;
-    return cached.isLoading;
-  }, []);
+  const getCacheStats = useCallback(
+    () => ({
+      size: cache.size,
+      maxSize: cache.capacity,
+      episodeIds: cache.keys(),
+    }),
+    [cache]
+  );
 
   // Memoize context value to prevent unnecessary re-renders of consumers
-  const value = useMemo<VideoPlayerCacheContextValue>(() => ({
-    initPlayerInHost,
-    preloadPlayer,
-    hasPlayer,
-    getCachedPlayer,
-    savePosition,
-    getSavedPosition,
-    restorePosition,
-    setActiveEpisode,
-    activeEpisodeId,
-    pauseOthers,
-    pauseAll,
-    playPlayer,
-    destroyAll,
-    removePlayer,
-    getCacheStats,
-    isEpisodeLoading,
-    loadingStateVersion,
-  }), [
-    initPlayerInHost,
-    preloadPlayer,
-    hasPlayer,
-    getCachedPlayer,
-    savePosition,
-    getSavedPosition,
-    restorePosition,
-    setActiveEpisode,
-    activeEpisodeId,
-    pauseOthers,
-    pauseAll,
-    playPlayer,
-    destroyAll,
-    removePlayer,
-    getCacheStats,
-    isEpisodeLoading,
-    loadingStateVersion,
-  ]);
+  const value = useMemo<VideoPlayerCacheContextValue>(
+    () => ({
+      initPlayerInHost,
+      preloadPlayer,
+      hasPlayer,
+      getCachedPlayer,
+      savePosition,
+      getSavedPosition,
+      restorePosition,
+      setActiveEpisode,
+      activeEpisodeId,
+      pauseOthers,
+      pauseAll,
+      playPlayer,
+      destroyAll,
+      removePlayer,
+      getCacheStats,
+    }),
+    [
+      initPlayerInHost,
+      preloadPlayer,
+      hasPlayer,
+      getCachedPlayer,
+      savePosition,
+      getSavedPosition,
+      restorePosition,
+      setActiveEpisode,
+      activeEpisodeId,
+      pauseOthers,
+      pauseAll,
+      playPlayer,
+      destroyAll,
+      removePlayer,
+      getCacheStats,
+    ]
+  );
 
   return (
-    <VideoPlayerCacheContext.Provider value={value}>
-      {children}
-    </VideoPlayerCacheContext.Provider>
+    <PlayerCacheInstanceContext.Provider value={cache}>
+      <VideoPlayerCacheContext.Provider value={value}>
+        {children}
+      </VideoPlayerCacheContext.Provider>
+    </PlayerCacheInstanceContext.Provider>
   );
 }
 
+/**
+ * Access the video player cache operations.
+ * Use this for player lifecycle management (init, preload, play, pause, etc.)
+ */
 export function useVideoPlayerCache() {
   const context = useContext(VideoPlayerCacheContext);
   if (!context) {
-    throw new Error('useVideoPlayerCache must be used within VideoPlayerCacheProvider');
+    throw new Error(
+      "useVideoPlayerCache must be used within VideoPlayerCacheProvider"
+    );
   }
   return context;
+}
+
+/**
+ * Access the raw cache instance for hooks that use useSyncExternalStore.
+ * @internal - Prefer using useIsEpisodeLoading instead
+ */
+export function usePlayerCacheInstance() {
+  const cache = useContext(PlayerCacheInstanceContext);
+  if (!cache) {
+    throw new Error(
+      "usePlayerCacheInstance must be used within VideoPlayerCacheProvider"
+    );
+  }
+  return cache;
+}
+
+/**
+ * Check if an episode is currently loading/buffering.
+ * Uses useSyncExternalStore for efficient re-renders - only re-renders
+ * when this specific episode's loading state changes.
+ *
+ * @param episodeId - The episode ID to check
+ * @returns true if the episode is loading, false if ready to display
+ *
+ * @example
+ * ```tsx
+ * function EpisodeSlide({ episodeId }: { episodeId: string }) {
+ *   const isLoading = useIsEpisodeLoading(episodeId);
+ *   return <VideoSkeleton isLoading={isLoading} />;
+ * }
+ * ```
+ */
+export function useIsEpisodeLoading(episodeId: string): boolean {
+  const cache = usePlayerCacheInstance();
+  return usePlayerLoadingState(cache, episodeId);
 }
