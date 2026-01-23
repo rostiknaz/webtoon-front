@@ -88,7 +88,9 @@ const EpisodeSlide = memo(function EpisodeSlide({
 }: EpisodeSlideProps) {
   // Subscribe to this episode's loading state using useSyncExternalStore
   // This ensures only this slide re-renders when its loading state changes
-  const isLoading = useIsEpisodeLoading(episode._id);
+  // TODO: TEMP - Disable skeleton for testing mobile Safari autoplay issue
+  useIsEpisodeLoading(episode._id); // Keep hook call for React rules
+  const isLoading = false;
 
   // Haptic feedback for like interactions
   const haptic = useHaptic();
