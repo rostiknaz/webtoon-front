@@ -63,9 +63,10 @@ const glowPulseVariants = {
   },
 };
 
-// Staggered fade in for skeleton elements - spring physics
+// Skeleton container - VISIBLE IMMEDIATELY to prevent black screen flash
+// The exit animation provides the smooth transition when video loads
 const containerVariants = {
-  initial: { opacity: 0 },
+  initial: { opacity: 1 }, // Start fully visible (no fade-in delay)
   animate: {
     opacity: 1,
     transition: {
@@ -83,16 +84,12 @@ const containerVariants = {
   },
 };
 
+// Item variants - start visible to prevent partial skeleton flash
 const itemVariants = {
-  initial: { opacity: 0, y: 12 },
+  initial: { opacity: 1, y: 0 }, // Start fully visible (no slide-in animation)
   animate: {
     opacity: 1,
     y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 30,
-    },
   },
 };
 
