@@ -187,6 +187,9 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
   // Use state for active episode to trigger re-renders when it changes
   const [activeEpisodeId, setActiveEpisodeIdState] = useState<string | null>(null);
 
+  // Ref to track active episode (for event handlers to access current value)
+  const activeEpisodeIdRef = useRef<string | null>(null);
+
   // Loading state version - increment to trigger re-renders when loading state changes
   const [loadingStateVersion, setLoadingStateVersion] = useState(0);
 
@@ -197,7 +200,15 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
   const setupLoadingEvents = useCallback((player: Player, episodeId: string) => {
     const setLoading = (isLoading: boolean) => {
       const cached = cacheRef.current.get(episodeId);
-      if (cached && cached.isLoading !== isLoading) {
+      if (!cached) return;
+
+      // Only allow hiding skeleton (isLoading: false) for the ACTIVE episode
+      // This prevents preloaded episodes from hiding their skeleton prematurely
+      if (!isLoading && activeEpisodeIdRef.current !== episodeId) {
+        return;
+      }
+
+      if (cached.isLoading !== isLoading) {
         cached.isLoading = isLoading;
         setLoadingStateVersion(v => v + 1);
       }
@@ -220,13 +231,12 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     });
 
     // Only hide skeleton when video is actually playing (has visible content)
-    // This fixes the "pulsing dot" issue where preloaded episodes showed black screen
     player.on(Events.PLAYING, () => setLoading(false));
 
     // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
     let hasHiddenSkeleton = false;
     player.on(Events.TIME_UPDATE, () => {
-      if (!hasHiddenSkeleton) {
+      if (!hasHiddenSkeleton && activeEpisodeIdRef.current === episodeId) {
         hasHiddenSkeleton = true;
         setLoading(false);
       }
@@ -395,6 +405,15 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
   // Set active episode
   const setActiveEpisode = useCallback((episodeId: string) => {
     setActiveEpisodeIdState(episodeId);
+    activeEpisodeIdRef.current = episodeId;
+
+    // Reset loading state for the newly active episode
+    // This ensures skeleton shows until video is actually playing visible content
+    const cached = cacheRef.current.get(episodeId);
+    if (cached) {
+      cached.isLoading = true;
+      setLoadingStateVersion(v => v + 1);
+    }
   }, []);
 
   // Pause all except specified
@@ -452,6 +471,7 @@ export function VideoPlayerCacheProvider({ children }: { children: ReactNode }) 
     cacheRef.current.clear();
     orderRef.current = [];
     setActiveEpisodeIdState(null);
+    activeEpisodeIdRef.current = null;
   }, []);
 
   // Remove a specific player from cache (for handling stale references)
