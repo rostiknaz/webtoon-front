@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
@@ -58,16 +58,17 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
     },
   });
 
-  // Auto-select the 4-week plan (monthly) when plans are loaded
   const plans = plansData?.plans || [];
 
-  // Auto-select recommended plan only once when plans load
-  if (plans.length > 0 && !selectedPlan) {
-    const recommendedPlan = plans.find((p) => p.billingPeriod === 'monthly');
-    if (recommendedPlan) {
-      setSelectedPlan(recommendedPlan.id);
+  // Auto-select recommended plan (monthly) when plans load
+  useEffect(() => {
+    if (plans.length > 0 && !selectedPlan) {
+      const recommendedPlan = plans.find((p) => p.billingPeriod === 'monthly');
+      if (recommendedPlan) {
+        setSelectedPlan(recommendedPlan.id);
+      }
     }
-  }
+  }, [plans, selectedPlan]);
 
   const handleSubscribe = () => {
     if (!selectedPlan) {
