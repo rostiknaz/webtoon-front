@@ -108,7 +108,6 @@ export interface Episode {
   title: string;
   description: string | null;
   thumbnailUrl: string;
-  videoId: string; // Cloudflare Stream video ID
   duration: number;
   isPaid: boolean;
   views: number;

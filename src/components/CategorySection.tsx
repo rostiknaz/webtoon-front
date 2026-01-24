@@ -4,7 +4,7 @@ import AnimeCard from "./AnimeCard";
 import { useRef } from "react";
 
 interface Anime {
-  id: string;
+  slug: string;
   title: string;
   image: string;
   rating: number;
@@ -72,8 +72,8 @@ const CategorySection = ({ title, subtitle, animeList }: CategorySectionProps) =
           ref={scrollRef}
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4"
         >
-          {animeList.map((anime) => (
-            <AnimeCard key={anime.id} anime={anime} />
+          {animeList.map((anime, index) => (
+            <AnimeCard key={`${anime.slug}-${index}`} anime={anime} />
           ))}
         </div>
       </div>

@@ -113,19 +113,27 @@ View in [Cloudflare Dashboard](https://dash.cloudflare.com/?to=/:account/workers
 | Key | TTL | Purpose |
 |-----|-----|---------|
 | `SESSION` | 7 days | Auth sessions |
-| `USER_SUBSCRIPTION` | 10 min | Subscription status |
+| `USER_SUBSCRIPTION` | 30 min | Subscription status |
 | `SERIES_METADATA` | 24 hours | Series core data |
 | `SERIES_EPISODES` | 6 hours | Episode lists |
+| `SERIES_STATS` | 5 min | Views/likes counts |
 | `SUBSCRIPTION_PLANS` | 7 days | Plan definitions |
 
+### D1 Read Replication (Enabled 2026-01-24)
+- **Primary**: EEUR (Eastern Europe)
+- **Replicas**: 6 regions (WNAM, ENAM, WEUR, EEUR, APAC, OC)
+- **Sessions API**: Enabled in `worker/db/index.ts` via `withSession()`
+- Reads go to nearest replica (10-50ms), writes go to primary
+- See `docs/DATABASE_SCALING_ANALYSIS.md` for full details
+
 ### D1 Read Patterns
-High-frequency reads (candidates for read replication):
+High-frequency reads (served by replicas):
 - `getSeriesById()` - series.service.ts
 - `getSeriesEpisodes()` - series.service.ts
 - `getSeriesStats()` - series.service.ts (2 parallel queries)
 - `getActivePlans()` - plans.service.ts
 
-Write operations (must use primary):
+Write operations (always go to primary):
 - `incrementEpisodeLikes()` / `decrementEpisodeLikes()`
 - Subscription inserts
 
@@ -177,6 +185,9 @@ git push  # CI/CD deploys automatically
 
 Read these files only when working on related features:
 
+- **Database Scaling**: `docs/DATABASE_SCALING_ANALYSIS.md` - D1 read replication setup, scaling to 3-5M DAU, indexes, cache TTLs, Cloudflare services (Analytics Engine, Durable Objects)
 - **Cloudflare Workers**: `.claude/docs/cloudflare-workers.md` - Detailed Workers patterns, Durable Objects, KV, D1, Queues, WebSockets, Agents
 - **Subscription System**: `docs/subscription-architecture.md` - Cookie-based subscription flow
 - **Likes System**: `docs/likes-architecture.md` - Scalable likes for episodes (D1, KV, Analytics Engine, Durable Objects)
+- **R2 Video Streaming**: `docs/r2-video-streaming.md` - Self-hosted HLS architecture, R2 bucket structure, player optimization
+- **Video Transcoding**: `docs/video-transcoding-workflow.md` - FFmpeg transcoding and R2 upload workflow

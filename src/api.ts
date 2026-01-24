@@ -56,8 +56,20 @@ async function fetchJson<T>(url: string, options: FetchOptions = {}): Promise<T>
 // ==================== Series API ====================
 
 /**
- * Fetch series core metadata (long cache - 24 hours)
+ * Fetch series core metadata by slug (long cache - 24 hours)
  * Static data: title, description, episodes list, etc.
+ */
+export const getSeriesCoreMetadataBySlug = async (slug: string) => {
+    const data = await fetchJson(`/api/series/by-slug/${slug}`, {
+        errorMessage: 'Failed to fetch series',
+        throw404AsNotFound: true,
+    });
+    return seriesCoreMetadataSchema.parse(data);
+};
+
+/**
+ * Fetch series core metadata by ID (long cache - 24 hours)
+ * @deprecated Use getSeriesCoreMetadataBySlug for cleaner URLs
  */
 export const getSeriesCoreMetadata = async (seriesId: string) => {
     const data = await fetchJson(`/api/series/${seriesId}`, {
@@ -68,8 +80,9 @@ export const getSeriesCoreMetadata = async (seriesId: string) => {
 };
 
 /**
- * Fetch series statistics (short cache - 1 minute)
+ * Fetch series statistics by ID (short cache - 1 minute)
  * Dynamic data: views, likes
+ * @deprecated Use getSeriesStatsBySlug for slug-based routes
  */
 export const getSeriesStats = async (seriesId: string) => {
     const data = await fetchJson(`/api/series/${seriesId}/stats`, {
@@ -80,10 +93,64 @@ export const getSeriesStats = async (seriesId: string) => {
 };
 
 /**
- * Fetch complete series metadata by combining core data and stats
+ * Fetch series statistics by slug (short cache - 1 minute)
+ * Dynamic data: views, likes
+ * Enables parallel fetching with core metadata (no ID dependency)
+ */
+export const getSeriesStatsBySlug = async (slug: string) => {
+    const data = await fetchJson(`/api/series/by-slug/${slug}/stats`, {
+        errorMessage: 'Failed to fetch series stats',
+        throw404AsNotFound: true,
+    });
+    return seriesStatsSchema.parse(data);
+};
+
+/**
+ * Fetch complete series metadata by slug
+ *
+ * Uses Promise.all to fetch core data and stats in parallel.
+ * Eliminates waterfall: both requests start immediately.
  *
  * Note: isLocked and hlsUrl are computed on the client side based on
  * subscription status to prevent cache invalidation issues.
+ */
+export const getSeriesMetadataBySlug = async (slug: string): Promise<SeriesMetadata> => {
+    // Fetch core metadata and stats in parallel (no waterfall!)
+    const [coreData, statsData] = await Promise.all([
+        getSeriesCoreMetadataBySlug(slug),
+        getSeriesStatsBySlug(slug),
+    ]);
+
+    // Create a Map for O(1) episode stats lookup instead of O(n) find()
+    const statsMap = new Map(statsData.episodes.map(s => [s._id, s]));
+
+    // Merge episodes with their stats
+    const episodes = coreData.episodes.map((ep) => {
+        const stats = statsMap.get(ep._id);
+        return {
+            ...ep,
+            // Default values - isLocked and hlsUrl computed on client
+            isLocked: ep.isPaid,
+            hlsUrl: undefined,
+            views: stats?.views ?? 0,
+            likes: stats?.likes ?? 0,
+        };
+    });
+
+    // Build combined response
+    const combinedData: SeriesMetadata = {
+        ...coreData,
+        totalViews: statsData.totalViews,
+        totalLikes: statsData.totalLikes,
+        episodes: episodes.sort((a, b) => a.episodeNumber - b.episodeNumber),
+    };
+
+    return seriesMetadataSchema.parse(combinedData);
+};
+
+/**
+ * Fetch complete series metadata by ID
+ * @deprecated Use getSeriesMetadataBySlug for cleaner URLs
  */
 export const getSeriesMetadata = async (seriesId: string): Promise<SeriesMetadata> => {
     // Fetch core metadata and stats in parallel

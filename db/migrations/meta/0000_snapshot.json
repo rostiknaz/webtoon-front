@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "36a5a3e2-a78a-4410-a019-21789b1dac39",
+  "id": "a4e4ade1-9d0f-4eca-9c09-fb2c30ebb06c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -63,6 +63,27 @@
           "notNull": false,
           "autoincrement": false
         },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "password": {
           "name": "password",
           "type": "text",
@@ -87,7 +108,23 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_accounts_user_provider": {
+          "name": "idx_accounts_user_provider",
+          "columns": [
+            "user_id",
+            "provider_id"
+          ],
+          "isUnique": true
+        },
+        "idx_accounts_user_id": {
+          "name": "idx_accounts_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "accounts_user_id_users_id_fk": {
           "name": "accounts_user_id_users_id_fk",
@@ -147,13 +184,6 @@
         },
         "thumbnail_url": {
           "name": "thumbnail_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "video_id": {
-          "name": "video_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -222,7 +252,23 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_episodes_serial_episode": {
+          "name": "idx_episodes_serial_episode",
+          "columns": [
+            "serial_id",
+            "episode_number"
+          ],
+          "isUnique": true
+        },
+        "idx_episodes_serial_id": {
+          "name": "idx_episodes_serial_id",
+          "columns": [
+            "serial_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "episodes_serial_id_series_id_fk": {
           "name": "episodes_serial_id_series_id_fk",
@@ -325,7 +371,15 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_payment_transactions_user_id": {
+          "name": "idx_payment_transactions_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "payment_transactions_user_id_users_id_fk": {
           "name": "payment_transactions_user_id_users_id_fk",
@@ -459,7 +513,15 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_plans_is_active": {
+          "name": "idx_plans_is_active",
+          "columns": [
+            "is_active"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -472,6 +534,13 @@
           "name": "id",
           "type": "text",
           "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -551,7 +620,22 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "series_slug_unique": {
+          "name": "series_slug_unique",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true
+        },
+        "idx_series_slug": {
+          "name": "idx_series_slug",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -626,6 +710,13 @@
             "token"
           ],
           "isUnique": true
+        },
+        "idx_sessions_user_id": {
+          "name": "idx_sessions_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -759,6 +850,28 @@
             "solidgate_subscription_id"
           ],
           "isUnique": true
+        },
+        "idx_subscriptions_user_id": {
+          "name": "idx_subscriptions_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "idx_subscriptions_user_status": {
+          "name": "idx_subscriptions_user_status",
+          "columns": [
+            "user_id",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_subscriptions_plan_id": {
+          "name": "idx_subscriptions_plan_id",
+          "columns": [
+            "plan_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -848,7 +961,23 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_user_episode_access_user_episode": {
+          "name": "idx_user_episode_access_user_episode",
+          "columns": [
+            "user_id",
+            "episode_id"
+          ],
+          "isUnique": true
+        },
+        "idx_user_episode_access_user_id": {
+          "name": "idx_user_episode_access_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "user_episode_access_user_id_users_id_fk": {
           "name": "user_episode_access_user_id_users_id_fk",
@@ -927,7 +1056,16 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_user_likes_user_episode": {
+          "name": "idx_user_likes_user_episode",
+          "columns": [
+            "user_id",
+            "episode_id"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "user_likes_user_id_users_id_fk": {
           "name": "user_likes_user_id_users_id_fk",
@@ -1133,7 +1271,38 @@
           "default": "(unixepoch())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_watch_history_user_episode": {
+          "name": "idx_watch_history_user_episode",
+          "columns": [
+            "user_id",
+            "episode_id"
+          ],
+          "isUnique": true
+        },
+        "idx_watch_history_user_id": {
+          "name": "idx_watch_history_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "idx_watch_history_episode_id": {
+          "name": "idx_watch_history_episode_id",
+          "columns": [
+            "episode_id"
+          ],
+          "isUnique": false
+        },
+        "idx_watch_history_user_last_watched": {
+          "name": "idx_watch_history_user_last_watched",
+          "columns": [
+            "user_id",
+            "last_watched_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "watch_history_user_id_users_id_fk": {
           "name": "watch_history_user_id_users_id_fk",

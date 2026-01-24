@@ -64,3 +64,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache
+
+# Video transcoding output
+output/

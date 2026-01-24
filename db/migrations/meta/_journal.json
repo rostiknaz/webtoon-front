@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1768058253899,
-      "tag": "0000_nifty_supernaut",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1768428064586,
-      "tag": "0001_blue_shard",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1736985600000,
-      "tag": "0002_performance_indexes",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1736949423000,
-      "tag": "0003_accounts_oauth_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1736990000000,
-      "tag": "0004_p0_unique_constraints",
+      "when": 1769265778545,
+      "tag": "0000_fresh_screwball",
       "breakpoints": true
     }
   ]

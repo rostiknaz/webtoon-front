@@ -31,11 +31,11 @@ import {
 } from "@/lib/player";
 
 /**
- * Reduced from 5 to 3 to minimize Cloudflare Stream bandwidth costs.
- * Each cached player buffers video segments, so fewer players = less streaming.
- * 3 players covers: current + prev + next (optimal for smooth swiping)
+ * Increased to 5 for optimal UX with R2's FREE egress.
+ * More cached players = smoother transitions when swiping rapidly.
+ * 5 players covers: current + prev 2 + next 2 (excellent for TikTok-like UX)
  */
-const MAX_CACHED_PLAYERS = 3;
+const MAX_CACHED_PLAYERS = 5;
 
 /**
  * Check if the browser supports native HLS playback
@@ -97,18 +97,17 @@ const STATIC_PLAYER_CONFIG = {
 } as const;
 
 /**
- * HLS.js plugin configuration for non-native HLS browsers.
- * Cached at module level to avoid recreation.
- * Note: Not using `as const` because xgplayer expects mutable plugin array.
+ * HLS.js plugin configuration optimized for R2's FREE egress.
+ * Large buffers ensure smooth playback and instant swipe transitions.
+ * Since bandwidth is free, we prioritize UX over cost savings.
  */
 const HLS_PLUGIN_CONFIG = {
   plugins: [HlsJsPlugin],
   hlsJsPlugin: {
-    maxBufferLength: 10, // Reduced from 30 to minimize bandwidth
-    maxMaxBufferLength: 20, // Reduced from 60
-    enableWorker: true,
-    // Fragment loading configuration
-    fragLoadingMaxRetry: 6,
+    maxBufferLength: 30,      // 30 seconds for ultra-smooth playback
+    maxMaxBufferLength: 60,   // Allow up to 60 seconds buffering
+    enableWorker: true,       // Use web worker for better performance
+    fragLoadingMaxRetry: 6,   // Robust retry logic
     fragLoadingRetryDelay: 1000,
     fragLoadingMaxRetryTimeout: 64000,
   },
@@ -183,6 +182,8 @@ const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
  * Create xgplayer configuration
  * Uses cached static config to avoid object recreation on every player init.
  * Only dynamic properties (el, url) and conditional HLS plugin are merged.
+ *
+ * With R2's free egress, we use generous buffer sizes for all players.
  */
 function createPlayerConfig(
   container: HTMLElement,
@@ -345,6 +346,8 @@ export function VideoPlayerCacheProvider({
   /**
    * Create or retrieve a player from cache.
    * Unified internal method used by both initPlayerInHost and preloadPlayer.
+   *
+   * With R2's free egress, all players use the same generous buffer config.
    */
   const createOrGetPlayer = useCallback(
     (
@@ -377,6 +380,7 @@ export function VideoPlayerCacheProvider({
 
       try {
         // Create new player in the host element
+        // All players use generous buffer config (R2 free egress)
         const player = new Player(createPlayerConfig(hostElement, hlsUrl));
 
         // Setup loading event listeners and get cleanup function
@@ -416,6 +420,7 @@ export function VideoPlayerCacheProvider({
   );
 
   // Initialize player in a host element (for Swiper slides)
+  // All players use generous buffer config with R2's free egress
   const initPlayerInHost = useCallback(
     (
       episodeId: string,
@@ -430,9 +435,12 @@ export function VideoPlayerCacheProvider({
   );
 
   // Preload player without playing (for smooth transitions)
+  // Same generous buffer config as active players (R2 free egress)
   const preloadPlayer = useCallback(
     (episodeId: string, hlsUrl: string, hostElement: HTMLElement) => {
-      createOrGetPlayer(episodeId, hlsUrl, hostElement, { returnResult: false });
+      createOrGetPlayer(episodeId, hlsUrl, hostElement, {
+        returnResult: false,
+      });
     },
     [createOrGetPlayer]
   );

@@ -1,10 +1,10 @@
 import heroAnime from "@/assets/hero-anime.jpg";
 
-const SERIES_ID = "a49ab52f-71ab-477f-b886-bc762fb72e64";
+const SERIES_SLUG = "midnight-confessions";
 
 export const featuredAnimeList = [
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Demon Slayer: Kimetsu no Yaiba",
         description:
             "A family is attacked by demons and only two members survive - Tanjiro and his sister Nezuko, who is turning into a demon slowly. Tanjiro sets out to become a demon slayer to avenge his family and cure his sister.",
@@ -15,7 +15,7 @@ export const featuredAnimeList = [
         image: heroAnime,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Attack on Titan: The Final Season",
         description:
             "After uncovering the truth about the Titans and the world beyond the walls, Eren Jaeger and the Survey Corps face their ultimate battle as the fate of humanity hangs in the balance.",
@@ -26,7 +26,7 @@ export const featuredAnimeList = [
         image: "https://images.unsplash.com/photo-1541675154750-0444c7d51e8e?w=1920&q=80",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Jujutsu Kaisen",
         description:
             "A boy swallows a cursed talisman - the finger of a demon - and becomes cursed himself. He enters a shaman school to be able to locate the demon's other body parts and thus exorcise himself.",
@@ -37,7 +37,7 @@ export const featuredAnimeList = [
         image: "https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1920&q=80",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Frieren: Beyond Journey's End",
         description:
             "An elf mage reflects on the decade-long journey that changed her perspective on life, death, and the fleeting nature of time after the hero party defeats the Demon King.",
@@ -51,7 +51,7 @@ export const featuredAnimeList = [
 
 export const trendingAnime = [
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Attack on Titan: The Final Season",
         image: "https://images.unsplash.com/photo-1618336753974-aae8e04506aa?w=400&q=80",
         rating: 9.5,
@@ -60,7 +60,7 @@ export const trendingAnime = [
         latestEpisode: "87",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Jujutsu Kaisen Season 2",
         image: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400&q=80",
         rating: 9.1,
@@ -69,7 +69,7 @@ export const trendingAnime = [
         latestEpisode: "47",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Chainsaw Man",
         image: "https://images.unsplash.com/photo-1560972550-aba3456b5564?w=400&q=80",
         rating: 8.9,
@@ -78,7 +78,7 @@ export const trendingAnime = [
         latestEpisode: "12",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "One Piece",
         image: "https://images.unsplash.com/photo-1611457194403-d3f6e1e8f7d6?w=400&q=80",
         rating: 9.3,
@@ -87,7 +87,7 @@ export const trendingAnime = [
         latestEpisode: "1100",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Spy x Family",
         image: "https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=400&q=80",
         rating: 8.8,
@@ -96,7 +96,7 @@ export const trendingAnime = [
         latestEpisode: "37",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Vinland Saga Season 2",
         image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80",
         rating: 9.0,
@@ -105,7 +105,7 @@ export const trendingAnime = [
         latestEpisode: "48",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Frieren: Beyond Journey's End",
         image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80",
         rating: 9.4,
@@ -114,7 +114,7 @@ export const trendingAnime = [
         latestEpisode: "28",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Solo Leveling",
         image: "https://images.unsplash.com/photo-1614624532983-4ce03382d63d?w=400&q=80",
         rating: 8.7,
@@ -126,7 +126,7 @@ export const trendingAnime = [
 
 export const newReleases = [
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Blue Lock",
         image: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80",
         rating: 8.6,
@@ -135,7 +135,7 @@ export const newReleases = [
         latestEpisode: "24",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Hell's Paradise",
         image: "https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=400&q=80",
         rating: 8.4,
@@ -144,7 +144,7 @@ export const newReleases = [
         latestEpisode: "13",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Oshi no Ko",
         image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80",
         rating: 9.0,
@@ -153,7 +153,7 @@ export const newReleases = [
         latestEpisode: "11",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Mashle: Magic and Muscles",
         image: "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=400&q=80",
         rating: 8.2,
@@ -162,7 +162,7 @@ export const newReleases = [
         latestEpisode: "24",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "The Apothecary Diaries",
         image: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400&q=80",
         rating: 8.9,
@@ -171,7 +171,7 @@ export const newReleases = [
         latestEpisode: "24",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Undead Unluck",
         image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&q=80",
         rating: 7.8,
@@ -180,7 +180,7 @@ export const newReleases = [
         latestEpisode: "24",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Shangri-La Frontier",
         image: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=400&q=80",
         rating: 8.1,
@@ -189,7 +189,7 @@ export const newReleases = [
         latestEpisode: "25",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Kaiju No. 8",
         image: "https://images.unsplash.com/photo-1514539079130-25950c84af65?w=400&q=80",
         rating: 8.5,
@@ -201,7 +201,7 @@ export const newReleases = [
 
 export const popularAnime = [
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Naruto Shippuden",
         image: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&q=80",
         rating: 8.7,
@@ -209,7 +209,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Death Note",
         image: "https://images.unsplash.com/photo-1518709594023-6eab9bab7b23?w=400&q=80",
         rating: 9.0,
@@ -217,7 +217,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Fullmetal Alchemist: Brotherhood",
         image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80",
         rating: 9.5,
@@ -225,7 +225,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "My Hero Academia",
         image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80",
         rating: 8.4,
@@ -234,7 +234,7 @@ export const popularAnime = [
         latestEpisode: "138",
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Hunter x Hunter",
         image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400&q=80",
         rating: 9.4,
@@ -242,7 +242,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Steins;Gate",
         image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&q=80",
         rating: 9.3,
@@ -250,7 +250,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Code Geass",
         image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&q=80",
         rating: 9.1,
@@ -258,7 +258,7 @@ export const popularAnime = [
         status: "completed" as const,
     },
     {
-        id: SERIES_ID,
+        slug: SERIES_SLUG,
         title: "Mob Psycho 100",
         image: "https://images.unsplash.com/photo-1484589065579-248aad0d628b?w=400&q=80",
         rating: 8.9,

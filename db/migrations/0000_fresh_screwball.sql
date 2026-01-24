@@ -7,12 +7,17 @@ CREATE TABLE `accounts` (
 	`refresh_token` text,
 	`id_token` text,
 	`expires_at` integer,
+	`access_token_expires_at` integer,
+	`refresh_token_expires_at` integer,
+	`scope` text,
 	`password` text,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `idx_accounts_user_provider` ON `accounts` (`user_id`,`provider_id`);--> statement-breakpoint
+CREATE INDEX `idx_accounts_user_id` ON `accounts` (`user_id`);--> statement-breakpoint
 CREATE TABLE `episodes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`serial_id` text NOT NULL,
@@ -20,7 +25,6 @@ CREATE TABLE `episodes` (
 	`title` text,
 	`description` text,
 	`thumbnail_url` text,
-	`video_id` text,
 	`duration` integer,
 	`is_paid` integer DEFAULT false NOT NULL,
 	`views` integer DEFAULT 0 NOT NULL,
@@ -32,6 +36,8 @@ CREATE TABLE `episodes` (
 	FOREIGN KEY (`serial_id`) REFERENCES `series`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `idx_episodes_serial_episode` ON `episodes` (`serial_id`,`episode_number`);--> statement-breakpoint
+CREATE INDEX `idx_episodes_serial_id` ON `episodes` (`serial_id`);--> statement-breakpoint
 CREATE TABLE `payment_transactions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -48,6 +54,7 @@ CREATE TABLE `payment_transactions` (
 	FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX `idx_payment_transactions_user_id` ON `payment_transactions` (`user_id`);--> statement-breakpoint
 CREATE TABLE `plans` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -64,8 +71,10 @@ CREATE TABLE `plans` (
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
+CREATE INDEX `idx_plans_is_active` ON `plans` (`is_active`);--> statement-breakpoint
 CREATE TABLE `series` (
 	`id` text PRIMARY KEY NOT NULL,
+	`slug` text NOT NULL,
 	`title` text NOT NULL,
 	`description` text,
 	`thumbnail_url` text,
@@ -78,6 +87,8 @@ CREATE TABLE `series` (
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `series_slug_unique` ON `series` (`slug`);--> statement-breakpoint
+CREATE INDEX `idx_series_slug` ON `series` (`slug`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -91,6 +102,7 @@ CREATE TABLE `sessions` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `sessions_token_unique` ON `sessions` (`token`);--> statement-breakpoint
+CREATE INDEX `idx_sessions_user_id` ON `sessions` (`user_id`);--> statement-breakpoint
 CREATE TABLE `subscriptions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -111,6 +123,9 @@ CREATE TABLE `subscriptions` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `subscriptions_solidgate_subscription_id_unique` ON `subscriptions` (`solidgate_subscription_id`);--> statement-breakpoint
+CREATE INDEX `idx_subscriptions_user_id` ON `subscriptions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `idx_subscriptions_user_status` ON `subscriptions` (`user_id`,`status`);--> statement-breakpoint
+CREATE INDEX `idx_subscriptions_plan_id` ON `subscriptions` (`plan_id`);--> statement-breakpoint
 CREATE TABLE `user_episode_access` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -124,6 +139,8 @@ CREATE TABLE `user_episode_access` (
 	FOREIGN KEY (`granted_by_subscription_id`) REFERENCES `subscriptions`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `idx_user_episode_access_user_episode` ON `user_episode_access` (`user_id`,`episode_id`);--> statement-breakpoint
+CREATE INDEX `idx_user_episode_access_user_id` ON `user_episode_access` (`user_id`);--> statement-breakpoint
 CREATE TABLE `user_likes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -133,6 +150,7 @@ CREATE TABLE `user_likes` (
 	FOREIGN KEY (`episode_id`) REFERENCES `episodes`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `idx_user_likes_user_episode` ON `user_likes` (`user_id`,`episode_id`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,
@@ -164,6 +182,10 @@ CREATE TABLE `watch_history` (
 	FOREIGN KEY (`episode_id`) REFERENCES `episodes`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `idx_watch_history_user_episode` ON `watch_history` (`user_id`,`episode_id`);--> statement-breakpoint
+CREATE INDEX `idx_watch_history_user_id` ON `watch_history` (`user_id`);--> statement-breakpoint
+CREATE INDEX `idx_watch_history_episode_id` ON `watch_history` (`episode_id`);--> statement-breakpoint
+CREATE INDEX `idx_watch_history_user_last_watched` ON `watch_history` (`user_id`,`last_watched_at`);--> statement-breakpoint
 CREATE TABLE `webhook_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_id` text NOT NULL,

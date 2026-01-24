@@ -4,6 +4,14 @@
  * This module provides:
  * - Drizzle client factory for D1 database
  * - Hono middleware to inject Drizzle into request context
+ *
+ * READ REPLICATION:
+ * Uses D1 Sessions API to benefit from read replication.
+ * With read replication enabled, read queries can be served by
+ * the nearest replica (10-50ms) instead of always hitting the
+ * primary database (100-200ms for distant users).
+ *
+ * @see https://developers.cloudflare.com/d1/best-practices/read-replication/
  */
 
 import { drizzle } from 'drizzle-orm/d1';
@@ -18,12 +26,12 @@ import type { AppEnv } from '../lib/types';
 export { schema };
 
 /**
- * Create Drizzle client from D1 binding
+ * Create Drizzle client from D1 binding or session
  *
  * Called per-request to ensure fresh connection.
  * Includes schema for relational queries and type inference.
  *
- * @param d1 - Cloudflare D1 database binding
+ * @param d1 - Cloudflare D1 database binding or session
  * @returns Drizzle database instance with schema
  */
 export function createDrizzleClient(d1: D1Database): DrizzleD1Database<typeof schema> {
@@ -32,6 +40,11 @@ export function createDrizzleClient(d1: D1Database): DrizzleD1Database<typeof sc
 
 /**
  * Middleware: Attach Drizzle instance to request context
+ *
+ * Uses D1 Sessions API for read replication support.
+ * The session ensures sequential consistency - if you write data,
+ * subsequent reads in the same request will see that write,
+ * even if served by a read replica.
  *
  * Usage in routes:
  * ```typescript
@@ -43,7 +56,11 @@ export function createDrizzleClient(d1: D1Database): DrizzleD1Database<typeof sc
  */
 export function drizzleMiddleware() {
   return async (c: Context<AppEnv>, next: Next) => {
-    const db = createDrizzleClient(c.env.DB);
+    // Use Sessions API for read replication support
+    // withSession() returns a D1DatabaseSession that routes reads to replicas
+    // while maintaining sequential consistency within the request
+    const session = c.env.DB.withSession();
+    const db = createDrizzleClient(session as unknown as D1Database);
     // @ts-expect-error - Middleware adds db to context
     c.set('db', db);
     await next();

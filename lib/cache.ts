@@ -12,12 +12,14 @@ function isSubscriptionActive(currentPeriodEnd: number | null): boolean {
 }
 
 // Cache TTL constants (in seconds)
+// Optimized for 3-5M DAU scale - see docs/DATABASE_SCALING_ANALYSIS.md
 export const CACHE_TTL = {
   SESSION: 60 * 60 * 24 * 7, // 7 days
-  USER_SUBSCRIPTION: 60 * 10, // 10 minutes (optimized for freshness)
+  USER_SUBSCRIPTION: 60 * 30, // 30 minutes (subscriptions change rarely, was 10 min)
   USER_PROFILE: 60 * 60, // 1 hour
   SERIES_METADATA: 60 * 60 * 24, // 1 day
   SERIES_EPISODES: 60 * 60 * 6, // 6 hours
+  SERIES_STATS: 60 * 5, // 5 minutes (users don't need real-time stats)
   SUBSCRIPTION_PLANS: 60 * 60 * 24 * 7, // 1 week
   HOMEPAGE_DATA: 60 * 30, // 30 minutes
 } as const;

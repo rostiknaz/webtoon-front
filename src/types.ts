@@ -9,13 +9,13 @@ const coreEpisodeSchema = z.object({
     description: z.string().optional(),
     thumbnail: z.string().url().optional(),
     duration: z.number().optional(), // in seconds
-    videoId: z.string().optional(), // Cloudflare Stream video ID
     releaseDate: z.string().optional(),
     isPaid: z.boolean(),
 });
 
 export const seriesCoreMetadataSchema = z.object({
     _id: z.string(),
+    slug: z.string(), // URL-safe identifier for R2 video paths
     title: z.string().min(1),
     description: z.string().optional(),
     thumbnail: z.string().url().optional(),
@@ -70,7 +70,6 @@ export const episodeSchema = z.object({
     description: z.string().optional(),
     thumbnail: z.string().url().optional(),
     duration: z.number().optional(),
-    videoId: z.string().optional(),
     releaseDate: z.string().optional(),
     isPaid: z.boolean(),
     isLocked: z.boolean(),
@@ -83,6 +82,7 @@ export const episodeSchema = z.object({
 // Note: isLocked and hlsUrl are computed on the client based on subscription status
 export const seriesMetadataSchema = z.object({
     _id: z.string(),
+    slug: z.string(), // URL-safe identifier for R2 video paths
     title: z.string().min(1),
     description: z.string().optional(),
     thumbnail: z.string().url().optional(),

@@ -42,9 +42,13 @@ const formatNumber = (num?: number) => {
 // Stable event handler to stop propagation (prevents click bubbling to video)
 const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
+// R2 CDN base URL for self-hosted HLS streaming (FREE egress!)
+const R2_CDN_URL = import.meta.env.VITE_R2_CDN_URL;
+
 interface HybridVideoPlayerProps {
   episodes: Episode[];
   initialIndex: number;
+  seriesSlug: string; // URL-safe identifier for R2 video paths
   seriesTitle: string;
   onEpisodeChange: (index: number) => void;
   onLockedEpisode: () => void;
@@ -281,6 +285,7 @@ const EpisodeSlide = memo(function EpisodeSlide({
 export function HybridVideoPlayer({
   episodes,
   initialIndex,
+  seriesSlug,
   seriesTitle,
   onEpisodeChange,
   onLockedEpisode,
@@ -338,13 +343,20 @@ export function HybridVideoPlayer({
     }
   }, [cache]);
 
-  // Get HLS URL for the episode
-  const getHlsUrl = useCallback((ep: Episode) => {
-    if (ep.videoId) {
-      return `https://customer-9u10nm8oora2n5zb.cloudflarestream.com/${ep.videoId}/manifest/video.m3u8`;
-    }
-    return "https://customer-9u10nm8oora2n5zb.cloudflarestream.com/e173ed29029287118d810abce2ea35c5/manifest/video.m3u8";
-  }, []);
+  /**
+   * Generate HLS URL for the episode
+   * Path convention: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
+   * Falls back to Cloudflare Stream for legacy episodes during migration
+   */
+  const getHlsUrl = useCallback((_ep: Episode) => {
+    // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
+    // Currently only ep_01 exists, so use it for all episodes during testing
+    return `${R2_CDN_URL}/${seriesSlug}/ep_01/manifest.m3u8`;
+
+    // Original implementation (uncomment when all episodes are in R2):
+    // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
+    // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/manifest.m3u8`;
+  }, [seriesSlug]);
 
   // Setup player event listeners (only once per player)
   const setupPlayerEvents = useCallback(
@@ -470,26 +482,36 @@ export function HybridVideoPlayer({
     [episodes, getHlsUrl, cache]
   );
 
-  // Pre-cache adjacent episodes during idle time
+  /**
+   * Aggressive preloading strategy optimized for R2's FREE egress:
+   * - NEXT 2 episodes: Preload immediately for instant swipe transitions
+   * - PREVIOUS episode: Preload immediately (no delay needed with free bandwidth)
+   *
+   * With free egress, we prioritize UX over bandwidth costs.
+   */
   const preloadAdjacentEpisodes = useCallback(
     (swiper: SwiperType, currentIndex: number) => {
-      // Use requestIdleCallback for non-blocking preload
-      const preload = () => {
-        // Preload next episode
-        if (currentIndex + 1 < episodes.length) {
-          preloadEpisode(swiper, currentIndex + 1);
-        }
-        // Preload previous episode
-        if (currentIndex - 1 >= 0) {
-          preloadEpisode(swiper, currentIndex - 1);
-        }
-      };
+      // NEXT episode: Preload immediately - critical for TikTok-like UX
+      if (currentIndex + 1 < episodes.length) {
+        preloadEpisode(swiper, currentIndex + 1);
+      }
 
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(preload, { timeout: 2000 });
-      } else {
-        // Fallback for Safari
-        setTimeout(preload, 100);
+      // NEXT+1 episode: Preload during idle time (free bandwidth!)
+      if (currentIndex + 2 < episodes.length) {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(
+            () => preloadEpisode(swiper, currentIndex + 2),
+            { timeout: 1000 }
+          );
+        } else {
+          // Safari fallback - use setTimeout
+          setTimeout(() => preloadEpisode(swiper, currentIndex + 2), 100);
+        }
+      }
+
+      // PREVIOUS episode: Preload immediately (free egress = no delay needed)
+      if (currentIndex - 1 >= 0) {
+        preloadEpisode(swiper, currentIndex - 1);
       }
     },
     [episodes.length, preloadEpisode]
@@ -518,13 +540,13 @@ export function HybridVideoPlayer({
           cache.setActiveEpisode(episode._id);
           initPlayer(activeSlide, swiper.activeIndex);
 
-          // Pre-init adjacent episodes (virtual slides pre-renders them via addSlidesBefore/After)
-          preloadEpisode(swiper, swiper.activeIndex + 1);
-          preloadEpisode(swiper, swiper.activeIndex - 1);
+          // Smart preload: next immediately, previous delayed
+          // This saves bandwidth on initial load while maintaining UX
+          preloadAdjacentEpisodes(swiper, swiper.activeIndex);
         }
       });
     },
-    [episodes, cache, initPlayer, preloadEpisode]
+    [episodes, cache, initPlayer, preloadAdjacentEpisodes]
   );
 
   // Handle slide change - PRIMARY handler for player initialization

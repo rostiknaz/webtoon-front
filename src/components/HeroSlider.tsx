@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 
 interface FeaturedAnime {
-  id: string;
+  slug: string;
   title: string;
   description: string;
   rating: number;
@@ -163,7 +163,7 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                         : "opacity-0 translate-y-4"
                     )}
                   >
-                    <Link to="/serials/$serialId" params={{ serialId: anime.id }}>
+                    <Link to="/serials/$serialSlug" params={{ serialSlug: anime.slug }}>
                       <MotionButton size="lg" className="gap-2 glow-primary" {...buttonAnimations.hoverPress}>
                         <Play className="h-5 w-5 fill-current" />
                         Watch Now

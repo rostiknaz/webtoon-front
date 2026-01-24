@@ -1,8 +1,8 @@
 import { queryOptions } from "@tanstack/react-query"
-import { getSeriesMetadata } from "../api"
+import { getSeriesMetadataBySlug } from "../api"
 
 /**
- * Query options for series metadata
+ * Query options for series metadata by slug
  *
  * Caching strategy for high traffic (500K-1M users/day):
  * - staleTime: 5 minutes - data considered fresh, no refetch
@@ -15,10 +15,10 @@ import { getSeriesMetadata } from "../api"
  *
  * Note: isLocked and hlsUrl are computed at render time based on subscription status.
  */
-export default function getSeriesMetadataQueryOptions(serialId: string) {
+export default function getSeriesMetadataQueryOptions(slug: string) {
     return queryOptions({
-        queryKey: ["serial", serialId],
-        queryFn: () => getSeriesMetadata(serialId),
+        queryKey: ["serial", slug],
+        queryFn: () => getSeriesMetadataBySlug(slug),
         // Data is fresh for 5 minutes - no refetch during this time
         staleTime: 5 * 60 * 1000,
         // Keep in cache for 30 minutes even if component unmounts

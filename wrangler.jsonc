@@ -25,15 +25,29 @@
   "vars": {
     "BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
     "VITE_BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
-    "CLOUDFLARE_STREAM_CUSTOMER_CODE": "9u10nm8oora2n5zb",
-    "CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID": "b9b6b4f8b735d37919dcfebeda242dba"
+    "VITE_R2_CDN_URL": "https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev"
   },
+  // D1 Database with read replication
+  // To enable read replication (reduces global read latency from 100-200ms to 10-50ms):
+  //   Option 1: Dashboard -> Workers & Pages -> D1 -> webtoon-db -> Settings -> Enable Read Replication
+  //   Option 2: REST API: curl -X PUT "https://api.cloudflare.com/client/v4/accounts/{account_id}/d1/database/3eb45b23-733f-4ed1-9990-fbb1a9c82179" \
+  //             -H "Authorization: Bearer $TOKEN" -d '{"read_replication": {"mode": "auto"}}'
+  // See: https://developers.cloudflare.com/d1/best-practices/read-replication/
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "webtoon-db",
       "database_id": "3eb45b23-733f-4ed1-9990-fbb1a9c82179",
       "migrations_dir": "db/migrations"
+    }
+  ],
+  // Analytics Engine: High-volume event tracking for likes, views, engagement
+  // Non-blocking writes, auto-sampling at scale, SQL query API
+  // See: https://developers.cloudflare.com/analytics/analytics-engine/
+  "analytics_engine_datasets": [
+    {
+      "binding": "ENGAGEMENT_EVENTS",
+      "dataset": "engagement_events"
     }
   ],
   "kv_namespaces": [
@@ -46,6 +60,12 @@
       "binding": "SESSIONS",
       "id": "1c765a896d1e437ab928c400a3fd0c19",
       "preview_id": "2d98116b6bae4d3796cb5e65b486be83"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "VIDEO_STORAGE",
+      "bucket_name": "webtoon-hls"
     }
   ]
 }

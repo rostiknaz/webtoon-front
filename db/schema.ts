@@ -24,7 +24,12 @@ export const sessions = sqliteTable('sessions', {
   userAgent: text('user_agent'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Sessions by user (for listing active sessions, logout all)
+  index('idx_sessions_user_id').on(table.userId),
+  // Session expiration cleanup (for background cleanup jobs)
+  index('idx_sessions_expires_at').on(table.expiresAt),
+]);
 
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
@@ -44,6 +49,8 @@ export const accounts = sqliteTable('accounts', {
 }, (table) => [
   // Prevent duplicate OAuth provider entries per user
   uniqueIndex('idx_accounts_user_provider').on(table.userId, table.providerId),
+  // Accounts by user (for OAuth provider linking)
+  index('idx_accounts_user_id').on(table.userId),
 ]);
 
 export const verifications = sqliteTable('verifications', {
@@ -61,6 +68,7 @@ export const verifications = sqliteTable('verifications', {
 
 export const series = sqliteTable('series', {
   id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(), // URL-safe identifier for R2 paths (e.g., "midnight-confessions")
   title: text('title').notNull(),
   description: text('description'),
   thumbnailUrl: text('thumbnail_url'),
@@ -71,7 +79,10 @@ export const series = sqliteTable('series', {
   totalLikes: integer('total_likes').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Note: unique() on slug creates sqlite_autoindex, this explicit index provides better naming
+  index('idx_series_slug').on(table.slug),
+]);
 
 export const episodes = sqliteTable('episodes', {
   id: text('id').primaryKey(),
@@ -80,7 +91,6 @@ export const episodes = sqliteTable('episodes', {
   title: text('title'),
   description: text('description'),
   thumbnailUrl: text('thumbnail_url'),
-  videoId: text('video_id'), // Cloudflare Stream video ID
   duration: integer('duration'), // Duration in seconds
   isPaid: integer('is_paid', { mode: 'boolean' }).notNull().default(false),
   views: integer('views').notNull().default(0),
@@ -90,8 +100,12 @@ export const episodes = sqliteTable('episodes', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
-  // Prevent duplicate episode numbers within a series
+  // Prevent duplicate episode numbers within a series (also serves as composite index)
   uniqueIndex('idx_episodes_serial_episode').on(table.serialId, table.episodeNumber),
+  // CRITICAL: Episodes by series lookup (used on every series page load)
+  index('idx_episodes_serial_id').on(table.serialId),
+  // Episode publication ordering (for published episodes sorted by date)
+  index('idx_episodes_serial_published').on(table.serialId, table.publishedAt),
 ]);
 
 // ============================================
@@ -112,7 +126,10 @@ export const plans = sqliteTable('plans', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Plans active status lookup (used for plans list)
+  index('idx_plans_is_active').on(table.isActive),
+]);
 
 export const subscriptions = sqliteTable('subscriptions', {
   id: text('id').primaryKey(),
@@ -130,11 +147,17 @@ export const subscriptions = sqliteTable('subscriptions', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
+  // CRITICAL: User subscription lookup (used on every authenticated request)
+  index('idx_subscriptions_user_id').on(table.userId),
+  // Composite index for subscription status filtering (covers most subscription queries)
+  index('idx_subscriptions_user_status').on(table.userId, table.status),
   // Optimize subscription analytics queries by plan
   index('idx_subscriptions_plan_id').on(table.planId),
-  // NOTE: Partial unique index `idx_one_active_subscription_per_user` exists via manual migration
-  // (0005_p0_subscription_race_condition.sql) - prevents duplicate active/trial subscriptions per user
-  // Drizzle doesn't support partial indexes (WHERE clause), so this is maintained manually
+  // Subscription ordering for cache miss lookups (ORDER BY createdAt DESC)
+  index('idx_subscriptions_user_created').on(table.userId, table.createdAt),
+  // NOTE: Partial unique index `idx_one_active_subscription_per_user` exists via manual SQL
+  // (prevents duplicate active/trial subscriptions per user)
+  // Drizzle doesn't support partial indexes (WHERE clause), maintained in 0001_partial_indexes.sql
 ]);
 
 export const userEpisodeAccess = sqliteTable('user_episode_access', {
@@ -148,6 +171,8 @@ export const userEpisodeAccess = sqliteTable('user_episode_access', {
 }, (table) => [
   // Prevent duplicate episode access grants per user/episode
   uniqueIndex('idx_user_episode_access_user_episode').on(table.userId, table.episodeId),
+  // User episode access lookup (for checking purchased episodes)
+  index('idx_user_episode_access_user_id').on(table.userId),
 ]);
 
 // ============================================
@@ -161,7 +186,10 @@ export const webhookEvents = sqliteTable('webhook_events', {
   eventData: text('event_data').notNull(), // JSON payload
   processedAt: integer('processed_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Webhook audit trail (for compliance queries, debugging)
+  index('idx_webhook_events_processed_at').on(table.processedAt),
+]);
 
 export const paymentTransactions = sqliteTable('payment_transactions', {
   id: text('id').primaryKey(),
@@ -175,7 +203,10 @@ export const paymentTransactions = sqliteTable('payment_transactions', {
   metadata: text('metadata'), // JSON: additional payment info
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Payment transactions by user (for payment history)
+  index('idx_payment_transactions_user_id').on(table.userId),
+]);
 
 // ============================================
 // User Activity Tables
@@ -186,7 +217,10 @@ export const userLikes = sqliteTable('user_likes', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   episodeId: text('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  // Prevent duplicate likes per user/episode
+  uniqueIndex('idx_user_likes_user_episode').on(table.userId, table.episodeId),
+]);
 
 export const watchHistory = sqliteTable('watch_history', {
   id: text('id').primaryKey(),
@@ -198,6 +232,10 @@ export const watchHistory = sqliteTable('watch_history', {
 }, (table) => [
   // Prevent duplicate watch history entries per user/episode
   uniqueIndex('idx_watch_history_user_episode').on(table.userId, table.episodeId),
+  // Watch history lookup by user (for continue watching feature)
+  index('idx_watch_history_user_id').on(table.userId),
+  // Watch history lookup by episode (for analytics)
+  index('idx_watch_history_episode_id').on(table.episodeId),
   // Optimize "continue watching" queries sorted by last watched time
   index('idx_watch_history_user_last_watched').on(table.userId, table.lastWatchedAt),
 ]);
