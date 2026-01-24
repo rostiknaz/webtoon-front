@@ -438,17 +438,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* --------------------------------------------------------------------------
-   Loading/Enter Indicators - HIDDEN (we use our own VideoSkeleton)
+   Loading/Enter Indicators - Use xgplayer's built-in poster and loading
    -------------------------------------------------------------------------- */
-.xgplayer .xgplayer-loading,
-.xgplayer .xgplayer-enter,
-.xgplayer .xgplayer-enter-spinner,
-.xgplayer [class^="xgplayer-enter-bar"],
-.xgplayer .xgplayer-start,
+/* Style loading spinner to match our theme */
+.xgplayer .xgplayer-loading {
+  background: transparent !important;
+}
+
+/* Poster image styling */
 .xgplayer .xgplayer-poster {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
+  background-size: cover !important;
+  background-position: center !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -506,37 +506,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Auto-hide custom controls - CSS only */
-.video-player-container .custom-controls {
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
-  pointer-events: none;
+/* Custom controls - force own compositing layer to prevent Safari flicker during Swiper transforms */
+.custom-controls {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
-/* Desktop: Show on hover */
-@media (hover: hover) and (pointer: fine) {
-  .video-player-container:hover .custom-controls,
-  .video-player-container:focus-within .custom-controls {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Always show controls when interacting with them */
-  .custom-controls:hover {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-}
-
-/* Mobile: Show on tap (controlled by data attribute) */
+/* Mobile: Add safe area padding for iOS notch/home indicator */
 @media (hover: none) and (pointer: coarse) {
-  .video-player-container[data-mobile-controls-visible="true"] .custom-controls {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Add safe area padding for iOS notch/home indicator */
-  .video-player-container .custom-controls {
+  .custom-controls {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
