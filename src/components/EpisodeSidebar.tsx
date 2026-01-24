@@ -117,6 +117,10 @@ export function EpisodeSidebar({ series, episodes, activeIndex, onSelect, onLock
                                         <img
                                             src={ep.thumbnail}
                                             alt={ep.title || `Episode ${ep.episodeNumber}`}
+                                            width={80}
+                                            height={80}
+                                            loading="lazy"
+                                            decoding="async"
                                             className="w-full h-full object-cover"
                                         />
                                         {ep.isLocked ? (

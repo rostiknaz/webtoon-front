@@ -35,8 +35,8 @@ const Header = () => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          // Invalidate session cache before redirect
-          invalidateSession();
+          // Invalidate in parallel - don't wait for completion before redirect
+          void invalidateSession();
           window.location.href = "/";
         },
       },
@@ -95,11 +95,13 @@ const Header = () => {
               {isSearchOpen ? (
                 <div className="flex items-center gap-2 animate-fade-in">
                   <Input
-                    type="text"
+                    type="search"
+                    name="search"
                     placeholder="Search anime..."
                     className="w-48 md:w-64 bg-secondary border-border focus:border-primary"
                     autoFocus
                     onBlur={() => setIsSearchOpen(false)}
+                    aria-label="Search anime"
                   />
                 </div>
               ) : (
@@ -108,6 +110,7 @@ const Header = () => {
                   size="icon"
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() => setIsSearchOpen(true)}
+                  aria-label="Open search"
                   {...buttonAnimations.iconPulse}
                 >
                   <Search className="h-5 w-5" />
@@ -119,6 +122,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               className="hidden md:flex text-muted-foreground hover:text-foreground"
+              aria-label="Notifications"
               {...buttonAnimations.iconPulse}
             >
               <Bell className="h-5 w-5" />
@@ -179,6 +183,7 @@ const Header = () => {
                 size="icon"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={() => setIsAuthDrawerOpen(true)}
+                aria-label="Sign in"
                 {...buttonAnimations.iconPulse}
               >
                 <User className="h-5 w-5" />
@@ -189,6 +194,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               className="lg:hidden text-muted-foreground hover:text-foreground"
+              aria-label="Open menu"
               {...buttonAnimations.iconPulse}
             >
               <Menu className="h-5 w-5" />

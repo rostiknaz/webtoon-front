@@ -63,6 +63,11 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
                 <img
                   src={anime.image}
                   alt={anime.title}
+                  width={1920}
+                  height={1080}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  decoding={index === 0 ? "sync" : "async"}
                   className={cn(
                     "w-full h-full object-cover object-center transition-transform duration-[8000ms] ease-out",
                     selectedIndex === index && "scale-110"
@@ -181,11 +186,12 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
       </div>
 
       {/* Navigation Arrows */}
-      <div className="absolute bottom-32 right-8 md:right-16 z-20 hidden md:flex items-center gap-3">
+      <div className="absolute bottom-32 right-8 md:right-16 z-20 hidden md:flex items-center gap-3" role="group" aria-label="Slide navigation">
         <MotionButton
           variant="ghost"
           size="icon"
           onClick={scrollPrev}
+          aria-label="Previous slide"
           className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
           {...buttonAnimations.iconPulse}
         >
@@ -195,6 +201,7 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
           variant="ghost"
           size="icon"
           onClick={scrollNext}
+          aria-label="Next slide"
           className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
           {...buttonAnimations.iconPulse}
         >
@@ -203,11 +210,14 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
       </div>
 
       {/* Pagination Dots */}
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3">
-        {animeList.map((_, index) => (
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3" role="tablist" aria-label="Slides">
+        {animeList.map((anime, index) => (
           <button
             key={index}
             onClick={() => scrollTo(index)}
+            role="tab"
+            aria-selected={selectedIndex === index}
+            aria-label={`Go to slide ${index + 1}: ${anime.title}`}
             className={cn(
               "relative h-2 rounded-full transition-all duration-500 overflow-hidden",
               selectedIndex === index
