@@ -17,15 +17,11 @@ import { Button } from "./ui/button";
 import { MotionButton, buttonAnimations } from "./ui/motion-button";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import {
-  useVideoPlayerCache,
-  useIsEpisodeLoading,
-} from "@/contexts/VideoPlayerCacheContext";
+import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
 import { useDoubleTap } from "@/hooks/useDoubleTap";
 import { useHaptic } from "@/hooks/useHaptic";
 import { HeartAnimation } from "./HeartAnimation";
-import { VideoSkeleton } from "./VideoSkeleton";
 import type Player from "xgplayer";
 import "xgplayer/dist/index.min.css";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -86,12 +82,6 @@ const EpisodeSlide = memo(function EpisodeSlide({
   onLockedEpisode,
   onShowEpisodes,
 }: EpisodeSlideProps) {
-  // Subscribe to this episode's loading state using useSyncExternalStore
-  // This ensures only this slide re-renders when its loading state changes
-  // TODO: TEMP - Disable skeleton for testing mobile Safari autoplay issue
-  useIsEpisodeLoading(episode._id); // Keep hook call for React rules
-  const isLoading = false;
-
   // Haptic feedback for like interactions
   const haptic = useHaptic();
 
@@ -157,9 +147,7 @@ const EpisodeSlide = memo(function EpisodeSlide({
           </div>
         ) : (
           <>
-            {/* Loading skeleton - shows while video is buffering */}
-            <VideoSkeleton isLoading={isLoading} />
-            {/* Player host with dark background as fallback when neither skeleton nor video shows */}
+            {/* Player host with dark background as fallback */}
             <div
               className="player-host w-full h-full bg-background"
               data-episode-id={episode._id}
@@ -664,8 +652,7 @@ export function HybridVideoPlayer({
   // Debug: show cache stats only in dev (avoid unnecessary object creation in production)
   const cacheStats = import.meta.env.DEV ? cache.getCacheStats() : undefined;
 
-  // Note: Loading state subscriptions are now handled per-slide via useIsEpisodeLoading
-  // This provides more efficient re-renders - only the affected slide re-renders
+  // Note: Skeleton loading disabled - video player handles its own loading state via xgplayer
 
   return (
     <div
