@@ -45,7 +45,7 @@ export type EngagementEventType =
  * ```
  */
 export function trackEpisodeEngagement(
-  env: Bindings,
+  env: Bindings & { ENGAGEMENT_EVENTS?: AnalyticsEngineDataset },
   event: {
     eventType: EngagementEventType;
     episodeId: string;
@@ -54,6 +54,9 @@ export function trackEpisodeEngagement(
     metadata?: string;
   }
 ): void {
+  // TODO: Enable when Analytics Engine is configured in dashboard
+  if (!env.ENGAGEMENT_EVENTS) return;
+
   // Non-blocking write - no await
   env.ENGAGEMENT_EVENTS.writeDataPoint({
     // Blobs: Text dimensions for filtering/grouping (up to 20)
@@ -88,7 +91,7 @@ export function trackEpisodeEngagement(
  * ```
  */
 export function trackSubscriptionEvent(
-  env: Bindings,
+  env: Bindings & { ENGAGEMENT_EVENTS?: AnalyticsEngineDataset },
   event: {
     eventType: 'subscribe' | 'unsubscribe' | 'renew' | 'cancel';
     userId: string;
@@ -96,6 +99,9 @@ export function trackSubscriptionEvent(
     amount?: number;
   }
 ): void {
+  // TODO: Enable when Analytics Engine is configured in dashboard
+  if (!env.ENGAGEMENT_EVENTS) return;
+
   env.ENGAGEMENT_EVENTS.writeDataPoint({
     blobs: [
       'subscription',            // blob1: event category
