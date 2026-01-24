@@ -12,16 +12,10 @@
  */
 
 import type { Episode } from "../types.ts";
-import { ArrowLeft, Heart, Share2, List } from "lucide-react";
-import { Button } from "./ui/button";
-import { MotionButton, buttonAnimations } from "./ui/motion-button";
-import { Link } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
-import { useDoubleTap } from "@/hooks/useDoubleTap";
-import { useHaptic } from "@/hooks/useHaptic";
-import { HeartAnimation } from "./HeartAnimation";
+import { EpisodeSlide } from "./EpisodeSlide";
 import type Player from "xgplayer";
 import "xgplayer/dist/index.min.css";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -30,17 +24,6 @@ import type { Swiper as SwiperType } from "swiper";
 // Use bundle CSS - includes all module styles (effect-creative, navigation, pagination, etc.)
 // Individual module CSS imports have Vite 7 compatibility issues with exports field conditions
 import "swiper/css/bundle";
-
-// Utility functions - moved outside component to avoid recreation
-const formatNumber = (num?: number) => {
-  if (!num) return "0";
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  return num.toString();
-};
-
-// Stable event handler to stop propagation (prevents click bubbling to video)
-const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
 // R2 CDN base URL for self-hosted HLS streaming (FREE egress!)
 // Fallback provided since VITE_ vars are replaced at build time and may not be available in CI/CD
@@ -56,233 +39,6 @@ interface HybridVideoPlayerProps {
   onShowEpisodes?: () => void;
 }
 
-interface EpisodeSlideProps {
-  episode: Episode;
-  index: number;
-  totalEpisodes: number;
-  seriesTitle: string;
-  showControls: boolean;
-  isLiked: boolean;
-  cacheStats?: { size: number; maxSize: number };
-  onToggleLike: (episodeId: string) => void; // Accept episodeId to avoid inline arrow in parent
-  onVideoClick: () => void;
-  onLockedEpisode: () => void;
-  onShowEpisodes?: () => void;
-}
-
-/**
- * Memoized slide component to prevent unnecessary re-renders
- * Only re-renders when its specific props change
- */
-const EpisodeSlide = memo(function EpisodeSlide({
-  episode,
-  index,
-  totalEpisodes,
-  seriesTitle,
-  showControls,
-  isLiked,
-  cacheStats,
-  onToggleLike,
-  onVideoClick,
-  onLockedEpisode,
-  onShowEpisodes,
-}: EpisodeSlideProps) {
-  // Haptic feedback for like interactions
-  const haptic = useHaptic();
-
-  // Ref for like button to get its position for flying heart animation
-  const likeButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Heart animation state for double-tap like
-  const [heartAnimation, setHeartAnimation] = useState<{
-    show: boolean;
-    x: number;
-    y: number;
-    targetPosition: { x: number; y: number } | null;
-  }>({ show: false, x: 0, y: 0, targetPosition: null });
-
-  // Double-tap detection for Instagram-style like
-  const { handlers: doubleTapHandlers } = useDoubleTap({
-    onDoubleTap: (position) => {
-      // Get like button position for flying animation
-      let targetPosition: { x: number; y: number } | null = null;
-      if (likeButtonRef.current) {
-        const rect = likeButtonRef.current.getBoundingClientRect();
-        targetPosition = {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        };
-      }
-
-      // Show heart animation with target position
-      setHeartAnimation({
-        show: true,
-        x: position.x,
-        y: position.y,
-        targetPosition,
-      });
-
-      // Only toggle like if not already liked (Instagram behavior)
-      if (!isLiked) {
-        onToggleLike(episode._id);
-        // Haptic feedback for mobile (medium intensity for like action)
-        haptic.medium();
-      }
-    },
-    onSingleTap: onVideoClick,
-    threshold: 300,
-  });
-
-  const handleHeartAnimationComplete = useCallback(() => {
-    setHeartAnimation((prev) => ({ ...prev, show: false }));
-  }, []);
-
-  return (
-    <div
-      className="relative w-full h-full"
-      {...(episode.isLocked ? {} : doubleTapHandlers)}
-    >
-      {/* Video content */}
-      <div className="w-full h-full flex items-center justify-center">
-        {episode.isLocked ? (
-          <div className="flex flex-col items-center justify-center text-white">
-            <h2 className="text-xl font-bold mb-2">Episode is locked</h2>
-            <p className="text-gray-400 mb-4">Subscribe to unlock</p>
-            <Button onClick={onLockedEpisode}>Subscribe</Button>
-          </div>
-        ) : (
-          <>
-            {/* Player host with dark background as fallback */}
-            <div
-              className="player-host w-full h-full bg-background"
-              data-episode-id={episode._id}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Episode indicator */}
-      <div className="absolute top-4 right-4 z-50 bg-black/60 px-3 py-1 rounded-full text-white text-sm">
-        {index + 1} / {totalEpisodes}
-        {import.meta.env.DEV && cacheStats && (
-          <span className="ml-2 text-xs text-gray-400">
-            (cached: {cacheStats.size}/{cacheStats.maxSize})
-          </span>
-        )}
-      </div>
-
-      {/* TikTok-style Floating Action Buttons */}
-      <div
-        className={`custom-controls absolute bottom-24 md:bottom-32 right-4 flex flex-col gap-4 z-50 transition-opacity duration-300 ${
-          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={stopPropagation}
-      >
-        {/* Like Button */}
-        <div className="flex flex-col items-center gap-1">
-          <MotionButton
-            ref={likeButtonRef}
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              onToggleLike(episode._id);
-              // Haptic feedback: medium for like, light for unlike
-              if (isLiked) {
-                haptic.light();
-              } else {
-                haptic.medium();
-              }
-            }}
-            className={`h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all ${
-              isLiked ? "text-red-500" : "text-white"
-            }`}
-            {...buttonAnimations.iconPulse}
-          >
-            <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
-          </MotionButton>
-          <span className="text-white text-xs font-semibold drop-shadow-lg">
-            {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
-          </span>
-        </div>
-
-        {/* Episodes Button - Mobile only */}
-        {onShowEpisodes && (
-          <div className="flex flex-col items-center gap-1 md:hidden">
-            <MotionButton
-              variant="ghost"
-              size="icon"
-              onClick={onShowEpisodes}
-              className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
-              {...buttonAnimations.iconPulse}
-            >
-              <List className="h-6 w-6" />
-            </MotionButton>
-            <span className="text-white text-xs font-semibold drop-shadow-lg">
-              Episodes
-            </span>
-          </div>
-        )}
-
-        {/* Share Button */}
-        <div className="flex flex-col items-center gap-1">
-          <MotionButton
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white"
-            {...buttonAnimations.iconPulse}
-          >
-            <Share2 className="h-6 w-6" />
-          </MotionButton>
-          <span className="text-white text-xs font-semibold drop-shadow-lg">
-            Share
-          </span>
-        </div>
-      </div>
-
-      {/* Top Info Bar */}
-      <div
-        className={`custom-controls absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 md:p-6 z-50 transition-opacity duration-300 ${
-          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={stopPropagation}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/">
-              <MotionButton
-                variant="ghost"
-                size="icon"
-                className="text-white hover:text-primary hover:bg-white/10"
-                {...buttonAnimations.press}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </MotionButton>
-            </Link>
-            <div>
-              <h3 className="text-white font-medium text-sm md:text-base">
-                {seriesTitle}
-              </h3>
-              <p className="text-gray-300 text-xs md:text-sm">
-                Episode {episode.episodeNumber || index + 1}
-                {episode.title && ` - ${episode.title}`}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Double-tap heart animation - flies to like button */}
-      <HeartAnimation
-        show={heartAnimation.show}
-        x={heartAnimation.x}
-        y={heartAnimation.y}
-        targetPosition={heartAnimation.targetPosition}
-        onComplete={handleHeartAnimationComplete}
-      />
-    </div>
-  );
-});
-
 export function HybridVideoPlayer({
   episodes,
   initialIndex,
@@ -294,12 +50,12 @@ export function HybridVideoPlayer({
 }: HybridVideoPlayerProps) {
   // Track likes per episode
   const [likedEpisodes, setLikedEpisodes] = useState<Record<string, boolean>>({});
-  const [showControls, setShowControls] = useState(true);
-  const [edgeState, setEdgeState] = useState<"top" | "bottom" | null>(null);
 
   const swiperRef = useRef<SwiperType | null>(null);
   // Track which players have had events set up (per component instance)
   const playersWithEventsRef = useRef(new WeakSet<Player>());
+  // Track pending player initialization to cancel on rapid swipes
+  const pendingInitRef = useRef<number | null>(null);
 
   // Use the cache context for player management
   const cache = useVideoPlayerCache();
@@ -311,25 +67,6 @@ export function HybridVideoPlayer({
       [episodeId]: !prev[episodeId]
     }));
   }, []);
-
-  // Check if current player is paused
-  const isPlayerPaused = useCallback(() => {
-    if (!cache.activeEpisodeId) return true;
-    const cached = cache.getCachedPlayer(cache.activeEpisodeId);
-    return !cached?.player || cached.player.paused;
-  }, [cache]);
-
-  // Handle mouse enter - show controls (desktop)
-  const handleMouseEnter = useCallback(() => {
-    setShowControls(true);
-  }, []);
-
-  // Handle mouse leave - hide controls if playing (desktop)
-  const handleMouseLeave = useCallback(() => {
-    if (!isPlayerPaused()) {
-      setShowControls(false);
-    }
-  }, [isPlayerPaused]);
 
   // Handle click on video area to toggle play/pause
   const handleVideoClick = useCallback(() => {
@@ -344,17 +81,13 @@ export function HybridVideoPlayer({
     }
   }, [cache]);
 
-  /**
-   * Generate HLS URL for the episode
-   * Path convention: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
-   * Falls back to Cloudflare Stream for legacy episodes during migration
-   */
+  // Generate HLS URL for the episode
+  // Path: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
   const getHlsUrl = useCallback((_ep: Episode) => {
     // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
-    // Currently only ep_01 exists, so use it for all episodes during testing
     return `${R2_CDN_URL}/${seriesSlug}/ep_01/manifest.m3u8`;
 
-    // Original implementation (uncomment when all episodes are in R2):
+    // Original implementation:
     // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
     // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/manifest.m3u8`;
   }, [seriesSlug]);
@@ -551,11 +284,16 @@ export function HybridVideoPlayer({
   );
 
   // Handle slide change - PRIMARY handler for player initialization
-  // With Virtual Slides, slideChangeTransitionEnd doesn't fire for distant jumps
-  // because the target slide doesn't exist in DOM yet. onSlideChange fires immediately
-  // when activeIndex changes, regardless of whether a transition animation occurs.
+  // With Virtual Slides, onSlideChange fires before DOM is updated for distant jumps.
+  // We poll until the slide element exists (usually 1-2 iterations).
   const handleSlideChange = useCallback(
     (swiper: SwiperType) => {
+      // Cancel any pending initialization from previous rapid swipes
+      if (pendingInitRef.current) {
+        clearTimeout(pendingInitRef.current);
+        pendingInitRef.current = null;
+      }
+
       const newIndex = swiper.activeIndex;
       onEpisodeChange(newIndex);
 
@@ -564,10 +302,8 @@ export function HybridVideoPlayer({
 
       cache.setActiveEpisode(episode._id);
 
-      // Initialize player after a short delay to let Virtual Slides render the DOM
-      // Virtual Slides renders asynchronously, so we need to wait for the element
+      // Poll for Virtual Slides to render the DOM element
       const tryInitPlayer = (retries = 0) => {
-        // Guard against destroyed swiper
         if (!swiper?.el) return;
 
         const activeSlide = swiper.el.querySelector(
@@ -575,15 +311,14 @@ export function HybridVideoPlayer({
         ) as HTMLElement;
 
         const playerHost = activeSlide?.querySelector('.player-host') as HTMLElement;
-        const isHostReady = playerHost?.isConnected;
 
-        if (activeSlide && isHostReady) {
+        if (activeSlide && playerHost?.isConnected) {
+          pendingInitRef.current = null;
           initPlayer(activeSlide, newIndex);
           preloadAdjacentEpisodes(swiper, newIndex);
-        } else if (retries < 20) {
-          // Virtual Slides needs time to render - use exponential backoff
-          const delay = Math.min(20 * Math.pow(1.3, retries), 200);
-          setTimeout(() => tryInitPlayer(retries + 1), delay);
+        } else if (retries < 10) {
+          // Fixed 20ms intervals, max 200ms total
+          pendingInitRef.current = window.setTimeout(() => tryInitPlayer(retries + 1), 20);
         }
       };
 
@@ -616,34 +351,6 @@ export function HybridVideoPlayer({
     [episodes, cache, preloadEpisode]
   );
 
-  // Handle slide change transition end - fires for swipe gestures on adjacent slides
-  // Note: This does NOT fire for distant jumps with Virtual Slides because the target
-  // slide doesn't exist in DOM. handleSlideChange is the primary initialization handler.
-  const handleSlideChangeTransitionEnd = useCallback(
-    (_swiper: SwiperType) => {
-      // Most work is now done in handleSlideChange
-      // This callback mainly ensures we catch any edge cases for adjacent swipes
-      // Clear edge state after transition
-      setEdgeState(null);
-    },
-    []
-  );
-
-  // Handle edge glow effects when reaching bounds
-  const handleReachBeginning = useCallback(() => {
-    setEdgeState("top");
-  }, []);
-
-  const handleReachEnd = useCallback(() => {
-    setEdgeState("bottom");
-  }, []);
-
-  // Clear edge state when moving away from bounds
-  const handleFromEdge = useCallback(() => {
-    setEdgeState(null);
-  }, []);
-
-
   // Navigate to specific episode (called from parent via initialIndex change)
   // Player initialization is handled by handleSlideChange when slideTo triggers onSlideChange
   useEffect(() => {
@@ -665,6 +372,10 @@ export function HybridVideoPlayer({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Cancel pending player initialization
+      if (pendingInitRef.current) {
+        clearTimeout(pendingInitRef.current);
+      }
       // Save position of current episode
       if (cache.activeEpisodeId) {
         cache.savePosition(cache.activeEpisodeId);
@@ -678,12 +389,7 @@ export function HybridVideoPlayer({
   // Note: Skeleton loading disabled - video player handles its own loading state via xgplayer
 
   return (
-    <div
-      className="hybrid-video-player relative w-full h-full bg-black overflow-hidden"
-      data-controls-visible={showControls}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div className="hybrid-video-player relative w-full h-full bg-black overflow-hidden">
       <Swiper
         direction="vertical"
         slidesPerView={1}
@@ -701,10 +407,6 @@ export function HybridVideoPlayer({
         onSwiper={handleSwiperInit}
         onSlideChange={handleSlideChange}
         onSlideChangeTransitionStart={handleSlideChangeTransitionStart}
-        onSlideChangeTransitionEnd={handleSlideChangeTransitionEnd}
-        onReachBeginning={handleReachBeginning}
-        onReachEnd={handleReachEnd}
-        onFromEdge={handleFromEdge}
         initialSlide={initialIndex}
         modules={[EffectCreative, Virtual]}
         effect="creative"
@@ -732,7 +434,6 @@ export function HybridVideoPlayer({
         }}
         className="premium-swiper w-full h-full"
         style={{ perspective: "1000px" }}
-        data-edge={edgeState}  // Edge glow effect via CSS
       >
         {episodes.map((episode, index) => (
           <SwiperSlide
@@ -747,7 +448,6 @@ export function HybridVideoPlayer({
                 index={index}
                 totalEpisodes={episodes.length}
                 seriesTitle={seriesTitle}
-                showControls={showControls}
                 isLiked={!!likedEpisodes[episode._id]}
                 cacheStats={cacheStats}
                 onToggleLike={toggleLike}
