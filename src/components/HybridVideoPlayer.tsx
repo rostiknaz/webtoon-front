@@ -43,7 +43,8 @@ const formatNumber = (num?: number) => {
 const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
 // R2 CDN base URL for self-hosted HLS streaming (FREE egress!)
-const R2_CDN_URL = import.meta.env.VITE_R2_CDN_URL;
+// Fallback provided since VITE_ vars are replaced at build time and may not be available in CI/CD
+const R2_CDN_URL = import.meta.env.VITE_R2_CDN_URL || 'https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev';
 
 interface HybridVideoPlayerProps {
   episodes: Episode[];
