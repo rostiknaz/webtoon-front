@@ -100,8 +100,8 @@
 ## Action Plan
 
 ### Phase 1: Critical Fixes
-1. [ ] `HybridVideoPlayer.tsx:91-93` - Restore skeleton loading state
-2. [ ] `SubscriptionDrawer.tsx:65-70` - Move auto-select to useEffect
+1. [x] `HybridVideoPlayer.tsx` - Removed skeleton loading entirely (video player handles own state)
+2. [x] `SubscriptionDrawer.tsx:65-70` - Move auto-select to useEffect
 
 ### Phase 2: High Priority
 3. [ ] Create icons barrel export - Consolidate 31 lucide imports
@@ -126,3 +126,5 @@
 | Date | Changes |
 |------|---------|
 | 2026-01-24 | Initial analysis completed |
+| 2026-01-24 | Critical fix: Removed skeleton from HybridVideoPlayer |
+| 2026-01-24 | Critical fix: Moved auto-select plan to useEffect |
