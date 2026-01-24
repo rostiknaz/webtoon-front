@@ -10,7 +10,8 @@ export type Bindings = {
   CACHE: KVNamespace;
   SESSIONS: KVNamespace;
   // Analytics Engine for high-volume event tracking (likes, views, engagement)
-  ENGAGEMENT_EVENTS: AnalyticsEngineDataset;
+  // TODO: Uncomment when Analytics Engine is enabled in dashboard
+  // ENGAGEMENT_EVENTS: AnalyticsEngineDataset;
   CLOUDFLARE_STREAM_CUSTOMER_CODE: string;
   CLOUDFLARE_STREAM_FALLBACK_VIDEO_ID: string;
   SOLIDGATE_MERCHANT_ID: string;

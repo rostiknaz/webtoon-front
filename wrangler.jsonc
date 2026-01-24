@@ -42,14 +42,14 @@
     }
   ],
   // Analytics Engine: High-volume event tracking for likes, views, engagement
-  // Non-blocking writes, auto-sampling at scale, SQL query API
-  // See: https://developers.cloudflare.com/analytics/analytics-engine/
-  "analytics_engine_datasets": [
-    {
-      "binding": "ENGAGEMENT_EVENTS",
-      "dataset": "engagement_events"
-    }
-  ],
+  // TODO: Enable in dashboard before uncommenting:
+  // https://dash.cloudflare.com/c8ef3e696c565b7c13e0867d70d7b6b9/workers/analytics-engine
+  // "analytics_engine_datasets": [
+  //   {
+  //     "binding": "ENGAGEMENT_EVENTS",
+  //     "dataset": "engagement_events"
+  //   }
+  // ],
   "kv_namespaces": [
     {
       "binding": "CACHE",
