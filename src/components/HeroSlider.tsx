@@ -192,20 +192,20 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
           size="icon"
           onClick={scrollPrev}
           aria-label="Previous slide"
-          className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
+          className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
           {...buttonAnimations.iconPulse}
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ChevronLeft className="h-6 w-6" aria-hidden="true" />
         </MotionButton>
         <MotionButton
           variant="ghost"
           size="icon"
           onClick={scrollNext}
           aria-label="Next slide"
-          className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300"
+          className="h-12 w-12 rounded-full border border-border/50 bg-background/30 backdrop-blur-sm hover:bg-primary hover:border-primary transition-all duration-300 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
           {...buttonAnimations.iconPulse}
         >
-          <ChevronRight className="h-6 w-6" />
+          <ChevronRight className="h-6 w-6" aria-hidden="true" />
         </MotionButton>
       </div>
 
@@ -220,6 +220,7 @@ const HeroSlider = ({ animeList }: HeroSliderProps) => {
             aria-label={`Go to slide ${index + 1}: ${anime.title}`}
             className={cn(
               "relative h-2 rounded-full transition-all duration-500 overflow-hidden",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/50",
               selectedIndex === index
                 ? "w-12 bg-primary"
                 : "w-2 bg-foreground/30 hover:bg-foreground/50"

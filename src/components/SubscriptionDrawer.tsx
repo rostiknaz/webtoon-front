@@ -136,19 +136,22 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                 const features = getFeaturesList(plan.features);
 
                 return (
-                  <div
+                  <button
                     key={plan.id}
-                    className={`relative border-2 rounded-lg p-6 cursor-pointer transition-all ${
+                    type="button"
+                    onClick={() => setSelectedPlan(plan.id)}
+                    aria-pressed={isSelected}
+                    aria-label={`Select ${plan.name} plan - ${formatPrice(plan.price, plan.currency)}${plan.trialDays > 0 ? `, ${plan.trialDays}-day free trial` : ''}`}
+                    className={`relative w-full text-left border-2 rounded-lg p-6 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       isSelected
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:border-primary/50'
                     }`}
-                    onClick={() => setSelectedPlan(plan.id)}
                   >
                     {isRecommended && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                          <Sparkles className="h-3 w-3" />
+                          <Sparkles className="h-3 w-3" aria-hidden="true" />
                           RECOMMENDED
                         </span>
                       </div>
@@ -174,12 +177,12 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                     <ul className="space-y-2 mb-4">
                       {features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <Check className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                           <span>{feature}</span>
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </button>
                 );
               })}
 

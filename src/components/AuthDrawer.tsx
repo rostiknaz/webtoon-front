@@ -477,7 +477,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
                       setMode('signup');
                       setShowPassword(false);
                     }}
-                    className="text-sm text-primary hover:underline"
+                    className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                     disabled={loginForm.formState.isSubmitting}
                   >
                     Don't have an account? Sign up
@@ -633,7 +633,7 @@ export function AuthDrawer({ open, onOpenChange, onSuccess }: AuthDrawerProps) {
                       setMode('login');
                       setShowPassword(false);
                     }}
-                    className="text-sm text-primary hover:underline"
+                    className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                     disabled={signupForm.formState.isSubmitting}
                   >
                     Already have an account? Sign in
