@@ -104,13 +104,13 @@
 2. [x] `SubscriptionDrawer.tsx:65-70` - Move auto-select to useEffect
 
 ### Phase 2: High Priority
-3. [ ] Create icons barrel export - Consolidate 31 lucide imports
-4. [ ] `Header.tsx` - Parallel session invalidation + aria-labels
-5. [ ] `index.html` - Add preconnect for Cloudflare Stream CDN
-6. [ ] All images - Add width/height attributes
-7. [ ] Drawers - Add `overscroll-behavior: contain`
-8. [ ] Global CSS - Add `prefers-reduced-motion` media query
-9. [ ] `HeroSlider.tsx` - Add aria-labels to navigation buttons
+3. [x] Create icons barrel export - Reviewed: individual imports optimal for tree-shaking
+4. [x] `Header.tsx` - Parallel session invalidation + aria-labels
+5. [x] `index.html` - Add preconnect for Cloudflare Stream CDN
+6. [x] All images - Add width/height attributes + lazy loading
+7. [x] Drawers - Add `overscroll-behavior: contain`
+8. [x] Global CSS - Add `prefers-reduced-motion` media query
+9. [x] `HeroSlider.tsx` - Add aria-labels to navigation buttons
 
 ### Phase 3: Medium Priority
 10. [ ] Convert clickable divs to semantic buttons
@@ -128,3 +128,5 @@
 | 2026-01-24 | Initial analysis completed |
 | 2026-01-24 | Critical fix: Removed skeleton from HybridVideoPlayer |
 | 2026-01-24 | Critical fix: Moved auto-select plan to useEffect |
+| 2026-01-24 | High priority: Added preconnect, image optimizations, aria-labels |
+| 2026-01-24 | High priority: Added prefers-reduced-motion, overscroll-behavior |
