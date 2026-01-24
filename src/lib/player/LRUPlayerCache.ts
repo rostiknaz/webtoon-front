@@ -238,6 +238,16 @@ export class LRUPlayerCache {
   }
 
   private destroyPlayer(cached: CachedPlayer): void {
+    // Call cleanup function to remove event listeners before destroying player
+    // This prevents memory leaks from orphaned event handlers
+    if (cached.cleanup) {
+      try {
+        cached.cleanup();
+      } catch {
+        // Cleanup error shouldn't prevent player destruction
+      }
+    }
+
     try {
       cached.player.destroy();
     } catch {

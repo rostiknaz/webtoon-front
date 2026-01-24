@@ -22,6 +22,8 @@ export interface CachedPlayer {
   hlsUrl: string;
   /** Whether the player is currently loading/buffering */
   isLoading: boolean;
+  /** Cleanup function to remove event listeners when player is destroyed */
+  cleanup?: () => void;
 }
 
 /**

@@ -119,6 +119,10 @@
 13. [x] Improve focus indicators on dark backgrounds (HeroSlider)
 14. [x] Disable form-switching buttons during submission (AuthDrawer - already had disabled, added visual styles)
 
+### Phase 4: Architecture Improvements (VideoPlayerCache)
+15. [x] Cache static player config - Extract `STATIC_PLAYER_CONFIG` and `HLS_PLUGIN_CONFIG` to module level
+16. [x] Add explicit event listener cleanup - Store cleanup functions and call them on player destroy
+
 ---
 
 ## Changelog
@@ -131,3 +135,4 @@
 | 2026-01-24 | High priority: Added preconnect, image optimizations, aria-labels |
 | 2026-01-24 | High priority: Added prefers-reduced-motion, overscroll-behavior |
 | 2026-01-24 | Medium priority: Semantic buttons, focus indicators, disabled styles |
+| 2026-01-24 | Architecture: VideoPlayerCache static config caching and event listener cleanup |

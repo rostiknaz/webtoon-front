@@ -53,6 +53,67 @@ const supportsNativeHls = (() => {
   };
 })();
 
+/**
+ * Static player configuration - cached at module level to avoid object recreation.
+ * Dynamic properties (el, url) are merged in createPlayerConfig().
+ */
+const STATIC_PLAYER_CONFIG = {
+  autoplay: false, // Let caller control autoplay
+  loop: false,
+  defaultPlaybackRate: 1,
+  playsinline: true,
+  "x5-video-player-type": "h5",
+  "x5-video-orientation": "portrait",
+  "webkit-playsinline": true,
+  closeVideoClick: true, // Disable xgplayer's click - we handle it via container onClick
+  closeVideoDblclick: true,
+  closePauseVideoFocus: false, // Keep controls visible when paused
+  closePlayVideoFocus: true,
+  fitVideoSize: "fixWidth",
+  cssFullscreen: false,
+  fluid: false,
+  miniprogress: true,
+  videoInit: true,
+  // Controls configuration - always show when not playing
+  controls: {
+    initShow: true, // Show controls on initial load
+  },
+  mobile: {
+    gestureX: true,
+    gestureY: false, // Disable to not interfere with Swiper
+    disableGesture: false,
+  },
+  // White styling to match control icons
+  commonStyle: {
+    playedColor: "rgba(255, 255, 255, 0.9)", // Progress played color
+    cachedColor: "rgba(255, 255, 255, 0.35)", // Buffered/cached color
+    progressColor: "rgba(255, 255, 255, 0.2)", // Progress bar background
+    volumeColor: "rgba(255, 255, 255, 0.9)", // Volume bar color
+    sliderBtnStyle: {
+      background: "#ffffff",
+      boxShadow: "0 0 10px rgba(255, 255, 255, 0.4)",
+    },
+  },
+} as const;
+
+/**
+ * HLS.js plugin configuration for non-native HLS browsers.
+ * Cached at module level to avoid recreation.
+ * Note: Not using `as const` because xgplayer expects mutable plugin array.
+ */
+const HLS_PLUGIN_CONFIG = {
+  plugins: [HlsJsPlugin],
+  hlsJsPlugin: {
+    maxBufferLength: 10, // Reduced from 30 to minimize bandwidth
+    maxMaxBufferLength: 20, // Reduced from 60
+    enableWorker: true,
+    // Fragment loading configuration
+    fragLoadingMaxRetry: 6,
+    fragLoadingRetryDelay: 1000,
+    fragLoadingMaxRetryTimeout: 64000,
+  },
+};
+
 interface VideoPlayerCacheContextValue {
   /** Initialize player in a host element (for Swiper slides). Returns null if initialization fails. */
   initPlayerInHost: (
@@ -120,68 +181,21 @@ const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
 
 /**
  * Create xgplayer configuration
- * Buffer reduced to 10 seconds to minimize Cloudflare Stream bandwidth costs
+ * Uses cached static config to avoid object recreation on every player init.
+ * Only dynamic properties (el, url) and conditional HLS plugin are merged.
  */
 function createPlayerConfig(
   container: HTMLElement,
   hlsUrl: string
 ): ConstructorParameters<typeof Player>[0] {
+  // Merge static config with dynamic properties
+  // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
+  // Safari and iOS support HLS natively and should use native playback for better compatibility
   return {
+    ...STATIC_PLAYER_CONFIG,
     el: container,
     url: hlsUrl,
-    autoplay: false, // Let caller control autoplay
-    loop: false,
-    defaultPlaybackRate: 1,
-    playsinline: true,
-    "x5-video-player-type": "h5",
-    "x5-video-orientation": "portrait",
-    "webkit-playsinline": true,
-    closeVideoClick: true, // Disable xgplayer's click - we handle it via container onClick
-    closeVideoDblclick: true,
-    closePauseVideoFocus: false, // Keep controls visible when paused
-    closePlayVideoFocus: true,
-    fitVideoSize: "fixWidth",
-    cssFullscreen: false,
-    fluid: false,
-    miniprogress: true,
-    videoInit: true,
-    // Controls configuration - always show when not playing
-    controls: {
-      initShow: true, // Show controls on initial load
-    },
-    mobile: {
-      gestureX: true,
-      gestureY: false, // Disable to not interfere with Swiper
-      disableGesture: false,
-    },
-    // White styling to match control icons
-    commonStyle: {
-      playedColor: "rgba(255, 255, 255, 0.9)", // Progress played color
-      cachedColor: "rgba(255, 255, 255, 0.35)", // Buffered/cached color
-      progressColor: "rgba(255, 255, 255, 0.2)", // Progress bar background
-      volumeColor: "rgba(255, 255, 255, 0.9)", // Volume bar color
-      sliderBtnStyle: {
-        background: "#ffffff",
-        boxShadow: "0 0 10px rgba(255, 255, 255, 0.4)",
-      },
-    },
-    // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
-    // Safari and iOS support HLS natively and should use native playback for better compatibility
-    // Using xgplayer-hls.js (based on hls.js) instead of xgplayer-hls for better codec compatibility
-    ...(supportsNativeHls()
-      ? {}
-      : {
-          plugins: [HlsJsPlugin],
-          hlsJsPlugin: {
-            maxBufferLength: 10, // Reduced from 30 to minimize bandwidth
-            maxMaxBufferLength: 20, // Reduced from 60
-            enableWorker: true,
-            // Fragment loading configuration
-            fragLoadingMaxRetry: 6,
-            fragLoadingRetryDelay: 1000,
-            fragLoadingMaxRetryTimeout: 64000,
-          },
-        }),
+    ...(supportsNativeHls() ? {} : HLS_PLUGIN_CONFIG),
   };
 }
 
@@ -191,7 +205,8 @@ export function VideoPlayerCacheProvider({
   children: ReactNode;
 }) {
   // LRU cache instance - persists across renders
-  const cache = useRef(new LRUPlayerCache(MAX_CACHED_PLAYERS)).current;
+  // Using useMemo with empty deps to create a stable singleton instance
+  const cache = useMemo(() => new LRUPlayerCache(MAX_CACHED_PLAYERS), []);
 
   // Use state for active episode to trigger re-renders when it changes
   const [activeEpisodeId, setActiveEpisodeIdState] = useState<string | null>(
@@ -262,9 +277,12 @@ export function VideoPlayerCacheProvider({
     [cache, hidePlayerSpinner]
   );
 
-  // Setup loading event listeners on a player
+  /**
+   * Setup loading event listeners on a player.
+   * Returns a cleanup function to remove all listeners when player is destroyed.
+   */
   const setupLoadingEvents = useCallback(
-    (player: Player, episodeId: string) => {
+    (player: Player, episodeId: string): (() => void) => {
       const setLoading = (isLoading: boolean) => {
         const cached = cache.get(episodeId);
         if (!cached) return;
@@ -281,35 +299,45 @@ export function VideoPlayerCacheProvider({
         }
       };
 
-      // Loading started
-      player.on(Events.LOAD_START, () => setLoading(true));
-      player.on(Events.WAITING, () => setLoading(true));
-
-      // CANPLAY means video has enough data to start, but hasn't rendered frames yet
-      // Don't hide skeleton here - wait for PLAYING event when video actually shows content
-      player.on(Events.CANPLAY, () => {
+      // Store listener references for cleanup
+      const onLoadStart = () => setLoading(true);
+      const onWaiting = () => setLoading(true);
+      const onCanPlay = () => {
         // Auto-play if this episode is pending autoplay
         if (pendingAutoPlayRef.current.has(episodeId)) {
           pendingAutoPlayRef.current.delete(episodeId);
           tryPlayWithFallback(player, episodeId);
         }
-      });
-
-      // Only hide skeleton when video is actually playing (has visible content)
-      player.on(Events.PLAYING, () => {
+      };
+      const onPlaying = () => {
         setLoading(false);
         // Also hide xgplayer's enter spinner - Safari with native HLS may not auto-hide it
         hidePlayerSpinner(player);
-      });
+      };
 
-      // Also hide on TIME_UPDATE as fallback (in case PLAYING doesn't fire reliably)
       let hasHiddenSkeleton = false;
-      player.on(Events.TIME_UPDATE, () => {
+      const onTimeUpdate = () => {
         if (!hasHiddenSkeleton && activeEpisodeIdRef.current === episodeId) {
           hasHiddenSkeleton = true;
           setLoading(false);
         }
-      });
+      };
+
+      // Register event listeners
+      player.on(Events.LOAD_START, onLoadStart);
+      player.on(Events.WAITING, onWaiting);
+      player.on(Events.CANPLAY, onCanPlay);
+      player.on(Events.PLAYING, onPlaying);
+      player.on(Events.TIME_UPDATE, onTimeUpdate);
+
+      // Return cleanup function to remove all listeners
+      return () => {
+        player.off(Events.LOAD_START, onLoadStart);
+        player.off(Events.WAITING, onWaiting);
+        player.off(Events.CANPLAY, onCanPlay);
+        player.off(Events.PLAYING, onPlaying);
+        player.off(Events.TIME_UPDATE, onTimeUpdate);
+      };
     },
     [cache, tryPlayWithFallback, hidePlayerSpinner]
   );
@@ -351,7 +379,10 @@ export function VideoPlayerCacheProvider({
         // Create new player in the host element
         const player = new Player(createPlayerConfig(hostElement, hlsUrl));
 
-        // Create cached player entry
+        // Setup loading event listeners and get cleanup function
+        const cleanup = setupLoadingEvents(player, episodeId);
+
+        // Create cached player entry with cleanup function
         const cachedPlayer: CachedPlayer = {
           player,
           container: hostElement,
@@ -359,6 +390,7 @@ export function VideoPlayerCacheProvider({
           episodeId,
           hlsUrl,
           isLoading: true, // New players start in loading state
+          cleanup, // Store cleanup function for proper teardown
         };
 
         // Add to cache (handles eviction automatically, protects active episode)
@@ -367,9 +399,6 @@ export function VideoPlayerCacheProvider({
           cachedPlayer,
           activeEpisodeIdRef.current ?? undefined
         );
-
-        // Setup loading event listeners
-        setupLoadingEvents(player, episodeId);
 
         return options.returnResult ? { player, isNew: true } : null;
       } catch (error) {
