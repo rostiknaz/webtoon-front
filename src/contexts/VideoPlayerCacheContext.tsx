@@ -4,7 +4,7 @@
  * Provides player caching with LRU eviction for use with Swiper or standalone.
  *
  * Features:
- * 1. LRU eviction (max 3 players) for memory management
+ * 1. LRU eviction (max 5 players) for memory management
  * 2. Position saving/restoration for seamless resume
  * 3. Works with Swiper slides (initPlayerInHost) or standalone containers
  * 4. Prevents m3u8 reloads when switching back to cached episodes
@@ -110,6 +110,23 @@ const HLS_PLUGIN_CONFIG = {
     fragLoadingMaxRetry: 6,   // Robust retry logic
     fragLoadingRetryDelay: 1000,
     fragLoadingMaxRetryTimeout: 64000,
+    startLevel: -1,           // Auto-select quality based on bandwidth
+  },
+};
+
+/**
+ * HLS.js config for preloaded (non-active) players.
+ * Lower buffer limits to reduce bandwidth competition with active player.
+ */
+const HLS_PLUGIN_CONFIG_PRELOAD = {
+  plugins: [HlsJsPlugin],
+  hlsJsPlugin: {
+    maxBufferLength: 4,       // Only buffer 4 seconds (first 2 segments)
+    maxMaxBufferLength: 8,    // Cap at 8 seconds until activated
+    enableWorker: true,
+    fragLoadingMaxRetry: 3,   // Fewer retries for preload
+    fragLoadingRetryDelay: 2000,
+    startLevel: 0,            // Start with lowest quality for preload
   },
 };
 
@@ -118,14 +135,16 @@ interface VideoPlayerCacheContextValue {
   initPlayerInHost: (
     episodeId: string,
     hlsUrl: string,
-    hostElement: HTMLElement
+    hostElement: HTMLElement,
+    posterUrl?: string
   ) => { player: Player; isNew: boolean } | null;
 
   /** Preload player without playing (for smooth transitions) */
   preloadPlayer: (
     episodeId: string,
     hlsUrl: string,
-    hostElement: HTMLElement
+    hostElement: HTMLElement,
+    posterUrl?: string
   ) => void;
 
   /** Check if a player exists for the given episode */
@@ -181,22 +200,34 @@ const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
 /**
  * Create xgplayer configuration
  * Uses cached static config to avoid object recreation on every player init.
- * Only dynamic properties (el, url) and conditional HLS plugin are merged.
+ * Only dynamic properties (el, url, poster) and conditional HLS plugin are merged.
  *
- * With R2's free egress, we use generous buffer sizes for all players.
+ * Priority loading:
+ * - isPriority=true: Active player gets full buffer config for smooth playback
+ * - isPriority=false: Preloaded players get minimal buffer to reduce bandwidth competition
+ *
+ * Poster strategy:
+ * 1. EpisodeSlide has an instant poster <img> element that loads immediately
+ * 2. xgplayer also gets the poster URL so it can show the poster once initialized
+ * 3. The browser caches the poster image, so xgplayer can display it instantly
  */
 function createPlayerConfig(
   container: HTMLElement,
-  hlsUrl: string
+  hlsUrl: string,
+  posterUrl?: string,
+  isPriority: boolean = true
 ): ConstructorParameters<typeof Player>[0] {
   // Merge static config with dynamic properties
   // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
   // Safari and iOS support HLS natively and should use native playback for better compatibility
+  const hlsConfig = isPriority ? HLS_PLUGIN_CONFIG : HLS_PLUGIN_CONFIG_PRELOAD;
+
   return {
     ...STATIC_PLAYER_CONFIG,
     el: container,
     url: hlsUrl,
-    ...(supportsNativeHls() ? {} : HLS_PLUGIN_CONFIG),
+    ...(posterUrl ? { poster: posterUrl } : {}),
+    ...(supportsNativeHls() ? {} : hlsConfig),
   };
 }
 
@@ -347,14 +378,16 @@ export function VideoPlayerCacheProvider({
    * Create or retrieve a player from cache.
    * Unified internal method used by both initPlayerInHost and preloadPlayer.
    *
-   * With R2's free egress, all players use the same generous buffer config.
+   * Priority loading:
+   * - isPriority=true: Full buffer config, loads immediately (active episode)
+   * - isPriority=false: Minimal buffer, reduces bandwidth competition (preload)
    */
   const createOrGetPlayer = useCallback(
     (
       episodeId: string,
       hlsUrl: string,
       hostElement: HTMLElement,
-      options: { returnResult: boolean }
+      options: { returnResult: boolean; posterUrl?: string; isPriority?: boolean }
     ): { player: Player; isNew: boolean } | null => {
       const existing = cache.get(episodeId);
 
@@ -378,10 +411,14 @@ export function VideoPlayerCacheProvider({
         return null;
       }
 
+      const isPriority = options.isPriority ?? true;
+
       try {
-        // Create new player in the host element
-        // All players use generous buffer config (R2 free egress)
-        const player = new Player(createPlayerConfig(hostElement, hlsUrl));
+        // Create new player with priority-based buffer config
+        // Priority players get full buffers, preloaded players get minimal buffers
+        const player = new Player(
+          createPlayerConfig(hostElement, hlsUrl, options.posterUrl, isPriority)
+        );
 
         // Setup loading event listeners and get cleanup function
         const cleanup = setupLoadingEvents(player, episodeId);
@@ -420,26 +457,36 @@ export function VideoPlayerCacheProvider({
   );
 
   // Initialize player in a host element (for Swiper slides)
-  // All players use generous buffer config with R2's free egress
+  // Priority player gets full buffer config for smooth playback
   const initPlayerInHost = useCallback(
     (
       episodeId: string,
       hlsUrl: string,
-      hostElement: HTMLElement
+      hostElement: HTMLElement,
+      posterUrl?: string
     ): { player: Player; isNew: boolean } | null => {
       return createOrGetPlayer(episodeId, hlsUrl, hostElement, {
         returnResult: true,
+        posterUrl,
+        isPriority: true, // Active player gets priority loading
       });
     },
     [createOrGetPlayer]
   );
 
   // Preload player without playing (for smooth transitions)
-  // Same generous buffer config as active players (R2 free egress)
+  // Lower priority - minimal buffer to reduce bandwidth competition
   const preloadPlayer = useCallback(
-    (episodeId: string, hlsUrl: string, hostElement: HTMLElement) => {
+    (
+      episodeId: string,
+      hlsUrl: string,
+      hostElement: HTMLElement,
+      posterUrl?: string
+    ) => {
       createOrGetPlayer(episodeId, hlsUrl, hostElement, {
         returnResult: false,
+        posterUrl,
+        isPriority: false, // Preloaded players get lower priority
       });
     },
     [createOrGetPlayer]

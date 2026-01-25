@@ -7,7 +7,7 @@ const VIDEO_TIMEOUT = 30000;
  * Video Player Tests
  *
  * Tests the HybridVideoPlayer component functionality based on:
- * - VideoPlayerCacheContext (LRU caching with max 3 players)
+ * - VideoPlayerCacheContext (LRU caching with max 5 players)
  * - Swiper integration (vertical episode navigation)
  * - xgplayer (HLS video playback)
  * - Custom controls (play/pause, like, share, episodes)
@@ -220,19 +220,19 @@ test.describe('Video Player - Episode Navigation', () => {
 
 
 test.describe('Video Player - LRU Cache', () => {
-  test('cache size stays within limit (max 3)', async ({ page }) => {
+  test('cache size stays within limit (max 5)', async ({ page }) => {
     await navigateToVideoPlayer(page);
 
-    // Navigate through more than 3 episodes
-    for (let i = 0; i < 5; i++) {
+    // Navigate through more than 5 episodes
+    for (let i = 0; i < 7; i++) {
       await swipeToNextEpisode(page);
     }
 
     await page.waitForTimeout(1000);
 
-    // Cache should not exceed 3
+    // Cache should not exceed 5
     const cacheSize = await getCacheSize(page);
-    expect(cacheSize).toBeLessThanOrEqual(3);
+    expect(cacheSize).toBeLessThanOrEqual(5);
   });
 
   test('cache stats display in development mode', async ({ page }) => {
@@ -241,7 +241,7 @@ test.describe('Video Player - LRU Cache', () => {
     const indicatorText = await getEpisodeIndicator(page);
 
     // In dev mode, should show cache stats
-    expect(indicatorText).toMatch(/cached:\s*\d+\/3/);
+    expect(indicatorText).toMatch(/cached:\s*\d+\/5/);
   });
 
   test('cached episode loads instantly on return', async ({ page }) => {
@@ -268,16 +268,16 @@ test.describe('Video Player - LRU Cache', () => {
   test('LRU eviction evicts oldest episode', async ({ page }) => {
     await navigateToVideoPlayer(page);
 
-    // Navigate sequentially: 1, 2, 3, 4
-    for (let i = 0; i < 3; i++) {
+    // Navigate sequentially: 1, 2, 3, 4, 5, 6
+    for (let i = 0; i < 5; i++) {
       await swipeToNextEpisode(page);
       await page.waitForTimeout(300);
     }
 
-    // Now on episode 4, cache should have evicted episode 1
-    // Episode 1 should not be in cache anymore (3 most recent: 2,3,4)
+    // Now on episode 6, cache should have evicted episode 1
+    // Episode 1 should not be in cache anymore (5 most recent: 2,3,4,5,6)
     const cacheSize = await getCacheSize(page);
-    expect(cacheSize).toBe(3);
+    expect(cacheSize).toBe(5);
   });
 });
 

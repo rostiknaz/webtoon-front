@@ -56,6 +56,10 @@ export function HybridVideoPlayer({
   const playersWithEventsRef = useRef(new WeakSet<Player>());
   // Track pending player initialization to cancel on rapid swipes
   const pendingInitRef = useRef<number | null>(null);
+  // Track pending preload to defer until current episode is ready
+  const pendingPreloadRef = useRef<number | null>(null);
+  // Track if current episode is ready for preloading adjacent episodes
+  const currentEpisodeReadyRef = useRef<boolean>(false);
 
   // Use the cache context for player management
   const cache = useVideoPlayerCache();
@@ -90,6 +94,17 @@ export function HybridVideoPlayer({
     // Original implementation:
     // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
     // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/manifest.m3u8`;
+  }, [seriesSlug]);
+
+  // Generate poster URL for the episode - shows immediately while HLS loads
+  // Path: {seriesSlug}/ep_{paddedEpisodeNumber}/poster.jpg
+  const getPosterUrl = useCallback((_ep: Episode) => {
+    // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
+    return `${R2_CDN_URL}/${seriesSlug}/ep_01/poster.jpg`;
+
+    // Original implementation:
+    // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
+    // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/poster.jpg`;
   }, [seriesSlug]);
 
   // Setup player event listeners (only once per player)
@@ -164,10 +179,14 @@ export function HybridVideoPlayer({
       }
 
       // Create new player using context
+      // Both xgplayer's poster and EpisodeSlide's instant poster use the same URL
+      // The browser will cache the image, so xgplayer can display it instantly
+      const posterUrl = getPosterUrl(episode);
       const result = cache.initPlayerInHost(
         episode._id,
         hlsUrl,
-        host
+        host,
+        posterUrl
       );
 
       // Handle initialization failure gracefully
@@ -186,7 +205,7 @@ export function HybridVideoPlayer({
 
       cache.playPlayer(episode._id);
     },
-    [episodes, getHlsUrl, onLockedEpisode, cache, setupPlayerEvents]
+    [episodes, getHlsUrl, getPosterUrl, onLockedEpisode, cache, setupPlayerEvents]
   );
 
   // Preload a player without playing (for smooth transitions)
@@ -211,44 +230,96 @@ export function HybridVideoPlayer({
       if (!host) return;
 
       const hlsUrl = getHlsUrl(episode);
-      cache.preloadPlayer(episode._id, hlsUrl, host);
+      const posterUrl = getPosterUrl(episode);
+      cache.preloadPlayer(episode._id, hlsUrl, host, posterUrl);
     },
-    [episodes, getHlsUrl, cache]
+    [episodes, getHlsUrl, getPosterUrl, cache]
   );
 
   /**
-   * Aggressive preloading strategy optimized for R2's FREE egress:
-   * - NEXT 2 episodes: Preload immediately for instant swipe transitions
-   * - PREVIOUS episode: Preload immediately (no delay needed with free bandwidth)
+   * Deferred preloading strategy - prioritizes current episode loading:
+   * 1. Current episode loads with full priority (large buffers)
+   * 2. Adjacent episodes preload AFTER current has enough data
+   * 3. Preloaded episodes use minimal buffers to reduce bandwidth competition
    *
-   * With free egress, we prioritize UX over bandwidth costs.
+   * This ensures the current episode loads as fast as possible.
    */
   const preloadAdjacentEpisodes = useCallback(
     (swiper: SwiperType, currentIndex: number) => {
-      // NEXT episode: Preload immediately - critical for TikTok-like UX
-      if (currentIndex + 1 < episodes.length) {
-        preloadEpisode(swiper, currentIndex + 1);
+      // Cancel any pending preload from previous slide
+      if (pendingPreloadRef.current) {
+        clearTimeout(pendingPreloadRef.current);
+        pendingPreloadRef.current = null;
       }
 
-      // NEXT+1 episode: Preload during idle time (free bandwidth!)
-      if (currentIndex + 2 < episodes.length) {
-        if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(
-            () => preloadEpisode(swiper, currentIndex + 2),
-            { timeout: 1000 }
-          );
-        } else {
-          // Safari fallback - use setTimeout
-          setTimeout(() => preloadEpisode(swiper, currentIndex + 2), 100);
+      // Reset ready state for new episode
+      currentEpisodeReadyRef.current = false;
+
+      const doPreload = () => {
+        if (!swiper?.el) return;
+
+        // NEXT episode: Most important for swipe UX
+        if (currentIndex + 1 < episodes.length) {
+          preloadEpisode(swiper, currentIndex + 1);
         }
+
+        // PREVIOUS episode: For swiping back
+        if (currentIndex - 1 >= 0) {
+          preloadEpisode(swiper, currentIndex - 1);
+        }
+
+        // NEXT+1 episode: During idle time
+        if (currentIndex + 2 < episodes.length) {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(
+              () => preloadEpisode(swiper, currentIndex + 2),
+              { timeout: 2000 }
+            );
+          } else {
+            setTimeout(() => preloadEpisode(swiper, currentIndex + 2), 500);
+          }
+        }
+      };
+
+      // Get current episode's player to check readiness
+      const episode = episodes[currentIndex];
+      if (!episode) return;
+
+      const cached = cache.getCachedPlayer(episode._id);
+      const video = cached?.player?.video as HTMLVideoElement | undefined;
+
+      // If video is already ready (HAVE_FUTURE_DATA or higher), preload immediately
+      if (video && video.readyState >= 3) {
+        currentEpisodeReadyRef.current = true;
+        doPreload();
+        return;
       }
 
-      // PREVIOUS episode: Preload immediately (free egress = no delay needed)
-      if (currentIndex - 1 >= 0) {
-        preloadEpisode(swiper, currentIndex - 1);
+      // Otherwise, wait for current episode to have enough data before preloading
+      // This gives current episode bandwidth priority
+      // Use a short delay (300ms) as fallback if CANPLAY doesn't fire
+      pendingPreloadRef.current = window.setTimeout(() => {
+        currentEpisodeReadyRef.current = true;
+        doPreload();
+      }, 300);
+
+      // Also listen for CANPLAY to preload sooner if possible
+      if (cached?.player) {
+        const onCanPlay = () => {
+          if (!currentEpisodeReadyRef.current) {
+            currentEpisodeReadyRef.current = true;
+            if (pendingPreloadRef.current) {
+              clearTimeout(pendingPreloadRef.current);
+              pendingPreloadRef.current = null;
+            }
+            doPreload();
+          }
+          cached.player.off('canplay', onCanPlay);
+        };
+        cached.player.on('canplay', onCanPlay);
       }
     },
-    [episodes.length, preloadEpisode]
+    [episodes, preloadEpisode, cache]
   );
 
   // Handle swiper init
@@ -285,7 +356,7 @@ export function HybridVideoPlayer({
 
   // Handle slide change - PRIMARY handler for player initialization
   // With Virtual Slides, onSlideChange fires before DOM is updated for distant jumps.
-  // We poll until the slide element exists (usually 1-2 iterations).
+  // Uses MutationObserver for reliable DOM detection on long jumps.
   const handleSlideChange = useCallback(
     (swiper: SwiperType) => {
       // Cancel any pending initialization from previous rapid swipes
@@ -295,6 +366,7 @@ export function HybridVideoPlayer({
       }
 
       const newIndex = swiper.activeIndex;
+      const prevIndex = swiper.previousIndex;
       onEpisodeChange(newIndex);
 
       const episode = episodes[newIndex];
@@ -302,9 +374,12 @@ export function HybridVideoPlayer({
 
       cache.setActiveEpisode(episode._id);
 
-      // Poll for Virtual Slides to render the DOM element
-      const tryInitPlayer = (retries = 0) => {
-        if (!swiper?.el) return;
+      // Check if this is a long jump (> 2 episodes)
+      const isLongJump = Math.abs(newIndex - (prevIndex ?? 0)) > 2;
+
+      // Try to find and initialize the player
+      const tryInitPlayer = () => {
+        if (!swiper?.el) return false;
 
         const activeSlide = swiper.el.querySelector(
           `[data-episode-id="${episode._id}"]`
@@ -313,17 +388,55 @@ export function HybridVideoPlayer({
         const playerHost = activeSlide?.querySelector('.player-host') as HTMLElement;
 
         if (activeSlide && playerHost?.isConnected) {
-          pendingInitRef.current = null;
           initPlayer(activeSlide, newIndex);
           preloadAdjacentEpisodes(swiper, newIndex);
-        } else if (retries < 10) {
-          // Fixed 20ms intervals, max 200ms total
-          pendingInitRef.current = window.setTimeout(() => tryInitPlayer(retries + 1), 20);
+          return true;
         }
+        return false;
       };
 
-      // Start after a frame to let Virtual Slides update DOM
-      requestAnimationFrame(() => tryInitPlayer(0));
+      // For long jumps, use MutationObserver for reliable DOM detection
+      if (isLongJump) {
+        // First, try immediately (Virtual Slides may have updated in transitionStart)
+        if (tryInitPlayer()) return;
+
+        // Use MutationObserver to wait for DOM
+        const observer = new MutationObserver(() => {
+          if (tryInitPlayer()) {
+            observer.disconnect();
+            if (pendingInitRef.current) {
+              clearTimeout(pendingInitRef.current);
+              pendingInitRef.current = null;
+            }
+          }
+        });
+
+        observer.observe(swiper.el, {
+          childList: true,
+          subtree: true,
+        });
+
+        // Timeout fallback - disconnect observer after 1 second
+        pendingInitRef.current = window.setTimeout(() => {
+          observer.disconnect();
+          // Last attempt
+          tryInitPlayer();
+        }, 1000);
+      } else {
+        // For short swipes, simple polling is sufficient
+        const poll = (retries = 0) => {
+          if (tryInitPlayer()) {
+            pendingInitRef.current = null;
+            return;
+          }
+          if (retries < 10) {
+            pendingInitRef.current = window.setTimeout(() => poll(retries + 1), 20);
+          }
+        };
+
+        // Start after a frame to let Virtual Slides update DOM
+        requestAnimationFrame(() => poll(0));
+      }
     },
     [episodes, cache, initPlayer, onEpisodeChange, preloadAdjacentEpisodes]
   );
@@ -340,12 +453,21 @@ export function HybridVideoPlayer({
         }
       }
 
-      // Pause all players during transition
+      // Pause all players during transition - gives bandwidth to new episode
       cache.pauseAll();
 
-      // IMPORTANT: Preload the target episode NOW (during transition)
-      // This gives the player time to initialize while the animation plays
+      // For long jumps (> 2 episodes), force Virtual Slides to update immediately
+      // This ensures the target slide DOM exists before we try to init the player
       const targetIndex = swiper.activeIndex;
+      const jumpDistance = Math.abs(targetIndex - (prevIndex ?? 0));
+
+      if (jumpDistance > 2 && swiper.virtual) {
+        // Force immediate virtual slides update for long jumps
+        swiper.virtual.update(true);
+      }
+
+      // Try to preload target episode during transition (if DOM exists)
+      // For long jumps, DOM may not exist yet - handleSlideChange will handle it
       preloadEpisode(swiper, targetIndex);
     },
     [episodes, cache, preloadEpisode]
@@ -375,6 +497,10 @@ export function HybridVideoPlayer({
       // Cancel pending player initialization
       if (pendingInitRef.current) {
         clearTimeout(pendingInitRef.current);
+      }
+      // Cancel pending preload
+      if (pendingPreloadRef.current) {
+        clearTimeout(pendingPreloadRef.current);
       }
       // Save position of current episode
       if (cache.activeEpisodeId) {

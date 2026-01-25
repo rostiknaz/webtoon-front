@@ -97,6 +97,7 @@ Source Video (MP4)
 ├── solgier/
 │   ├── ep_01/
 │   │   ├── manifest.m3u8
+│   │   ├── poster.jpg        <-- Poster image (shows while HLS loads)
 │   │   ├── 360p/
 │   │   │   ├── playlist.m3u8
 │   │   │   └── seg_*.ts
@@ -111,6 +112,23 @@ Source Video (MP4)
         └── ...
 ```
 
+### HLS Encoding Settings
+
+The transcoding script uses optimized settings for fast initial playback:
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Segment duration | 2 seconds | Faster initial load, better ABR switching |
+| GOP size | 60 frames | Keyframe every 2 seconds (at 30fps) |
+| Closed GOP | Enabled | Each segment independently decodable |
+| Scene detection | Disabled | Consistent keyframe intervals |
+| Playlist type | VOD | Adds `#EXT-X-ENDLIST` marker |
+
+**Why 2-second segments?**
+- First segment downloads in ~350KB at 720p vs ~700KB with 4-second segments
+- Users see video content faster on slow networks
+- ABR (Adaptive Bitrate) can switch quality more frequently
+
 ### Expected Output Sizes
 
 For a 3-5 minute video:
@@ -120,6 +138,46 @@ For a 3-5 minute video:
 | 480p | ~700 kbps | 128k | ~18 MB | ~30 MB |
 | 720p | ~1.5 Mbps | 192k | ~37 MB | ~62 MB |
 | **Total** | - | - | **~65 MB** | **~109 MB** |
+
+Note: 2-second segments mean more files but same total size.
+
+---
+
+## Poster Generation
+
+Poster images display immediately while HLS content loads, preventing black screens.
+
+### Automatic (During Transcoding)
+
+The `transcode.sh` script automatically generates `poster.jpg`:
+- Uses FFmpeg's thumbnail filter to pick an interesting frame
+- High quality JPEG (~100-200KB)
+- Ready for upload with the HLS content
+
+### Manual (For Existing Episodes)
+
+Use `generate-posters.sh` for episodes transcoded before poster support:
+
+```bash
+# From source video (best quality)
+./scripts/generate-posters.sh --source ~/videos/ep1.mp4 solgier 1
+
+# From existing HLS output (extracts from 720p segment)
+./scripts/generate-posters.sh --output solgier 1
+
+# Batch all episodes in a series
+./scripts/generate-posters.sh --batch solgier
+```
+
+### Extraction Methods
+
+| Method | Command | Use Case |
+|--------|---------|----------|
+| `thumbnail` | `--method thumbnail` | Default - picks interesting frame |
+| `first` | `--method first` | Fastest - first frame only |
+| `timestamp` | `--method timestamp` | Frame at 2 seconds |
+
+For more details, see [video-poster-generation.md](./video-poster-generation.md).
 
 ---
 
@@ -359,6 +417,14 @@ rm -rf ./output/
 
 | Script | Usage | Purpose |
 |--------|-------|---------|
-| `transcode.sh` | `./transcode.sh <video> <slug> <num>` | FFmpeg HLS encoding |
-| `upload-to-r2.sh` | `./upload-to-r2.sh <slug> <num>` | Upload to R2 |
+| `transcode.sh` | `./transcode.sh <video> <slug> <num>` | FFmpeg HLS encoding + poster |
+| `upload-to-r2.sh` | `./upload-to-r2.sh <slug> <num>` | Upload to R2 (incl. poster) |
+| `generate-posters.sh` | `./generate-posters.sh --batch <slug>` | Add posters to existing videos |
 | `batch-process.sh` | `./batch-process.sh <slug> <dir>` | Bulk processing |
+
+---
+
+## Related Documentation
+
+- [Video Poster Generation](./video-poster-generation.md) - Detailed poster/thumbnail creation guide
+- [R2 Video Streaming](./r2-video-streaming.md) - R2 bucket setup and CDN configuration

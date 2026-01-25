@@ -45,6 +45,19 @@ echo "  Source: $LOCAL_PATH"
 echo "  Destination: $BUCKET_NAME/$R2_PATH/"
 echo ""
 
+# Upload poster image (shows immediately while HLS loads)
+if [ -f "$LOCAL_PATH/poster.jpg" ]; then
+    echo "Uploading poster image..."
+    npx wrangler r2 object put "$BUCKET_NAME/$R2_PATH/poster.jpg" \
+        --file="$LOCAL_PATH/poster.jpg" \
+        --content-type="image/jpeg" \
+        --remote
+    echo "  poster.jpg uploaded"
+else
+    echo "Warning: No poster.jpg found. Run transcode.sh to generate one."
+fi
+echo ""
+
 # Upload master manifest
 echo "Uploading master manifest..."
 npx wrangler r2 object put "$BUCKET_NAME/$R2_PATH/manifest.m3u8" \
@@ -83,8 +96,11 @@ echo ""
 echo "Upload complete!"
 echo ""
 echo "R2 path: $R2_PATH"
-echo "Full URL: https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev/$R2_PATH/manifest.m3u8"
 echo ""
-echo "Frontend will generate this URL from:"
+echo "URLs:"
+echo "  Poster:   https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev/$R2_PATH/poster.jpg"
+echo "  Manifest: https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev/$R2_PATH/manifest.m3u8"
+echo ""
+echo "Frontend will generate these URLs from:"
 echo "  Series slug: $SERIES_SLUG"
 echo "  Episode number: $EPISODE_NUM"

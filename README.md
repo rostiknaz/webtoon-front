@@ -4,10 +4,10 @@ A video streaming platform for webtoon/anime content, built with React and deplo
 
 ## Features
 
-- **Video Streaming** - HLS adaptive streaming via Cloudflare Stream
+- **Video Streaming** - Self-hosted HLS adaptive streaming via R2 (free egress)
 - **Authentication** - Email/password and Google OAuth via Better Auth
 - **Subscriptions** - Subscription plans with trial periods and instant access checks
-- **Responsive UI** - Mobile-first design with drawer navigation
+- **Responsive UI** - Mobile-first TikTok-style vertical video player
 - **Edge Deployment** - Globally distributed on Cloudflare Workers
 
 ## Tech Stack
@@ -177,9 +177,19 @@ wrangler deploy
 
 ## Documentation
 
-- [`docs/subscription-architecture.md`](docs/subscription-architecture.md) - Subscription cookie system
-- [`docs/HLS_ADAPTIVE_STREAMING.md`](docs/HLS_ADAPTIVE_STREAMING.md) - Video streaming setup
-- [`docs/SECRET_MANAGEMENT.md`](docs/SECRET_MANAGEMENT.md) - Environment variables guide
+Detailed documentation for specific features:
+
+| Topic | File | Description |
+|-------|------|-------------|
+| **Database Scaling** | [`docs/DATABASE_SCALING_ANALYSIS.md`](docs/DATABASE_SCALING_ANALYSIS.md) | D1 read replication, scaling to 3-5M DAU, indexes, cache TTLs |
+| **Subscription System** | [`docs/subscription-architecture.md`](docs/subscription-architecture.md) | Cookie-based subscription flow |
+| **Likes System** | [`docs/likes-architecture.md`](docs/likes-architecture.md) | Scalable likes for episodes (D1, KV, Analytics Engine) |
+| **Video Player** | [`docs/video-player-architecture.md`](docs/video-player-architecture.md) | HybridVideoPlayer with LRU caching, priority loading, preloading |
+| **R2 Video Streaming** | [`docs/r2-video-streaming.md`](docs/r2-video-streaming.md) | Self-hosted HLS architecture, R2 bucket structure |
+| **Video Transcoding** | [`docs/video-transcoding-workflow.md`](docs/video-transcoding-workflow.md) | FFmpeg transcoding and R2 upload workflow |
+| **Video Posters** | [`docs/video-poster-generation.md`](docs/video-poster-generation.md) | Poster/thumbnail generation for loading states |
+| **HLS Streaming** | [`docs/HLS_ADAPTIVE_STREAMING.md`](docs/HLS_ADAPTIVE_STREAMING.md) | Adaptive bitrate streaming setup |
+| **Secret Management** | [`docs/SECRET_MANAGEMENT.md`](docs/SECRET_MANAGEMENT.md) | Environment variables guide |
 
 ## License
 

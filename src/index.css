@@ -438,17 +438,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* --------------------------------------------------------------------------
-   Loading/Enter Indicators - Use xgplayer's built-in poster and loading
+   Loading/Enter Indicators
    -------------------------------------------------------------------------- */
 /* Style loading spinner to match our theme */
 .xgplayer .xgplayer-loading {
   background: transparent !important;
-}
-
-/* Poster image styling */
-.xgplayer .xgplayer-poster {
-  background-size: cover !important;
-  background-position: center !important;
 }
 
 /* --------------------------------------------------------------------------

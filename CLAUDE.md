@@ -189,5 +189,7 @@ Read these files only when working on related features:
 - **Cloudflare Workers**: `.claude/docs/cloudflare-workers.md` - Detailed Workers patterns, Durable Objects, KV, D1, Queues, WebSockets, Agents
 - **Subscription System**: `docs/subscription-architecture.md` - Cookie-based subscription flow
 - **Likes System**: `docs/likes-architecture.md` - Scalable likes for episodes (D1, KV, Analytics Engine, Durable Objects)
+- **Video Player**: `docs/video-player-architecture.md` - HybridVideoPlayer with LRU caching, priority loading, preloading strategy, long jump handling
 - **R2 Video Streaming**: `docs/r2-video-streaming.md` - Self-hosted HLS architecture, R2 bucket structure, player optimization
 - **Video Transcoding**: `docs/video-transcoding-workflow.md` - FFmpeg transcoding and R2 upload workflow
+- **Video Posters**: `docs/video-poster-generation.md` - Poster/thumbnail generation to prevent black screens during loading

@@ -119,13 +119,11 @@ export const EpisodeSlide = memo(function EpisodeSlide({
             <Button onClick={onLockedEpisode}>Subscribe</Button>
           </div>
         ) : (
-          <>
-            {/* Player host with dark background as fallback */}
-            <div
-              className="player-host w-full h-full bg-background"
-              data-episode-id={episode._id}
-            />
-          </>
+          /* Player host - xgplayer will be mounted here */
+          <div
+            className="player-host w-full h-full bg-background"
+            data-episode-id={episode._id}
+          />
         )}
       </div>
 
