@@ -105,13 +105,9 @@ export function HybridVideoPlayer({
    * MP4 path: {seriesSlug}/ep_{paddedEpisodeNumber}/video.mp4
    * HLS path: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
    */
-  const getVideoUrl = useCallback((_ep: Episode) => {
-    // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
-    const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_01`;
-
-    // Original implementation (uncomment when ready):
-    // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
-    // const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}`;
+  const getVideoUrl = useCallback((ep: Episode) => {
+    const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
+    const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}`;
 
     return VIDEO_FORMAT === 'mp4'
       ? `${basePath}/video.mp4`
@@ -120,13 +116,9 @@ export function HybridVideoPlayer({
 
   // Generate poster URL for the episode - shows immediately while HLS loads
   // Path: {seriesSlug}/ep_{paddedEpisodeNumber}/poster.jpg
-  const getPosterUrl = useCallback((_ep: Episode) => {
-    // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
-    return `${R2_CDN_URL}/${seriesSlug}/ep_01/poster.jpg`;
-
-    // Original implementation:
-    // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
-    // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/poster.jpg`;
+  const getPosterUrl = useCallback((ep: Episode) => {
+    const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
+    return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/poster.jpg`;
   }, [seriesSlug]);
 
   // Setup player event listeners (only once per player)
