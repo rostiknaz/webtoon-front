@@ -125,6 +125,7 @@ const HLS_PLUGIN_CONFIG = {
 /**
  * HLS.js config for preloaded (non-active) players.
  * Lower buffer limits to reduce bandwidth competition with active player.
+ * Still starts with highest quality since preload has time to buffer.
  */
 const HLS_PLUGIN_CONFIG_PRELOAD = {
   plugins: [HlsJsPlugin],
@@ -134,7 +135,9 @@ const HLS_PLUGIN_CONFIG_PRELOAD = {
     enableWorker: true,
     fragLoadingMaxRetry: 3,   // Fewer retries for preload
     fragLoadingRetryDelay: 2000,
-    startLevel: 0,            // Start with lowest quality for preload
+    startLevel: -1,           // Auto-select with high bandwidth estimate
+    abrEwmaDefaultEstimate: 5000000, // 5 Mbps - preload at highest quality
+    abrEwmaDefaultEstimateMax: 10000000,
   },
 };
 
