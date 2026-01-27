@@ -54,6 +54,14 @@ const supportsNativeHls = (() => {
 })();
 
 /**
+ * Check if a URL is an HLS manifest (vs direct MP4)
+ * HLS URLs end with .m3u8, MP4 URLs end with .mp4
+ */
+function isHlsUrl(url: string): boolean {
+  return url.endsWith('.m3u8');
+}
+
+/**
  * Static player configuration - cached at module level to avoid object recreation.
  * Dynamic properties (el, url) are merged in createPlayerConfig().
  */
@@ -213,7 +221,11 @@ const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
  * Uses cached static config to avoid object recreation on every player init.
  * Only dynamic properties (el, url, poster) and conditional HLS plugin are merged.
  *
- * Priority loading:
+ * Supports both HLS (.m3u8) and MP4 (.mp4) URLs:
+ * - HLS: Uses HLS.js plugin (except on Safari which has native support)
+ * - MP4: Native video playback, no plugin needed
+ *
+ * Priority loading (HLS only):
  * - isPriority=true: Active player gets full buffer config for smooth playback
  * - isPriority=false: Preloaded players get minimal buffer to reduce bandwidth competition
  *
@@ -224,21 +236,35 @@ const PlayerCacheInstanceContext = createContext<LRUPlayerCache | null>(null);
  */
 function createPlayerConfig(
   container: HTMLElement,
-  hlsUrl: string,
+  videoUrl: string,
   posterUrl?: string,
   isPriority: boolean = true
 ): ConstructorParameters<typeof Player>[0] {
-  // Merge static config with dynamic properties
-  // Use HLS.js plugin only when native HLS is NOT supported (Chrome, Firefox, etc.)
-  // Safari and iOS support HLS natively and should use native playback for better compatibility
-  const hlsConfig = isPriority ? HLS_PLUGIN_CONFIG : HLS_PLUGIN_CONFIG_PRELOAD;
-
-  return {
+  // Base config with dynamic properties
+  const config = {
     ...STATIC_PLAYER_CONFIG,
     el: container,
-    url: hlsUrl,
+    url: videoUrl,
     ...(posterUrl ? { poster: posterUrl } : {}),
-    ...(supportsNativeHls() ? {} : hlsConfig),
+  };
+
+  // For MP4 URLs, use native video playback - no HLS.js plugin needed
+  if (!isHlsUrl(videoUrl)) {
+    return config;
+  }
+
+  // For HLS URLs:
+  // - Safari/iOS: Use native HLS support (no plugin)
+  // - Chrome/Firefox: Use HLS.js plugin
+  if (supportsNativeHls()) {
+    return config;
+  }
+
+  // Add HLS.js plugin with priority-based buffer config
+  const hlsConfig = isPriority ? HLS_PLUGIN_CONFIG : HLS_PLUGIN_CONFIG_PRELOAD;
+  return {
+    ...config,
+    ...hlsConfig,
   };
 }
 

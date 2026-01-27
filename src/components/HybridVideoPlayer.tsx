@@ -25,9 +25,23 @@ import type { Swiper as SwiperType } from "swiper";
 // Individual module CSS imports have Vite 7 compatibility issues with exports field conditions
 import "swiper/css/bundle";
 
-// R2 CDN base URL for self-hosted HLS streaming (FREE egress!)
+// R2 CDN base URL for self-hosted video streaming (FREE egress!)
 // Fallback provided since VITE_ vars are replaced at build time and may not be available in CI/CD
 const R2_CDN_URL = import.meta.env.VITE_R2_CDN_URL || 'https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev';
+
+/**
+ * Video format configuration
+ *
+ * 'mp4' - Direct MP4 streaming (better quality, simpler pipeline)
+ *         Best for: short videos, quality-critical content, simpler infrastructure
+ *
+ * 'hls' - HLS adaptive streaming (bandwidth efficient, adaptive quality)
+ *         Best for: longer videos, variable network conditions, bandwidth savings
+ *
+ * Toggle via VITE_VIDEO_FORMAT env var or change default here for quick testing
+ */
+type VideoFormat = 'mp4' | 'hls';
+const VIDEO_FORMAT: VideoFormat = (import.meta.env.VITE_VIDEO_FORMAT as VideoFormat) || 'mp4';
 
 interface HybridVideoPlayerProps {
   episodes: Episode[];
@@ -85,15 +99,23 @@ export function HybridVideoPlayer({
     }
   }, [cache]);
 
-  // Generate HLS URL for the episode
-  // Path: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
-  const getHlsUrl = useCallback((_ep: Episode) => {
+  /**
+   * Generate video URL for the episode based on VIDEO_FORMAT config
+   *
+   * MP4 path: {seriesSlug}/ep_{paddedEpisodeNumber}/video.mp4
+   * HLS path: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
+   */
+  const getVideoUrl = useCallback((_ep: Episode) => {
     // TODO: Remove hardcoded ep_01 when all episodes are uploaded to R2
-    return `${R2_CDN_URL}/${seriesSlug}/ep_01/manifest.m3u8`;
+    const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_01`;
 
-    // Original implementation:
+    // Original implementation (uncomment when ready):
     // const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
-    // return `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}/manifest.m3u8`;
+    // const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}`;
+
+    return VIDEO_FORMAT === 'mp4'
+      ? `${basePath}/video.mp4`
+      : `${basePath}/manifest.m3u8`;
   }, [seriesSlug]);
 
   // Generate poster URL for the episode - shows immediately while HLS loads
@@ -140,7 +162,7 @@ export function HybridVideoPlayer({
         return;
       }
 
-      const hlsUrl = getHlsUrl(episode);
+      const hlsUrl = getVideoUrl(episode);
       // slideEl could be the player-host itself (when found by data-episode-id query)
       // or a parent element containing it - handle both cases
       const host = slideEl.classList.contains('player-host')
@@ -205,7 +227,7 @@ export function HybridVideoPlayer({
 
       cache.playPlayer(episode._id);
     },
-    [episodes, getHlsUrl, getPosterUrl, onLockedEpisode, cache, setupPlayerEvents]
+    [episodes, getVideoUrl, getPosterUrl, onLockedEpisode, cache, setupPlayerEvents]
   );
 
   // Preload a player without playing (for smooth transitions)
@@ -229,11 +251,11 @@ export function HybridVideoPlayer({
       const host = slideEl.querySelector(".player-host") as HTMLElement;
       if (!host) return;
 
-      const hlsUrl = getHlsUrl(episode);
+      const hlsUrl = getVideoUrl(episode);
       const posterUrl = getPosterUrl(episode);
       cache.preloadPlayer(episode._id, hlsUrl, host, posterUrl);
     },
-    [episodes, getHlsUrl, getPosterUrl, cache]
+    [episodes, getVideoUrl, getPosterUrl, cache]
   );
 
   /**
