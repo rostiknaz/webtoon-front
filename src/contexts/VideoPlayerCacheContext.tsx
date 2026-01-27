@@ -100,6 +100,12 @@ const STATIC_PLAYER_CONFIG = {
  * HLS.js plugin configuration optimized for R2's FREE egress.
  * Large buffers ensure smooth playback and instant swipe transitions.
  * Since bandwidth is free, we prioritize UX over cost savings.
+ *
+ * Quality selection strategy:
+ * - Start with highest quality (1080p) for best initial impression
+ * - HLS.js ABR will automatically switch down if bandwidth is insufficient
+ * - abrEwmaDefaultEstimate: Initial bandwidth estimate in bits/sec (5 Mbps)
+ *   This high estimate ensures HLS.js picks the highest quality first
  */
 const HLS_PLUGIN_CONFIG = {
   plugins: [HlsJsPlugin],
@@ -110,7 +116,9 @@ const HLS_PLUGIN_CONFIG = {
     fragLoadingMaxRetry: 6,   // Robust retry logic
     fragLoadingRetryDelay: 1000,
     fragLoadingMaxRetryTimeout: 64000,
-    startLevel: -1,           // Auto-select quality based on bandwidth
+    startLevel: -1,           // Auto-select, but with high bandwidth estimate
+    abrEwmaDefaultEstimate: 5000000, // 5 Mbps - assumes fast connection, starts with highest quality
+    abrEwmaDefaultEstimateMax: 10000000, // 10 Mbps max estimate
   },
 };
 

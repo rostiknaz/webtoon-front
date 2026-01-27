@@ -66,7 +66,7 @@ npx wrangler r2 object put "$BUCKET_NAME/$R2_PATH/manifest.m3u8" \
     --remote
 
 # Upload each quality level
-for QUALITY in 360p 480p 720p; do
+for QUALITY in 360p 480p 720p 1080p; do
     if [ -d "$LOCAL_PATH/$QUALITY" ]; then
         echo ""
         echo "Uploading $QUALITY quality..."
