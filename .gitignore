@@ -20,6 +20,7 @@ dist-ssr
 .env.*
 !.env.example
 .dev.vars
+wrangler.dev.jsonc
 
 # Cloudflare
 .wrangler
