@@ -181,6 +181,112 @@ git push  # CI/CD deploys automatically
 - Use imperative mood for commit messages (e.g., "Add feature" not "Added feature")
 - Keep commits focused and atomic
 
+## Code Quality Principles
+
+Follow these CS fundamentals and design principles in ALL code written for this project. Code must be time/space efficient, extensible, well-organized, and readable.
+
+### Big O Complexity Awareness
+
+Always consider time and space complexity when writing code:
+
+| Operation | Target | Avoid |
+|-----------|--------|-------|
+| Lookup by key | O(1) - Map/Set/Object | O(n) - Array.find() in hot paths |
+| Search sorted data | O(log n) - Binary search | O(n) - Linear scan |
+| Filtering/transforming | O(n) - Single pass | O(n²) - Nested loops on same data |
+| Checking existence | O(1) - Set.has() | O(n) - Array.includes() in loops |
+| Caching | O(1) amortized - LRU/Map | O(n) - Rebuilding on every access |
+
+**Rules**:
+- Prefer `Map` and `Set` over arrays for frequent lookups
+- Use early returns to avoid unnecessary computation
+- Avoid creating objects/arrays inside render loops or hot paths
+- Use `WeakMap`/`WeakSet` for DOM-keyed caches (prevents memory leaks)
+- Pre-compute derived data once, not on every access
+
+### Data Structures - When to Use What
+
+| Structure | Use When | Example in Project |
+|-----------|----------|-------------------|
+| **Map/Object** | Key-value lookup, O(1) access | `likedEpisodes` record, KV cache |
+| **Set/WeakSet** | Tracking membership, deduplication | `playersWithEventsRef` (WeakSet) |
+| **Array** | Ordered data, iteration, indexed access | `episodes[]` list |
+| **LRU Cache** | Bounded memory with eviction | `VideoPlayerCacheContext` (max 5 players) |
+| **Queue** | FIFO processing, rate limiting | Request queues, event buffering |
+| **Stack** | LIFO, undo/redo, navigation history | Router history |
+
+### Design Patterns to Apply
+
+**Strategy Pattern** - Swap algorithms at runtime:
+```typescript
+// Example: Video format strategy
+const VIDEO_FORMAT: VideoFormat = 'mp4' | 'hls';
+// Player config changes based on format without conditionals everywhere
+```
+
+**Observer Pattern** - Decouple event producers from consumers:
+```typescript
+// Already used: xgplayer events (player.on('ended', ...))
+// Already used: MutationObserver for DOM readiness
+// Apply for: cross-component communication, cache invalidation
+```
+
+**Factory Pattern** - Centralize object creation:
+```typescript
+// Already used: createPlayerConfig() in VideoPlayerCacheContext
+// Apply when: creating different player types, API clients, error objects
+```
+
+**Adapter Pattern** - Unify different interfaces:
+```typescript
+// Example: HLS.js plugin adapts HLS streams to look like native video
+// Apply when: integrating third-party SDKs, normalizing API responses
+```
+
+**Decorator Pattern** - Add behavior without modifying originals:
+```typescript
+// Example: withSession() wraps D1 queries with session handling
+// Apply for: logging, caching, auth wrappers, error handling
+```
+
+### SOLID Principles (Adapted for React/TypeScript)
+
+| Principle | Meaning | Application |
+|-----------|---------|-------------|
+| **Single Responsibility** | One component/function = one job | `EpisodeSlide` handles display, `VideoPlayerCacheContext` handles caching |
+| **Open/Closed** | Extend behavior without modifying | Use props/composition, not conditional branches for variants |
+| **Liskov Substitution** | Subtypes must be substitutable | Consistent interfaces: all API services follow same error/response pattern |
+| **Interface Segregation** | Don't force unused dependencies | Small focused hooks (`useDoubleTap`, `useHaptic`) not one mega hook |
+| **Dependency Inversion** | Depend on abstractions | Context providers as interfaces, not direct imports of implementations |
+
+### Code Organization Rules
+
+1. **Extract when reused** - If logic appears in 2+ places, extract to a utility/hook
+2. **Colocate related code** - Keep component + hook + types together
+3. **Pure functions first** - Extract business logic into pure functions outside components
+4. **Constants outside** - Static values, configs, and stable handlers outside component scope
+5. **Minimize state** - Derive values from existing state instead of creating new state
+6. **Prefer composition** - Small composable hooks/components over large monolithic ones
+
+### Performance Patterns for This Project
+
+- **Memoize expensive computations**: `useMemo` for derived data, `useCallback` for stable references
+- **Lazy loading**: Split code at route level, defer non-critical imports
+- **Debounce/throttle**: For scroll handlers, resize events, search inputs
+- **Batch state updates**: Group related `setState` calls, use `useReducer` for complex state
+- **Preload strategically**: Adjacent episodes loaded after current is ready (bandwidth priority)
+- **Use `requestIdleCallback`**: For non-urgent work (preloading ep+2, analytics)
+- **WeakRef for caches**: Allow GC to reclaim memory when needed
+
+### Anti-Patterns to Avoid
+
+- **O(n²) in render paths** - No nested `.find()` / `.filter()` / `.includes()` on arrays in loops
+- **Prop drilling > 2 levels** - Use Context or composition instead
+- **God components** - Max ~200 lines per component, extract if larger
+- **Inline object/array literals in JSX** - Creates new references every render, breaks memoization
+- **Synchronous heavy computation in event handlers** - Defer to `requestAnimationFrame` or `setTimeout`
+- **Unbounded caches** - Always set max size (LRU pattern), use WeakMap/WeakSet for DOM references
+
 ## On-Demand Documentation
 
 Read these files only when working on related features:
@@ -193,3 +299,4 @@ Read these files only when working on related features:
 - **R2 Video Streaming**: `docs/r2-video-streaming.md` - Self-hosted HLS architecture, R2 bucket structure, player optimization
 - **Video Transcoding**: `docs/video-transcoding-workflow.md` - FFmpeg transcoding and R2 upload workflow
 - **Video Posters**: `docs/video-poster-generation.md` - Poster/thumbnail generation to prevent black screens during loading
+- **Edge Architecture**: `docs/cloudflare-edge-architecture.md` - How Cloudflare's edge network, V8 isolates, anycast routing, and D1 read replication work
