@@ -816,3 +816,269 @@ GROUP BY $metadata.trigger;
 - User like history is private by default
 - Episode like counts are public
 - Analytics data is aggregated, no PII in queries
+
+---
+
+## Algorithms & CS Patterns for High-Throughput Likes
+
+This section describes the computer science algorithms and design patterns used to handle thousands of concurrent like/unlike operations per second without data loss or service degradation.
+
+### Problem Statement
+
+When thousands of users toggle likes within seconds:
+
+```
+1000 likes/sec → 1000 D1 writes/sec → D1 is single-threaded → queue overload
+               → 1000 counter increments → race conditions (lost updates)
+               → KV limit: 1 write/sec per key → can't update count cache
+```
+
+### Algorithm 1: Write Coalescing Buffer (Durable Object)
+
+**CS Concept**: Batch processing / Write-behind cache
+
+Instead of N individual writes, buffer them and flush as a single batch:
+
+```
+Individual writes:                  Write coalescing:
+─────────────────                   ─────────────────
+like → D1 write                     like ─┐
+like → D1 write                     like ─┤
+like → D1 write        vs          like ─┼─→ 1 batch D1 write (every 5s)
+like → D1 write                     like ─┤
+like → D1 write                     like ─┘
+
+5 writes/sec                        1 write/5sec (250x reduction)
+```
+
+**Data structure**: `Map<userId, timestamp>` for O(1) deduplication in the Durable Object:
+
+```typescript
+class EpisodeLikeBuffer {
+  pendingLikes = new Map<string, number>();   // userId → timestamp
+  pendingUnlikes = new Set<string>();          // userId set
+
+  async handleLike(userId: string): boolean {
+    // O(1) duplicate check
+    if (this.pendingLikes.has(userId)) return false;
+    if (this.pendingUnlikes.has(userId)) {
+      this.pendingUnlikes.delete(userId);  // Cancel pending unlike
+    }
+    this.pendingLikes.set(userId, Date.now());
+    return true;
+  }
+
+  async flush() {
+    // Single batch INSERT with ON CONFLICT DO NOTHING
+    // Delta = actualInserted - pendingUnlikes.size
+    // Single UPDATE episodes SET like_count += delta
+  }
+}
+```
+
+**Complexity**: O(1) per like, O(n) per flush (n = buffer size, bounded by flush interval)
+
+### Algorithm 2: Sliding Window Counter for Rate Limiting
+
+**CS Concept**: Sliding window log / Token bucket hybrid
+
+```
+Time windows:    [----60s window----]
+User actions:    |||  ||  | ||| ||     = 12 actions
+Limit:           10 per minute
+Result:          Reject after 10th
+```
+
+Implementation using KV with fixed window buckets:
+
+```typescript
+// O(1) rate check
+async function checkRateLimit(
+  kv: KVNamespace,
+  userId: string,
+  limit = 10
+): Promise<boolean> {
+  const bucket = Math.floor(Date.now() / 60000); // 1-minute window
+  const key = `rate:like:${userId}:${bucket}`;
+
+  const current = parseInt(await kv.get(key) ?? '0');
+  if (current >= limit) return false;
+
+  // Non-blocking increment with auto-expiry
+  await kv.put(key, String(current + 1), { expirationTtl: 120 });
+  return true;
+}
+```
+
+**Complexity**: O(1) per check. TTL auto-cleans expired windows.
+
+**Tradeoff**: Fixed window can allow 2x burst at window boundaries. Acceptable for likes since the consequence is just a few extra likes, not a security issue.
+
+### Algorithm 3: CRDT-Inspired Counter (Grow-Only with Reconciliation)
+
+**CS Concept**: Conflict-free Replicated Data Type (G-Counter)
+
+The problem with `like_count = like_count + 1` under concurrency:
+
+```
+Thread A: reads count = 100
+Thread B: reads count = 100
+Thread A: writes count = 101
+Thread B: writes count = 101  ← LOST UPDATE (should be 102)
+```
+
+**Solution**: Don't maintain a running counter. Derive it from the source of truth:
+
+```sql
+-- Instead of maintaining episodes.like_count via increment/decrement,
+-- periodically reconcile from user_likes table:
+
+UPDATE episodes
+SET like_count = (SELECT COUNT(*) FROM user_likes WHERE episode_id = ?)
+WHERE id = ?;
+```
+
+**When to reconcile**:
+- On Durable Object flush (every 5s during viral periods)
+- On cache miss (lazy reconciliation)
+- Via scheduled cron (every 5 min for all episodes)
+
+**Complexity**: O(k) where k = number of likes for that episode (indexed scan). With the index on `episode_id`, this is fast even for popular episodes.
+
+**Tradeoff**: Slightly stale count (acceptable per eventual consistency design) but **zero lost updates**.
+
+### Algorithm 4: Two-Level Cache (KV + Bloom Filter)
+
+**CS Concept**: Bloom filter for probabilistic membership testing
+
+For the "has user liked this episode?" check (most frequent operation at 5M reads/day):
+
+```
+Level 1 - KV Cache (current design):
+  Key: like:user:{userId}:{episodeId}
+  Hit rate: 90%+ with 24h TTL
+  Cost: $0.50/M reads
+
+Level 2 - Bloom Filter (future optimization at 10M+ DAU):
+  Per-episode bloom filter stored in KV
+  False positive rate: ~1% (still check D1 to confirm)
+  False negative rate: 0% (guaranteed correct for "not liked")
+
+  if bloomFilter.mayContain(userId):
+    return d1.checkLike(userId, episodeId)  // Confirm positive
+  else:
+    return false  // Definitely not liked, skip D1
+```
+
+**Current recommendation**: KV per-user cache is sufficient at 500K-1M DAU. Bloom filters become cost-effective at 10M+ DAU when KV read volume exceeds 500M/month.
+
+### Algorithm 5: Event Sourcing with CQRS
+
+**CS Concept**: Command Query Responsibility Segregation
+
+Separate the write model (optimized for throughput) from the read model (optimized for latency):
+
+```
+Write path (Command):
+  User → Like → Analytics Engine (append-only event log, always succeeds)
+             → Durable Object (buffer for batch processing)
+             → D1 (batch flush, source of truth)
+
+Read path (Query):
+  User → KV cache (1-5ms, 90% hit rate)
+       → D1 read replica (10-30ms fallback, nearest region)
+```
+
+Analytics Engine serves as the immutable event log. Every like/unlike is recorded first as an event, then state is derived from events. This guarantees:
+- No event is lost (append-only)
+- State can always be reconstructed
+- Fraud detection via event pattern analysis
+
+---
+
+## Complexity Analysis
+
+### Per-Operation Complexity
+
+| Operation | Current | After Improvements |
+|-----------|---------|-------------------|
+| Like (write) | O(1) but unbounded D1 writes | O(1) to DO buffer, O(n) batch flush |
+| Unlike (write) | O(1) D1 write | O(1) to DO buffer |
+| Check liked (read) | O(1) D1 query every time | O(1) KV cache hit (90%), O(1) D1 fallback |
+| Get count (read) | O(1) D1 query every time | O(1) KV cache (60s TTL) |
+| Batch status (read) | N/A (missing) | O(1) KV + O(k) D1 for k cache misses |
+| Rate check | N/A (missing) | O(1) KV lookup |
+
+### Throughput Comparison
+
+| Scenario | Current Capacity | After Improvements |
+|----------|-----------------|-------------------|
+| Normal load | ~1000 likes/sec (D1 limit) | ~1000 likes/sec (same, no bottleneck) |
+| Viral episode | ~1000 likes/sec (degrades) | ~50,000 likes/sec (DO buffer) |
+| Read load | ~1000 reads/sec (D1 bound) | Unlimited (KV cached) |
+| Batch reads | N/A | Single query for 20+ episodes |
+
+### Space Complexity
+
+| Component | Memory Usage |
+|-----------|-------------|
+| DO buffer (per episode) | O(n) where n = likes in current 5s window |
+| KV count cache | O(e) where e = number of episodes with activity |
+| KV user status cache | O(u × e) where u = active users, e = liked episodes |
+| Rate limit keys | O(u) per minute window, auto-expired via TTL |
+
+---
+
+## Data Flow After Improvements
+
+### Normal Path (99% of traffic)
+
+```
+Like request
+    │
+    ├─ Rate limit check ──── O(1) KV ──── reject if exceeded
+    │
+    ├─ Dedup check ────────── O(1) KV ──── reject if already liked
+    │
+    ├─ D1 INSERT user_likes ─ O(1) ─────── ON CONFLICT DO NOTHING
+    │
+    ├─ D1 UPDATE count ────── O(1) ─────── atomic increment
+    │
+    ├─ KV update (async) ──── O(1) ─────── cache user status + invalidate count
+    │
+    └─ Analytics (async) ──── O(1) ─────── fire-and-forget event
+```
+
+### Viral Path (1% of traffic, 500+ likes/sec)
+
+```
+Like request
+    │
+    ├─ Rate limit check ──── O(1) KV
+    │
+    ├─ Route to Durable Object ──── O(1) per request
+    │   │
+    │   ├─ Dedup via Map.has() ──── O(1)
+    │   ├─ Buffer in Map ────────── O(1)
+    │   └─ Return estimated count ─ O(1)
+    │
+    └─ DO Alarm (every 5s):
+        ├─ Batch INSERT ─────────── O(n) single query
+        ├─ Reconcile count ──────── O(1) single COUNT(*) query
+        └─ Update KV cache ──────── O(1)
+```
+
+---
+
+## Implementation Priority
+
+| # | Improvement | Algorithm/Pattern | Impact | Risk |
+|---|-------------|-------------------|--------|------|
+| 1 | Add auth to likes | Idempotent ops via PK constraint | Prevents duplicates | Low |
+| 2 | KV cache layer | Cache-aside pattern, O(1) reads | 90% fewer D1 reads | Low |
+| 3 | Batch read endpoint | Single D1 query for N episodes | O(n) → O(1) per page | Low |
+| 4 | Rate limiting | Sliding window counter | Prevents abuse | Low |
+| 5 | Write coalescing DO | Buffer + batch flush | 250x fewer D1 writes during viral | Medium |
+| 6 | Count reconciliation | CRDT G-Counter pattern | Zero lost updates | Low |
+| 7 | Analytics Engine | Event sourcing / CQRS | Trend/fraud detection | Low |
+| 8 | Bloom filter | Probabilistic membership | KV cost reduction at 10M+ DAU | Low (future) |
