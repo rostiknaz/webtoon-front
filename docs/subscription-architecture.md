@@ -1,6 +1,6 @@
 # Subscription Cookie Architecture
 
-Hybrid cookie/API access control optimized for scale (500k-1M users/day).
+Hybrid cookie/API access control optimized for scale (500k-10M users/day).
 
 ## Table of Contents
 - [Overview](#overview)
@@ -12,6 +12,7 @@ Hybrid cookie/API access control optimized for scale (500k-1M users/day).
 - [Security Model](#security-model)
 - [Benefits](#benefits)
 - [Cost Analysis](#cost-analysis)
+- [Scaling to 5-10M DAU](#scaling-to-5-10m-dau)
 
 ---
 
@@ -985,7 +986,7 @@ No loading states, no error handling for network failures, no retry logic.
 
 ## Cost Analysis
 
-Estimated costs for 500k-1M users/day with hybrid approach:
+Estimated costs for 5-10M users/day with hybrid approach:
 
 ### Approach Comparison
 
@@ -1025,6 +1026,354 @@ Hybrid (90% cookie, 10% API):
 
 Savings: 90% ($114/month)
 ```
+
+---
+
+---
+
+## Scaling to 5-10M DAU
+
+### The Problem: Unbounded Table Growth
+
+With millions of daily active users subscribing, renewing, and churning, several tables grow without bound:
+
+| Table | Growth Rate (5M DAU) | Annual Size | Problem |
+|-------|---------------------|-------------|---------|
+| `subscriptions` | New row per renewal | ~2.4GB/yr | History accumulates |
+| `paymentTransactions` | 1-2 per subscribe | ~1.2GB/yr | Audit trail grows |
+| `webhookEvents` | 3-5 per payment | ~12GB/yr | Exceeds D1 10GB limit |
+| `watchHistory` | 5-10 per user/day | ~360GB/yr | Largest table by far |
+| `sessions` | 1-3 per user/day | ~108GB/yr | Frequent auth |
+
+**D1 constraint**: 10GB hard limit per database, single-threaded writes.
+
+---
+
+### Pattern 1: Hot/Cold Data Separation
+
+Time-partition data between an active D1 database and an archive D1 database.
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│   D1: Active (Hot)  │     │  D1: Archive (Cold)  │
+│                     │     │                      │
+│  subscriptions      │     │  subscriptions_archive│
+│  (status=active/    │     │  (status=expired/     │
+│   trial/past_due)   │     │   cancelled, >90d)    │
+│                     │     │                      │
+│  watchHistory       │     │  watchHistory_archive │
+│  (last 30 days)     │     │  (older than 30 days) │
+│                     │     │                      │
+│  sessions           │     │  webhookEvents_archive│
+│  (last 7 days)      │     │  (older than 7 days)  │
+└─────────────────────┘     └──────────────────────┘
+```
+
+**Implementation**: Scheduled Worker (cron) moves expired rows:
+
+```typescript
+// worker/crons/archive.ts
+async function archiveExpiredSubscriptions(hotDb: D1Database, coldDb: D1Database) {
+  const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000; // 90 days ago
+
+  const expired = await hotDb
+    .prepare(`SELECT * FROM subscriptions WHERE status IN ('expired','cancelled') AND updatedAt < ?`)
+    .bind(cutoff)
+    .all();
+
+  if (expired.results.length === 0) return;
+
+  // Batch insert into archive
+  const batch = expired.results.map(row =>
+    coldDb.prepare(`INSERT INTO subscriptions_archive VALUES (?,?,?,?,?,?,?,?)`)
+      .bind(row.id, row.userId, row.planId, row.status, /* ... */)
+  );
+  await coldDb.batch(batch);
+
+  // Delete from hot
+  const ids = expired.results.map(r => r.id);
+  await hotDb.prepare(`DELETE FROM subscriptions WHERE id IN (${ids.map(() => '?').join(',')})`)
+    .bind(...ids)
+    .run();
+}
+```
+
+**Hot DB size estimate**: ~500MB (active subscriptions + 30-day rolling window).
+
+---
+
+### Pattern 2: State Machine for Subscription Lifecycle
+
+Instead of inserting a new row per renewal, maintain a **single row per user** that transitions through states:
+
+```
+          ┌──────────┐
+          │  (none)  │
+          └────┬─────┘
+               │ subscribe()
+               ▼
+          ┌──────────┐   renew()    ┌──────────┐
+          │  trial   │ ──────────▶  │  active   │ ◀─┐
+          └────┬─────┘              └────┬──────┘   │
+               │ expire()                │ renew()   │
+               ▼                         │           │
+          ┌──────────┐                   └───────────┘
+          │ expired  │ ◀── expire()
+          └────┬─────┘
+               │ subscribe()
+               ▼
+          ┌──────────┐
+          │  active  │  (re-subscription)
+          └──────────┘
+```
+
+**Schema change** — single row updated in place:
+
+```sql
+-- Current: new row per period (grows unbounded)
+-- Proposed: single row per user (constant size)
+CREATE TABLE user_subscription (
+  userId    TEXT PRIMARY KEY,
+  planId    TEXT NOT NULL,
+  status    TEXT NOT NULL DEFAULT 'trial',
+  startsAt  INTEGER NOT NULL,
+  expiresAt INTEGER NOT NULL,
+  renewalCount INTEGER DEFAULT 0,
+  updatedAt INTEGER NOT NULL
+);
+```
+
+**History goes to Analytics Engine** (immutable event log, unlimited storage):
+
+```typescript
+// Log every state transition to Analytics Engine
+env.ANALYTICS.writeDataPoint({
+  blobs: [userId, oldStatus, newStatus, planId],
+  doubles: [expiresAt, renewalCount],
+  indexes: [userId],
+});
+```
+
+**Result**: `user_subscription` table stays O(users), not O(users × renewals).
+
+---
+
+### Pattern 3: Vertical Database Split
+
+Separate databases by domain to isolate growth and optimize per-domain:
+
+```
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  D1: Auth    │  │  D1: Content │  │  D1: Billing │  │  D1: Activity│
+│              │  │              │  │              │  │              │
+│  users       │  │  series      │  │  user_sub    │  │  watchHistory│
+│  sessions    │  │  episodes    │  │  plans       │  │  userLikes   │
+│  accounts    │  │              │  │  payments    │  │              │
+│  verifications│ │              │  │              │  │              │
+└──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+```
+
+**Important**: Foreign keys do NOT work across separate D1 databases. Each D1 is an independent SQLite instance. Cross-database referential integrity must be enforced at the application level:
+
+```typescript
+// Application-level referential integrity
+async function subscribe(userId: string, planId: string) {
+  // 1. Verify user exists in auth DB
+  const user = await authDb.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first();
+  if (!user) throw new Error('User not found');
+
+  // 2. Verify plan exists in billing DB
+  const plan = await billingDb.prepare('SELECT id FROM plans WHERE id = ?').bind(planId).first();
+  if (!plan) throw new Error('Plan not found');
+
+  // 3. Create subscription in billing DB
+  await billingDb.prepare('INSERT INTO user_subscription (userId, planId, ...) VALUES (?, ?, ...)')
+    .bind(userId, planId)
+    .run();
+}
+```
+
+**Trade-off**: More application code for integrity checks, but each DB stays well under 10GB and can scale independently.
+
+---
+
+### Pattern 4: Rolling Window with TTL Eviction
+
+For high-volume tables like `watchHistory`, maintain only a fixed time window:
+
+```typescript
+// Scheduled Worker: daily cron
+async function evictOldWatchHistory(db: D1Database) {
+  const cutoff = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60; // 30 days
+
+  await db.prepare('DELETE FROM watchHistory WHERE watchedAt < ?')
+    .bind(cutoff)
+    .run();
+}
+```
+
+**Size cap**: With 5M DAU × 7 watches/day × 30 days × ~100 bytes = **~100GB** → still too large for D1.
+
+**Solution**: Move `watchHistory` to Analytics Engine entirely:
+
+```typescript
+// Replace D1 insert with Analytics Engine write
+env.ANALYTICS.writeDataPoint({
+  blobs: [userId, episodeId, seriesId],
+  doubles: [watchedAt, durationSeconds, completionPercent],
+  indexes: [userId],
+});
+```
+
+Analytics Engine has no storage limits and is optimized for time-series append-only data.
+
+---
+
+### Pattern 5: Materialized View via KV (CQRS)
+
+Separate the write path (D1) from the read path (KV) for subscription checks:
+
+```
+Write Path:                          Read Path:
+subscribe() ──▶ D1 (source of truth) useSubscription() ──▶ Cookie (instant)
+    │                                                         │
+    └──▶ Update KV materialized view                          └──▶ KV (fallback)
+         key: sub:{userId}                                         key: sub:{userId}
+         value: { status, planId,                                  │
+                  expiresAt, features }                            └──▶ D1 (last resort)
+         ttl: matches expiration
+```
+
+This is already partially implemented via the cookie system. KV acts as a server-side cache that survives cookie deletion.
+
+---
+
+### Pattern 6: Event Sourcing for Audit Trail
+
+Use Analytics Engine as an immutable event log for all subscription and payment events:
+
+```typescript
+// Every subscription mutation logs an event
+function logSubscriptionEvent(env: Env, event: {
+  type: 'subscribe' | 'renew' | 'cancel' | 'expire' | 'refund';
+  userId: string;
+  planId: string;
+  amount?: number;
+}) {
+  env.ANALYTICS.writeDataPoint({
+    blobs: [event.type, event.userId, event.planId],
+    doubles: [Date.now(), event.amount ?? 0],
+    indexes: [event.userId],
+  });
+}
+```
+
+**Benefits**:
+- Unlimited storage (Analytics Engine retains data based on account plan)
+- Query via SQL API for analytics dashboards
+- D1 only stores current state, not full history
+- Webhook events move entirely to Analytics Engine
+
+---
+
+### Implementation Priority
+
+| Priority | Pattern | Impact | Effort |
+|----------|---------|--------|--------|
+| 1 | FSM subscription (Pattern 2) | Stops subscription table growth | Schema migration |
+| 2 | Analytics Engine for events (Pattern 6) | Removes webhookEvents from D1 | New write path |
+| 3 | Rolling window / Analytics Engine for watchHistory (Pattern 4) | Removes largest table | Migration |
+| 4 | Hot/Cold separation (Pattern 1) | Handles remaining growth | Cron worker |
+| 5 | Vertical DB split (Pattern 3) | Long-term scaling | Major refactor |
+| 6 | KV materialized views (Pattern 5) | Already partially done via cookies | Incremental |
+
+### Multi-Worker Architecture Analysis
+
+**Question**: Would splitting into separate Workers (auth Worker, billing Worker, content Worker) help handle 5-10M DAU?
+
+**Answer**: No. Splitting Workers does not improve throughput.
+
+#### Why Not
+
+1. **Workers have no per-script request limit.** A single Worker auto-scales across thousands of edge servers with no general limit on requests/second. Splitting doesn't increase total capacity.
+
+2. **The bottleneck is D1, not Workers.** Each D1 database is backed by a single Durable Object (single-threaded). Maximum throughput: ~1,000 QPS for 1ms queries, ~10 QPS for 100ms queries. Whether one Worker or three Workers send queries to the same D1, the database processes them at the same rate.
+
+3. **Service Bindings have zero overhead.** If you split, Workers on the same server communicate via Service Bindings with no latency penalty — but there's also no latency gain.
+
+4. **Smart Placement doesn't help here.** Workers with D1 bindings already run near the D1 location. Read replicas route reads to the nearest replica automatically.
+
+5. **CPU limits are not a concern.** Paid plan allows 30s CPU time per request. Typical auth request uses <5ms CPU. Billing includes total CPU across all Service Binding calls anyway.
+
+6. **No cost difference.** On Standard pricing, Service Binding calls are free. One Worker handling 10M requests costs the same as two Workers handling 5M each.
+
+#### What Actually Helps at Scale
+
+| Solution | Effect |
+|----------|--------|
+| Separate D1 databases (Pattern 3) | Each DB gets its own ~1,000 QPS write budget |
+| D1 read replicas (already enabled) | Multiplies read throughput by replica count |
+| KV/cookie caching (already implemented) | Eliminates most D1 reads |
+| Analytics Engine for high-volume writes | Bypasses D1 entirely for watchHistory, webhookEvents |
+
+#### When Splitting Workers Makes Sense
+
+Splitting is valid for **organizational** reasons, not performance:
+- Independent deployment cycles (different teams)
+- Security isolation (reduce public attack surface)
+- Reusability (shared auth Worker across multiple apps)
+
+---
+
+### Cloudflare Pages + Worker Split Analysis
+
+**Question**: Should we split frontend (Cloudflare Pages) from backend (Cloudflare Worker)?
+
+**Answer**: No. Cloudflare officially recommends the single Worker approach we already use.
+
+#### Key Findings
+
+1. **Cloudflare is converging Pages into Workers.** From official docs: *"Now that Workers supports both serving static assets and server-side rendering, you should start with Workers. All of our investment, optimizations, and feature work will be dedicated to improving Workers."* Pages won't receive new features.
+
+2. **Static asset serving is identical.** Both Pages and Workers serve static assets from the same edge network, with the same caching, same 25 MiB file limit, and **free unlimited requests** for static assets on both platforms.
+
+3. **Workers has more features.** Durable Objects, Cron Triggers, comprehensive Observability, and gradual deployments (traffic splitting) are Workers-only. Pages Functions are billed as Workers anyway.
+
+4. **No cost benefit.** Static asset requests are free on both platforms. Function/Worker invocations cost the same ($0.30/million). No bandwidth charges on either.
+
+5. **Splitting adds complexity.** A Pages + Worker split requires:
+   - Two deployment pipelines
+   - Service Bindings or cross-domain fetch for API calls
+   - Domain routing between the two
+   - Loss of atomic deploys (frontend and API could be out of sync)
+
+6. **We already have the recommended setup.** The `@cloudflare/vite-plugin` with `env.ASSETS.fetch()` is exactly what Cloudflare recommends for full-stack apps. Static assets are served directly without invoking Worker code (unless `run_worker_first` is set).
+
+#### Deployment Features Comparison
+
+| Feature | Pages | Workers |
+|---------|-------|---------|
+| Preview URLs per PR | Yes (automatic) | Yes (per version) |
+| Rollback | Yes (any production build) | Yes (last 100 versions) |
+| Gradual deployments | No | Yes (traffic splitting) |
+| Cron Triggers | No | Yes |
+| Durable Objects | No | Yes |
+| Observability | Limited | Full |
+| Git-based deploy | Yes (built-in) | No (CI/CD required) |
+| File limit | 20,000 | 100,000 (paid) |
+
+---
+
+### Storage Projection After Improvements
+
+| Table | Before (annual) | After | Where |
+|-------|-----------------|-------|-------|
+| subscriptions | 2.4GB (growing) | ~50MB (O(users)) | D1 (FSM) |
+| paymentTransactions | 1.2GB | 0 | Analytics Engine |
+| webhookEvents | 12GB | 0 | Analytics Engine |
+| watchHistory | 360GB | 0 | Analytics Engine |
+| sessions | 108GB | ~500MB (7-day window) | D1 + KV |
+| **Total D1** | **~484GB** | **~550MB** | **Well under 10GB** |
 
 ---
 
