@@ -15,6 +15,17 @@ const formatCount = (num: number) => {
   return num.toString();
 };
 
+const BUTTON_BASE = 'flex items-center justify-center w-10 h-10 rounded-full transition-all';
+const BUTTON_GLASS = `${BUTTON_BASE} bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90`;
+const BUTTON_ACCENT = `${BUTTON_BASE} bg-primary/15 border border-primary/12 text-primary hover:bg-primary/22`;
+
+const getFilterButtonClass = (active: boolean) =>
+  `${BUTTON_BASE} backdrop-blur-2xl border ${
+    active
+      ? 'bg-white/15 border-white/10 text-white/90'
+      : 'bg-white/8 border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90'
+  }`;
+
 export interface FeedOverlayProps {
   likeCount: number;
   downloadCount: number;
@@ -49,11 +60,7 @@ export const FeedOverlay = memo(function FeedOverlay({
     >
       {/* Heart with count */}
       <div className="flex flex-col items-center gap-[3px]">
-        <button
-          type="button"
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90 transition-all"
-          aria-label="Like"
-        >
+        <button type="button" className={BUTTON_GLASS} aria-label="Like">
           <Heart className="w-[18px] h-[18px]" strokeWidth={1.5} />
         </button>
         <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
@@ -63,11 +70,7 @@ export const FeedOverlay = memo(function FeedOverlay({
 
       {/* Download — primary accent */}
       <div className="flex flex-col items-center gap-[3px]">
-        <button
-          type="button"
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/15 border border-primary/12 text-primary hover:bg-primary/22 transition-all"
-          aria-label="Download"
-        >
+        <button type="button" className={BUTTON_ACCENT} aria-label="Download">
           <Download className="w-[18px] h-[18px]" strokeWidth={1.5} />
         </button>
         <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
@@ -76,12 +79,7 @@ export const FeedOverlay = memo(function FeedOverlay({
       </div>
 
       {/* Share */}
-      <button
-        type="button"
-        onClick={handleShare}
-        className="flex items-center justify-center w-10 h-10 rounded-full bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90 transition-all"
-        aria-label="Share"
-      >
+      <button type="button" onClick={handleShare} className={BUTTON_GLASS} aria-label="Share">
         <Share2 className="w-[18px] h-[18px]" strokeWidth={1.5} />
       </button>
 
@@ -91,11 +89,7 @@ export const FeedOverlay = memo(function FeedOverlay({
           <button
             type="button"
             onClick={onFilterTap}
-            className={`flex items-center justify-center w-10 h-10 rounded-full backdrop-blur-2xl border transition-all ${
-              activeCategoryName
-                ? 'bg-white/15 border-white/10 text-white/90'
-                : 'bg-white/8 border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90'
-            }`}
+            className={getFilterButtonClass(!!activeCategoryName)}
             aria-label="Filter"
           >
             <SlidersHorizontal className="w-[18px] h-[18px]" strokeWidth={1.5} />

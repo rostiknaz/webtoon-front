@@ -9,6 +9,7 @@ import {
     subscribeResponseSchema,
     feedResponseSchema,
     categoriesResponseSchema,
+    creatorClipsResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -17,6 +18,7 @@ import {
     type SubscribeResponse,
     type FeedResponse,
     type CategoriesResponse,
+    type CreatorClipsResponse,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -110,46 +112,42 @@ export const getSeriesStatsBySlug = async (slug: string) => {
 };
 
 /**
+ * Merge core metadata with stats into a complete SeriesMetadata object.
+ * isLocked and hlsUrl are computed client-side based on subscription status.
+ */
+function mergeSeriesData(
+    coreData: Awaited<ReturnType<typeof getSeriesCoreMetadataBySlug>>,
+    statsData: Awaited<ReturnType<typeof getSeriesStatsBySlug>>,
+): SeriesMetadata {
+    const statsMap = new Map(statsData.episodes.map(s => [s._id, s]));
+
+    return seriesMetadataSchema.parse({
+        ...coreData,
+        totalViews: statsData.totalViews,
+        totalLikes: statsData.totalLikes,
+        episodes: coreData.episodes
+            .map((ep) => ({
+                ...ep,
+                isLocked: ep.isPaid,
+                hlsUrl: undefined,
+                views: statsMap.get(ep._id)?.views ?? 0,
+                likes: statsMap.get(ep._id)?.likes ?? 0,
+            }))
+            .sort((a, b) => a.episodeNumber - b.episodeNumber),
+    });
+}
+
+/**
  * Fetch complete series metadata by slug
  *
  * Uses Promise.all to fetch core data and stats in parallel.
- * Eliminates waterfall: both requests start immediately.
- *
- * Note: isLocked and hlsUrl are computed on the client side based on
- * subscription status to prevent cache invalidation issues.
  */
 export const getSeriesMetadataBySlug = async (slug: string): Promise<SeriesMetadata> => {
-    // Fetch core metadata and stats in parallel (no waterfall!)
     const [coreData, statsData] = await Promise.all([
         getSeriesCoreMetadataBySlug(slug),
         getSeriesStatsBySlug(slug),
     ]);
-
-    // Create a Map for O(1) episode stats lookup instead of O(n) find()
-    const statsMap = new Map(statsData.episodes.map(s => [s._id, s]));
-
-    // Merge episodes with their stats
-    const episodes = coreData.episodes.map((ep) => {
-        const stats = statsMap.get(ep._id);
-        return {
-            ...ep,
-            // Default values - isLocked and hlsUrl computed on client
-            isLocked: ep.isPaid,
-            hlsUrl: undefined,
-            views: stats?.views ?? 0,
-            likes: stats?.likes ?? 0,
-        };
-    });
-
-    // Build combined response
-    const combinedData: SeriesMetadata = {
-        ...coreData,
-        totalViews: statsData.totalViews,
-        totalLikes: statsData.totalLikes,
-        episodes: episodes.sort((a, b) => a.episodeNumber - b.episodeNumber),
-    };
-
-    return seriesMetadataSchema.parse(combinedData);
+    return mergeSeriesData(coreData, statsData);
 };
 
 /**
@@ -157,37 +155,11 @@ export const getSeriesMetadataBySlug = async (slug: string): Promise<SeriesMetad
  * @deprecated Use getSeriesMetadataBySlug for cleaner URLs
  */
 export const getSeriesMetadata = async (seriesId: string): Promise<SeriesMetadata> => {
-    // Fetch core metadata and stats in parallel
     const [coreData, statsData] = await Promise.all([
         getSeriesCoreMetadata(seriesId),
         getSeriesStats(seriesId),
     ]);
-
-    // Create a Map for O(1) episode stats lookup instead of O(n) find()
-    const statsMap = new Map(statsData.episodes.map(s => [s._id, s]));
-
-    // Merge episodes with their stats
-    const episodes = coreData.episodes.map((ep) => {
-        const stats = statsMap.get(ep._id);
-        return {
-            ...ep,
-            // Default values - isLocked and hlsUrl computed on client
-            isLocked: ep.isPaid,
-            hlsUrl: undefined,
-            views: stats?.views ?? 0,
-            likes: stats?.likes ?? 0,
-        };
-    });
-
-    // Build combined response
-    const combinedData: SeriesMetadata = {
-        ...coreData,
-        totalViews: statsData.totalViews,
-        totalLikes: statsData.totalLikes,
-        episodes: episodes.sort((a, b) => a.episodeNumber - b.episodeNumber),
-    };
-
-    return seriesMetadataSchema.parse(combinedData);
+    return mergeSeriesData(coreData, statsData);
 };
 
 // ==================== Subscription API ====================
@@ -305,4 +277,18 @@ export const getCategories = async (): Promise<CategoriesResponse> => {
         errorMessage: 'Failed to fetch categories',
     });
     return categoriesResponseSchema.parse(data);
+};
+
+// ==================== Creator Clips API ====================
+
+/**
+ * Fetch authenticated creator's clips with status and moderation reasons
+ * Auth required — creator role
+ */
+export const getCreatorClips = async (): Promise<CreatorClipsResponse> => {
+    const data = await fetchJson('/api/clips/mine', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch creator clips',
+    });
+    return creatorClipsResponseSchema.parse(data);
 };

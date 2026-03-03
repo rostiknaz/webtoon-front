@@ -7,16 +7,18 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState, useCallback, useRef, useSyncExternalStore } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { z } from 'zod';
-import { Search, Bell, User, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Swiper as SwiperComponent, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css/bundle';
 
 import { FeedPlayer } from '@/components/FeedPlayer';
+import { NavIcon } from '@/components/NavIcon';
 import { useFeed, feedQueryOptions } from '@/hooks/useFeed';
 import { useCategories, categoriesQueryOptions } from '@/hooks/useCategories';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import {
   Drawer,
   DrawerContent,
@@ -249,20 +251,11 @@ function FeedPage() {
 
 /* ═══ Sub-Components ═══ */
 
-function NavItem({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
+function NavItem({ icon, label, active }: { icon: 'feed' | 'browse' | 'updates' | 'profile'; label: string; active?: boolean }) {
   const color = active ? 'text-white/85' : 'text-white/30 hover:text-white/50';
   return (
     <div className={`flex flex-col items-center gap-[3px] cursor-pointer transition-colors ${color}`}>
-      <span className="w-5 h-5">
-        {icon === 'feed' && (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-            <rect x="2" y="2" width="20" height="20" rx="2" /><path d="M12 8v8M8 12h8" />
-          </svg>
-        )}
-        {icon === 'browse' && <Search className="w-5 h-5" strokeWidth={1.5} />}
-        {icon === 'updates' && <Bell className="w-5 h-5" strokeWidth={1.5} />}
-        {icon === 'profile' && <User className="w-5 h-5" strokeWidth={1.5} />}
-      </span>
+      <NavIcon icon={icon} />
       <span className="text-[9px] font-medium tracking-[0.03em] leading-none">
         {label}
         {active && <span className="block w-[3px] h-[3px] rounded-full bg-primary mx-auto mt-[3px]" />}
@@ -271,19 +264,12 @@ function NavItem({ icon, label, active }: { icon: string; label: string; active?
   );
 }
 
-function SideNavItem({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
+function SideNavItem({ icon, label, active }: { icon: 'feed' | 'browse' | 'updates' | 'profile'; label: string; active?: boolean }) {
   const bg = active ? 'bg-white/8 text-white/90' : 'text-white/40 hover:bg-white/4 hover:text-white/60';
   return (
     <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${bg}`}>
       <span className="w-5 h-5 shrink-0">
-        {icon === 'feed' && (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-            <rect x="2" y="2" width="20" height="20" rx="2" /><path d="M12 8v8M8 12h8" />
-          </svg>
-        )}
-        {icon === 'browse' && <Search className="w-5 h-5" strokeWidth={1.5} />}
-        {icon === 'updates' && <Bell className="w-5 h-5" strokeWidth={1.5} />}
-        {icon === 'profile' && <User className="w-5 h-5" strokeWidth={1.5} />}
+        <NavIcon icon={icon} />
       </span>
       <span className="text-[13px] font-medium tracking-[0.01em]">{label}</span>
       {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
@@ -307,18 +293,3 @@ function SideCategoryItem({ name, active, onClick }: { name: string; active: boo
   );
 }
 
-/* ═══ Media Query Hook ═══ */
-
-const MD_QUERY = '(min-width: 768px)';
-
-const subscribe = (cb: () => void) => {
-  const mql = window.matchMedia(MD_QUERY);
-  mql.addEventListener('change', cb);
-  return () => mql.removeEventListener('change', cb);
-};
-const getSnapshot = () => window.matchMedia(MD_QUERY).matches;
-const getServerSnapshot = () => false; // SSR defaults to mobile
-
-function useIsDesktop() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
