@@ -32,10 +32,18 @@ plans.get(
     const dbPlans = await getActivePlans(db);
 
     // Parse features field (stored as JSON text in DB)
-    const plans = dbPlans.map((p) => ({
-      ...p,
-      features: typeof p.features === 'string' ? JSON.parse(p.features) : p.features,
-    }));
+    const plans = dbPlans.map((p) => {
+      let features: unknown = p.features;
+      if (typeof features === 'string') {
+        try {
+          features = JSON.parse(features);
+        } catch {
+          console.error('Failed to parse plan features for plan:', p.id);
+          features = {};
+        }
+      }
+      return { ...p, features };
+    });
 
     return c.json({
       success: true,

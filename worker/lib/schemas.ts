@@ -67,8 +67,21 @@ export const creatorRegistrationSchema = z.object({
   tosAccepted: z.literal(true, 'You must accept the Terms of Service'),
 });
 
+// ==================== Feed Schemas ====================
+
+/**
+ * GET /api/feed query parameters
+ */
+export const feedQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  category: z.string().optional(),
+  nsfw: z.enum(['safe', 'all']).default('safe'),
+});
+
 // ==================== Type Exports ====================
 
 export type IdParam = z.infer<typeof idParamSchema>;
 export type SubscribeBody = z.infer<typeof subscribeBodySchema>;
 export type CreatorRegistration = z.infer<typeof creatorRegistrationSchema>;
+export type FeedQuery = z.infer<typeof feedQuerySchema>;

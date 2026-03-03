@@ -7,12 +7,14 @@ import {
     subscriptionCheckResponseSchema,
     subscriptionStatusResponseSchema,
     subscribeResponseSchema,
+    feedResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
     type SubscriptionCheckResponse,
     type SubscriptionStatusResponse,
     type SubscribeResponse,
+    type FeedResponse,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -259,4 +261,33 @@ export const unlikeEpisode = async (episodeId: string): Promise<LikeResponse> =>
         method: 'DELETE',
         errorMessage: 'Failed to unlike episode',
     });
+};
+
+// ==================== Feed API ====================
+
+interface FeedParams {
+    cursor?: string;
+    limit?: number;
+    category?: string;
+    nsfw?: string;
+}
+
+/**
+ * Fetch paginated feed of published clips
+ * Public endpoint — no auth required
+ */
+export const getFeed = async (params: FeedParams = {}): Promise<FeedResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params.cursor) searchParams.set('cursor', params.cursor);
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    if (params.category) searchParams.set('category', params.category);
+    if (params.nsfw) searchParams.set('nsfw', params.nsfw);
+
+    const query = searchParams.toString();
+    const url = `/api/feed${query ? `?${query}` : ''}`;
+
+    const data = await fetchJson(url, {
+        errorMessage: 'Failed to fetch feed',
+    });
+    return feedResponseSchema.parse(data);
 };

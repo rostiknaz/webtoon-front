@@ -106,3 +106,90 @@ VALUES
    'The final message that reveals everything. [Premium]',
    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=80',
    96, 1, 0, 0, 0, unixepoch());
+
+
+-- ============================================
+-- Categories (Epic 2: Content Discovery)
+-- ============================================
+
+INSERT OR IGNORE INTO categories (id, name, slug, description, sort_order)
+VALUES
+  ('cat_action', 'Action', 'action', 'High-energy action sequences and fight scenes', 1),
+  ('cat_romance', 'Romance', 'romance', 'Love stories and romantic drama', 2),
+  ('cat_cyberpunk', 'Cyberpunk', 'cyberpunk', 'Futuristic dystopian worlds and neon-lit cities', 3),
+  ('cat_slice_of_life', 'Slice of Life', 'slice-of-life', 'Everyday moments and relatable stories', 4),
+  ('cat_horror', 'Horror', 'horror', 'Scary, suspenseful, and supernatural content', 5),
+  ('cat_comedy', 'Comedy', 'comedy', 'Funny and lighthearted entertainment', 6),
+  ('cat_sci_fi', 'Sci-Fi', 'sci-fi', 'Science fiction and space exploration', 7),
+  ('cat_fantasy', 'Fantasy', 'fantasy', 'Magical worlds and epic adventures', 8);
+
+-- ============================================
+-- Sample Creator User (for clips)
+-- ============================================
+
+INSERT OR IGNORE INTO users (id, email, email_verified, name, image, role, display_name, bio)
+VALUES
+  ('user_creator_demo', 'creator@demo.webtoon.dev', 1, 'Demo Creator', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80', 'creator', 'NeonStudio', 'Creating incredible short-form content');
+
+-- ============================================
+-- Sample Creator Series
+-- ============================================
+
+INSERT OR IGNORE INTO creator_series (id, creator_id, slug, title, description, cover_url, genre, status, nsfw_rating, total_episodes)
+VALUES
+  ('cseries_neon_nights', 'user_creator_demo', 'neon-nights', 'Neon Nights', 'A cyberpunk journey through the streets of Neo Tokyo', 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=400&q=80', 'cyberpunk,action', 'ongoing', 'safe', 8),
+  ('cseries_love_bytes', 'user_creator_demo', 'love-bytes', 'Love Bytes', 'Digital romance in the age of AI', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80', 'romance,sci-fi', 'ongoing', 'suggestive', 5);
+
+-- ============================================
+-- Sample Clips (Epic 2: Feed Content)
+-- ============================================
+
+INSERT OR IGNORE INTO clips (id, creator_id, title, description, video_url, thumbnail_url, duration, series_id, episode_number, nsfw_rating, status, download_count, views, likes, published_at)
+VALUES
+  ('clip_01', 'user_creator_demo', 'Neon Chase', 'A high-speed chase through neon-lit streets', NULL, 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=400&q=80', 45, 'cseries_neon_nights', 1, 'safe', 'published', 120, 5400, 340, unixepoch() - 86400 * 20),
+  ('clip_02', 'user_creator_demo', 'Rooftop Standoff', 'The final confrontation atop Neo Tower', NULL, 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&q=80', 62, 'cseries_neon_nights', 2, 'safe', 'published', 89, 4200, 287, unixepoch() - 86400 * 19),
+  ('clip_03', 'user_creator_demo', 'Digital Heartbreak', 'When AI learns about love', NULL, 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80', 38, 'cseries_love_bytes', 1, 'suggestive', 'published', 210, 8900, 670, unixepoch() - 86400 * 18),
+  ('clip_04', 'user_creator_demo', 'Street Fighter', 'Underground martial arts in the slums', NULL, 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=400&q=80', 55, NULL, NULL, 'safe', 'published', 150, 6700, 420, unixepoch() - 86400 * 17),
+  ('clip_05', 'user_creator_demo', 'Midnight Rain', 'A quiet moment in the rain', NULL, 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=400&q=80', 30, NULL, NULL, 'safe', 'published', 95, 3800, 250, unixepoch() - 86400 * 16),
+  ('clip_06', 'user_creator_demo', 'Code Red', 'Hacking into the mainframe', NULL, 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80', 48, 'cseries_neon_nights', 3, 'safe', 'published', 175, 7200, 510, unixepoch() - 86400 * 15),
+  ('clip_07', 'user_creator_demo', 'First Date', 'Two strangers meet in virtual reality', NULL, 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80', 42, 'cseries_love_bytes', 2, 'safe', 'published', 180, 9500, 720, unixepoch() - 86400 * 14),
+  ('clip_08', 'user_creator_demo', 'Shadow Dance', 'Mysterious figures in the dark', NULL, 'https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=400&q=80', 35, NULL, NULL, 'safe', 'published', 110, 4100, 310, unixepoch() - 86400 * 13),
+  ('clip_09', 'user_creator_demo', 'Cyber Dreams', 'Dreams become reality in the metaverse', NULL, 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80', 50, 'cseries_neon_nights', 4, 'safe', 'published', 200, 8400, 590, unixepoch() - 86400 * 12),
+  ('clip_10', 'user_creator_demo', 'Sunset Lovers', 'A bittersweet goodbye at sunset', NULL, 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400&q=80', 40, 'cseries_love_bytes', 3, 'suggestive', 'published', 160, 7100, 480, unixepoch() - 86400 * 11),
+  ('clip_11', 'user_creator_demo', 'Ghost Protocol', 'When the dead send messages', NULL, 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&q=80', 58, NULL, NULL, 'safe', 'published', 130, 5600, 370, unixepoch() - 86400 * 10),
+  ('clip_12', 'user_creator_demo', 'Neon Samurai', 'A warrior with a glowing blade', NULL, 'https://images.unsplash.com/photo-1518709594023-6eab9bab7b23?w=400&q=80', 65, 'cseries_neon_nights', 5, 'safe', 'published', 220, 10200, 780, unixepoch() - 86400 * 9),
+  ('clip_13', 'user_creator_demo', 'Laughing Stock', 'A comedy gone wrong', NULL, 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80', 33, NULL, NULL, 'safe', 'published', 88, 3200, 210, unixepoch() - 86400 * 8),
+  ('clip_14', 'user_creator_demo', 'Dark Matter', 'Exploring the void between stars', NULL, 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80', 47, NULL, NULL, 'safe', 'published', 140, 6000, 430, unixepoch() - 86400 * 7),
+  ('clip_15', 'user_creator_demo', 'Forbidden Kiss', 'Love that defies all rules', NULL, 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80', 36, 'cseries_love_bytes', 4, 'nsfw', 'published', 300, 12000, 950, unixepoch() - 86400 * 6),
+  ('clip_16', 'user_creator_demo', 'Blade Runner', 'Chasing androids through the rain', NULL, 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&q=80', 52, 'cseries_neon_nights', 6, 'safe', 'published', 190, 8800, 630, unixepoch() - 86400 * 5),
+  ('clip_17', 'user_creator_demo', 'Haunted Server', 'The server room has a ghost', NULL, 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=400&q=80', 44, NULL, NULL, 'safe', 'published', 105, 4500, 290, unixepoch() - 86400 * 4),
+  ('clip_18', 'user_creator_demo', 'Dragon Awakens', 'The ancient beast rises from slumber', NULL, 'https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=400&q=80', 60, NULL, NULL, 'safe', 'published', 250, 11000, 850, unixepoch() - 86400 * 3),
+  ('clip_19', 'user_creator_demo', 'Final Goodbye', 'The last message before departure', NULL, 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=400&q=80', 28, 'cseries_love_bytes', 5, 'safe', 'published', 170, 7600, 520, unixepoch() - 86400 * 2),
+  ('clip_20', 'user_creator_demo', 'Electric Dreams', 'Where reality and fantasy collide', NULL, 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80', 54, 'cseries_neon_nights', 7, 'safe', 'published', 145, 6300, 440, unixepoch() - 86400 * 1);
+
+-- ============================================
+-- Clip-Category Associations
+-- ============================================
+
+INSERT OR IGNORE INTO clip_categories (clip_id, category_id)
+VALUES
+  ('clip_01', 'cat_action'), ('clip_01', 'cat_cyberpunk'),
+  ('clip_02', 'cat_action'), ('clip_02', 'cat_cyberpunk'),
+  ('clip_03', 'cat_romance'), ('clip_03', 'cat_sci_fi'),
+  ('clip_04', 'cat_action'),
+  ('clip_05', 'cat_slice_of_life'),
+  ('clip_06', 'cat_cyberpunk'), ('clip_06', 'cat_action'),
+  ('clip_07', 'cat_romance'), ('clip_07', 'cat_sci_fi'),
+  ('clip_08', 'cat_horror'),
+  ('clip_09', 'cat_cyberpunk'), ('clip_09', 'cat_sci_fi'),
+  ('clip_10', 'cat_romance'),
+  ('clip_11', 'cat_horror'), ('clip_11', 'cat_sci_fi'),
+  ('clip_12', 'cat_action'), ('clip_12', 'cat_cyberpunk'), ('clip_12', 'cat_fantasy'),
+  ('clip_13', 'cat_comedy'),
+  ('clip_14', 'cat_sci_fi'),
+  ('clip_15', 'cat_romance'),
+  ('clip_16', 'cat_cyberpunk'), ('clip_16', 'cat_action'),
+  ('clip_17', 'cat_horror'), ('clip_17', 'cat_comedy'),
+  ('clip_18', 'cat_fantasy'), ('clip_18', 'cat_action'),
+  ('clip_19', 'cat_romance'), ('clip_19', 'cat_slice_of_life'),
+  ('clip_20', 'cat_cyberpunk'), ('clip_20', 'cat_sci_fi');

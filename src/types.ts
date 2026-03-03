@@ -168,3 +168,32 @@ export type SubscriptionStatusResponse = z.infer<typeof subscriptionStatusRespon
 export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;
 
 export class SerialNotFoundError extends Error {}
+
+// ==================== Feed Schemas ====================
+
+export const feedClipSchema = z.object({
+    _id: z.string(),
+    title: z.string(),
+    creatorId: z.string(),
+    creatorName: z.string(),
+    videoUrl: z.string().nullable(),
+    thumbnailUrl: z.string().nullable(),
+    duration: z.number().nullable(),
+    downloadCount: z.number(),
+    views: z.number(),
+    likes: z.number(),
+    nsfwRating: z.string(),
+    seriesId: z.string().nullable(),
+    episodeNumber: z.number().nullable(),
+    seriesTotalEpisodes: z.number().nullable(),
+    publishedAt: z.string().nullable(),
+    categoryIds: z.array(z.string()),
+});
+
+export const feedResponseSchema = z.object({
+    clips: z.array(feedClipSchema),
+    nextCursor: z.string().nullable(),
+});
+
+export type FeedClip = z.infer<typeof feedClipSchema>;
+export type FeedResponse = z.infer<typeof feedResponseSchema>;

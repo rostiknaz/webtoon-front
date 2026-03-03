@@ -22,6 +22,8 @@ export const CACHE_TTL = {
   SERIES_STATS: 60 * 5, // 5 minutes (users don't need real-time stats)
   SUBSCRIPTION_PLANS: 60 * 60 * 24 * 7, // 1 week
   HOMEPAGE_DATA: 60 * 30, // 30 minutes
+  FEED: 60 * 2, // 2 minutes (short TTL for freshness)
+  CLIP: 60 * 60, // 1 hour
 } as const;
 
 // Cache key prefixes for organization
@@ -33,6 +35,8 @@ export const CACHE_PREFIX = {
   SERIES_EPISODES: 'series_episodes:',
   PLANS: 'plans:all',
   HOMEPAGE: 'homepage:featured',
+  FEED: 'feed:',
+  CLIP: 'clip:',
 } as const;
 
 interface CacheOptions {

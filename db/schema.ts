@@ -246,3 +246,73 @@ export const watchHistory = sqliteTable('watch_history', {
   // Optimize "continue watching" queries sorted by last watched time
   index('idx_watch_history_user_last_watched').on(table.userId, table.lastWatchedAt),
 ]);
+
+
+// ============================================
+// Creator Content Tables (Epic 2: Content Discovery)
+// ============================================
+
+export const creatorSeries = sqliteTable('creator_series', {
+  id: text('id').primaryKey(),
+  creatorId: text('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  slug: text('slug').notNull().unique(),
+  title: text('title').notNull(),
+  description: text('description'),
+  coverUrl: text('cover_url'),
+  genre: text('genre'),
+  status: text('status').notNull().default('ongoing'), // ongoing, completed, hiatus
+  nsfwRating: text('nsfw_rating').notNull().default('safe'), // safe, suggestive, nsfw
+  totalEpisodes: integer('total_episodes').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_creator_series_creator').on(table.creatorId),
+  index('idx_creator_series_slug').on(table.slug),
+]);
+
+export const clips = sqliteTable('clips', {
+  id: text('id').primaryKey(),
+  creatorId: text('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  videoUrl: text('video_url'),
+  thumbnailUrl: text('thumbnail_url'),
+  duration: integer('duration'), // seconds
+  resolution: text('resolution'),
+  fileSize: integer('file_size'),
+  seriesId: text('series_id').references(() => creatorSeries.id, { onDelete: 'set null' }),
+  episodeNumber: integer('episode_number'),
+  nsfwRating: text('nsfw_rating').notNull().default('safe'), // safe, suggestive, nsfw
+  status: text('status').notNull().default('processing'), // processing, published, rejected
+  creditCost: integer('credit_cost').notNull().default(1),
+  downloadCount: integer('download_count').notNull().default(0),
+  views: integer('views').notNull().default(0),
+  likes: integer('likes').notNull().default(0),
+  publishedAt: integer('published_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_clips_creator').on(table.creatorId),
+  index('idx_clips_feed').on(table.status, table.publishedAt),
+  index('idx_clips_nsfw_feed').on(table.status, table.nsfwRating, table.publishedAt),
+  index('idx_clips_series').on(table.seriesId, table.episodeNumber),
+]);
+
+export const categories = sqliteTable('categories', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  description: text('description'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_categories_slug').on(table.slug),
+  index('idx_categories_sort').on(table.sortOrder),
+]);
+
+export const clipCategories = sqliteTable('clip_categories', {
+  clipId: text('clip_id').notNull().references(() => clips.id, { onDelete: 'cascade' }),
+  categoryId: text('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+}, (table) => [
+  uniqueIndex('idx_clip_categories_unique').on(table.clipId, table.categoryId),
+]);
