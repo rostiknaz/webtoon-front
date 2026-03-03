@@ -21,6 +21,7 @@ import webhooksRoutes from './routes/webhooks';
 import subscriptionRoutes from './routes/subscription';
 import creatorsRoutes from './routes/creators';
 import feedRoutes from './routes/feed';
+import categoriesRoutes from './routes/categories';
 import { drizzleMiddleware } from './db';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
@@ -128,6 +129,7 @@ app.route('/api/webhooks', webhooksRoutes);
 app.route('/api/subscription', subscriptionRoutes);
 app.route('/api/creators', creatorsRoutes);
 app.route('/api/feed', feedRoutes);
+app.route('/api/categories', categoriesRoutes);
 
 /**
  * Health check endpoint

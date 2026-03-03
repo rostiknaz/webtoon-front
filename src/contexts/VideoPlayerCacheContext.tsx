@@ -372,7 +372,7 @@ export function VideoPlayerCacheProvider({
       const onLoadStart = () => setLoading(true);
       const onWaiting = () => setLoading(true);
       const onCanPlay = () => {
-        // Auto-play if this episode is pending autoplay
+        // Autoplay if this episode is pending autoplay
         if (pendingAutoPlayRef.current.has(episodeId)) {
           pendingAutoPlayRef.current.delete(episodeId);
           tryPlayWithFallback(player, episodeId);

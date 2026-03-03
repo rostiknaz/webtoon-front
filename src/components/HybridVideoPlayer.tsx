@@ -70,6 +70,8 @@ export function HybridVideoPlayer({
   const playersWithEventsRef = useRef(new WeakSet<Player>());
   // Track pending player initialization to cancel on rapid swipes
   const pendingInitRef = useRef<number | null>(null);
+  // Track pending MutationObserver for long jumps (cleanup on rapid swipes)
+  const pendingObserverRef = useRef<MutationObserver | null>(null);
   // Track pending preload to defer until current episode is ready
   const pendingPreloadRef = useRef<number | null>(null);
   // Track if current episode is ready for preloading adjacent episodes
@@ -378,6 +380,11 @@ export function HybridVideoPlayer({
         clearTimeout(pendingInitRef.current);
         pendingInitRef.current = null;
       }
+      // Disconnect any pending MutationObserver from previous long jump
+      if (pendingObserverRef.current) {
+        pendingObserverRef.current.disconnect();
+        pendingObserverRef.current = null;
+      }
 
       const newIndex = swiper.activeIndex;
       const prevIndex = swiper.previousIndex;
@@ -418,6 +425,7 @@ export function HybridVideoPlayer({
         const observer = new MutationObserver(() => {
           if (tryInitPlayer()) {
             observer.disconnect();
+            pendingObserverRef.current = null;
             if (pendingInitRef.current) {
               clearTimeout(pendingInitRef.current);
               pendingInitRef.current = null;
@@ -429,10 +437,12 @@ export function HybridVideoPlayer({
           childList: true,
           subtree: true,
         });
+        pendingObserverRef.current = observer;
 
         // Timeout fallback - disconnect observer after 1 second
         pendingInitRef.current = window.setTimeout(() => {
           observer.disconnect();
+          pendingObserverRef.current = null;
           // Last attempt
           tryInitPlayer();
         }, 1000);
@@ -511,6 +521,10 @@ export function HybridVideoPlayer({
       // Cancel pending player initialization
       if (pendingInitRef.current) {
         clearTimeout(pendingInitRef.current);
+      }
+      // Disconnect any pending MutationObserver
+      if (pendingObserverRef.current) {
+        pendingObserverRef.current.disconnect();
       }
       // Cancel pending preload
       if (pendingPreloadRef.current) {

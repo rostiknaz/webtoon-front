@@ -197,3 +197,20 @@ export const feedResponseSchema = z.object({
 
 export type FeedClip = z.infer<typeof feedClipSchema>;
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
+
+// ==================== Category Schemas ====================
+
+export const categoryItemSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string().nullable(),
+    sortOrder: z.number(),
+});
+
+export const categoriesResponseSchema = z.object({
+    categories: z.array(categoryItemSchema),
+});
+
+export type CategoryItem = z.infer<typeof categoryItemSchema>;
+export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;

@@ -62,5 +62,11 @@ export async function createSubCookie(
  * Parses plan features from JSON string or returns as-is
  */
 export function parsePlanFeatures(features: string | object): PlanFeatures {
-  return typeof features === 'string' ? JSON.parse(features) : features as PlanFeatures;
+  if (typeof features !== 'string') return features as PlanFeatures;
+  try {
+    return JSON.parse(features);
+  } catch {
+    console.error('Failed to parse plan features:', features?.slice(0, 100));
+    return { episodeAccess: 'none', adFree: false };
+  }
 }

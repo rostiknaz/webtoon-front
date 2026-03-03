@@ -8,6 +8,16 @@ import { eq, asc, desc } from 'drizzle-orm';
 import { plans, subscriptions } from '../../../db/schema';
 import type { DB } from '../index';
 
+/** Safely parse JSON with a fallback value instead of throwing */
+function safeParseJson<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value);
+  } catch {
+    console.error('Failed to parse JSON:', value?.slice(0, 100));
+    return fallback;
+  }
+}
+
 /** Check if subscription is still valid based on expiration time */
 function isSubscriptionActive(currentPeriodEnd: number | null): boolean {
   if (!currentPeriodEnd) return false;
@@ -97,7 +107,7 @@ export async function getUserSubscription(
     status: result[0].status,
     planId: result[0].planId,
     planName: result[0].planName,
-    planFeatures: JSON.parse(result[0].planFeatures),
+    planFeatures: safeParseJson(result[0].planFeatures, {}),
     currentPeriodStart: result[0].currentPeriodStart
       ? Math.floor(result[0].currentPeriodStart.getTime() / 1000)
       : null,

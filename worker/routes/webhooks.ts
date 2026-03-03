@@ -6,7 +6,6 @@
 
 import { Hono } from 'hono';
 import { createCacheLayer } from '../../lib/cache';
-import { markWebhookProcessed, isWebhookAlreadyProcessed } from '../db/services/payment.service';
 import {
   handlePaymentSuccessTransaction,
   handleSubscriptionCreatedTransaction,
@@ -37,18 +36,19 @@ async function verifySignature(
       keyData,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['sign']
+      ['verify']
+    );
+
+    // Parse hex signature into bytes for constant-time comparison
+    const sigBytes = new Uint8Array(
+      (signature.match(/.{2}/g) ?? []).map((b) => parseInt(b, 16))
     );
 
     const payloadData = encoder.encode(payload);
-    const signatureBuffer = await crypto.subtle.sign('HMAC', key, payloadData);
 
-    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-    const expectedSignature = signatureArray
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    return signature === expectedSignature;
+    // crypto.subtle.verify uses constant-time comparison internally,
+    // preventing timing attacks on the webhook secret
+    return await crypto.subtle.verify('HMAC', key, sigBytes, payloadData);
   } catch (error) {
     console.error('Signature verification error:', error);
     return false;
@@ -86,18 +86,11 @@ webhooks.post('/solidgate', async (c) => {
     const db = c.get('db');
     const cache = createCacheLayer(c.env.CACHE);
 
-    // P0 FIX: Idempotency check BEFORE processing
-    // Prevents duplicate handling on webhook retries
-    const eventId = `${payload.event}-${payload.order?.order_id || payload.subscription?.id || crypto.randomUUID()}`;
-    const alreadyProcessed = await isWebhookAlreadyProcessed(db, eventId);
-    if (alreadyProcessed) {
-      console.log(`Webhook already processed: ${eventId}`);
-      return c.text('OK', 200);
-    }
-
     let userId: string | null = null;
 
-    // Handle different event types with atomic transactions
+    // Handle different event types with atomic transactions.
+    // Idempotency is enforced by the UNIQUE constraint on webhookEvents.eventId
+    // inside each transaction — duplicate webhooks will throw a constraint error.
     switch (payload.event) {
       case 'payment.success':
         userId = await handlePaymentSuccessTransaction(db, payload, body);
@@ -135,17 +128,18 @@ webhooks.post('/solidgate', async (c) => {
       ]);
     }
 
-    // Mark webhook as processed (update the record created in transaction)
-    await markWebhookProcessed(db, eventId);
-
     return c.text('OK', 200);
   } catch (error) {
+    // UNIQUE constraint violation on webhookEvents.eventId = already processed (idempotent)
+    if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+      console.log('Webhook already processed (duplicate detected)');
+      return c.text('OK', 200);
+    }
+
+    // Log full error server-side but never expose internals to caller
     console.error('Webhook error:', error);
     return c.json(
-      {
-        error: 'Webhook processing failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: { code: 'INTERNAL_ERROR', message: 'Webhook processing failed' } },
       500
     );
   }

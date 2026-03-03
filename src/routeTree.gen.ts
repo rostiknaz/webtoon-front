@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as FeedRouteImport } from './routes/feed'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
 
+const FeedRoute = FeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth-error',
   path: '/auth-error',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/feed': typeof FeedRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/feed': typeof FeedRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRoutesById {
@@ -52,25 +60,40 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/feed': typeof FeedRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/auth-error' | '/serials/$serialSlug'
+  fullPaths: '/' | '/account' | '/auth-error' | '/feed' | '/serials/$serialSlug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/auth-error' | '/serials/$serialSlug'
-  id: '__root__' | '/' | '/account' | '/auth-error' | '/serials/$serialSlug'
+  to: '/' | '/account' | '/auth-error' | '/feed' | '/serials/$serialSlug'
+  id:
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/auth-error'
+    | '/feed'
+    | '/serials/$serialSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   AuthErrorRoute: typeof AuthErrorRoute
+  FeedRoute: typeof FeedRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/feed': {
+      id: '/feed'
+      path: '/feed'
+      fullPath: '/feed'
+      preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth-error': {
       id: '/auth-error'
       path: '/auth-error'
@@ -106,6 +129,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   AuthErrorRoute: AuthErrorRoute,
+  FeedRoute: FeedRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,
 }
 export const routeTree = rootRouteImport

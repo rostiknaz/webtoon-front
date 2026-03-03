@@ -8,6 +8,7 @@ import {
     subscriptionStatusResponseSchema,
     subscribeResponseSchema,
     feedResponseSchema,
+    categoriesResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -15,6 +16,7 @@ import {
     type SubscriptionStatusResponse,
     type SubscribeResponse,
     type FeedResponse,
+    type CategoriesResponse,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -290,4 +292,17 @@ export const getFeed = async (params: FeedParams = {}): Promise<FeedResponse> =>
         errorMessage: 'Failed to fetch feed',
     });
     return feedResponseSchema.parse(data);
+};
+
+// ==================== Categories API ====================
+
+/**
+ * Fetch all categories ordered by sortOrder
+ * Public endpoint — no auth required, cached 24 hours
+ */
+export const getCategories = async (): Promise<CategoriesResponse> => {
+    const data = await fetchJson('/api/categories', {
+        errorMessage: 'Failed to fetch categories',
+    });
+    return categoriesResponseSchema.parse(data);
 };

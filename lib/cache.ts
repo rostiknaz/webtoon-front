@@ -24,6 +24,7 @@ export const CACHE_TTL = {
   HOMEPAGE_DATA: 60 * 30, // 30 minutes
   FEED: 60 * 2, // 2 minutes (short TTL for freshness)
   CLIP: 60 * 60, // 1 hour
+  CATEGORIES: 60 * 60 * 24, // 24 hours (categories rarely change)
 } as const;
 
 // Cache key prefixes for organization
@@ -37,6 +38,7 @@ export const CACHE_PREFIX = {
   HOMEPAGE: 'homepage:featured',
   FEED: 'feed:',
   CLIP: 'clip:',
+  CATEGORIES: 'categories:',
 } as const;
 
 interface CacheOptions {
