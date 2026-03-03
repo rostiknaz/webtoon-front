@@ -54,7 +54,21 @@ export const subscribeBodySchema = z.object({
   planId: z.string().min(1, 'Plan ID is required'),
 });
 
+// ==================== Creator Schemas ====================
+
+/**
+ * POST /api/creators/register request body
+ */
+export const creatorRegistrationSchema = z.object({
+  displayName: z.string().min(2, 'Display name must be at least 2 characters').max(50),
+  bio: z.string().max(500).optional(),
+  payoutMethod: z.enum(['paypal', 'stripe']),
+  payoutEmail: z.string().email('Valid email required for payouts'),
+  tosAccepted: z.literal(true, 'You must accept the Terms of Service'),
+});
+
 // ==================== Type Exports ====================
 
 export type IdParam = z.infer<typeof idParamSchema>;
 export type SubscribeBody = z.infer<typeof subscribeBodySchema>;
+export type CreatorRegistration = z.infer<typeof creatorRegistrationSchema>;

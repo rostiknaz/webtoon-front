@@ -57,7 +57,7 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
           },
         },
         rateLimit: {
-          enabled: true,
+          enabled: !env.BETTER_AUTH_URL.includes('localhost'),
           window: 60, // 60 seconds (minimum for KV)
           max: 100,
           customRules: {
@@ -110,6 +110,16 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
             trustedProviders: ['google'],
           },
         },
+        // Expose custom user fields in session
+        user: {
+          additionalFields: {
+            role: {
+              type: 'string',
+              defaultValue: 'consumer',
+              input: false,
+            },
+          },
+        },
         // OAuth Social Providers
         socialProviders: {
           google: {
@@ -146,6 +156,15 @@ export const auth = betterAuth({
   baseURL: 'http://localhost:5173',
   emailAndPassword: {
     enabled: true,
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        defaultValue: 'consumer',
+        input: false,
+      },
+    },
   },
   socialProviders: {
     google: {

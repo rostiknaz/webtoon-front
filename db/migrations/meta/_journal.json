@@ -8,6 +8,13 @@
       "when": 1769265778545,
       "tag": "0000_fresh_screwball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772539848314,
+      "tag": "0001_thin_warpath",
+      "breakpoints": true
     }
   ]
 }

@@ -68,3 +68,7 @@ Thumbs.db
 
 # Video transcoding output
 output/
+
+# BMAD workflow artifacts
+_bmad/
+_bmad-output/

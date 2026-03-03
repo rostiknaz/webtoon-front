@@ -11,6 +11,13 @@ export const users = sqliteTable('users', {
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   name: text('name'),
   image: text('image'),
+  role: text('role').notNull().default('consumer'), // 'consumer', 'creator', 'admin'
+  isFoundingCreator: integer('is_founding_creator', { mode: 'boolean' }).notNull().default(false),
+  displayName: text('display_name'), // Creator display name (nullable — set on creator registration)
+  bio: text('bio'), // Creator bio (nullable, max 500 chars enforced by Zod)
+  payoutMethod: text('payout_method'), // 'paypal' or 'stripe' (nullable)
+  payoutEmail: text('payout_email'), // Payout email address (nullable)
+  tosAcceptedAt: integer('tos_accepted_at', { mode: 'timestamp' }), // When creator accepted ToS (nullable)
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });

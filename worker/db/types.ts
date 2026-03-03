@@ -6,15 +6,18 @@
 
 import type { DB } from './index';
 import type { AppEnv as BaseAppEnv } from '../lib/types';
-import type { Auth, Session, User } from 'better-auth';
+import type { Auth, Session, InferUser } from 'better-auth';
 import type { CacheLayer } from '../../lib/cache';
+import type { auth } from '../auth';
 
 /**
  * Session data stored in context after auth middleware
+ *
+ * Uses InferUser to include additionalFields (e.g., role) from auth config
  */
 export interface SessionData {
   session: Session;
-  user: User;
+  user: InferUser<typeof auth>;
 }
 
 /**
