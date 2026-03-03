@@ -79,9 +79,39 @@ export const feedQuerySchema = z.object({
   nsfw: z.enum(['safe', 'all']).default('safe'),
 });
 
+// ==================== Upload Schemas ====================
+
+/** Resolution string validator: "WIDTHxHEIGHT", min 1080x1920 */
+const resolutionSchema = z.string().refine(
+  (val) => {
+    const match = val.match(/^(\d+)x(\d+)$/);
+    if (!match) return false;
+    const w = parseInt(match[1], 10);
+    const h = parseInt(match[2], 10);
+    return w >= 1080 && h >= 1920;
+  },
+  { message: 'Resolution too low: minimum 1080x1920 required' },
+);
+
+/**
+ * POST /api/upload/init request body
+ */
+export const uploadInitSchema = z.object({
+  title: z.string().min(2, 'Title must be at least 2 characters').max(100),
+  categoryIds: z.array(z.string()).min(1, 'At least one category required').max(5, 'Maximum 5 categories'),
+  aiToolUsed: z.string().min(1, 'AI tool used is required'),
+  nsfwRating: z.enum(['safe', 'suggestive', 'explicit']),
+  fileSize: z.number().int().positive().max(500 * 1024 * 1024, 'File size must be under 500MB'),
+  duration: z.number().min(10, 'Duration must be at least 10 seconds').max(600, 'Duration must be under 10 minutes'),
+  resolution: resolutionSchema,
+  seriesId: z.string().optional(),
+  episodeNumber: z.number().int().positive().optional(),
+});
+
 // ==================== Type Exports ====================
 
 export type IdParam = z.infer<typeof idParamSchema>;
 export type SubscribeBody = z.infer<typeof subscribeBodySchema>;
 export type CreatorRegistration = z.infer<typeof creatorRegistrationSchema>;
 export type FeedQuery = z.infer<typeof feedQuerySchema>;
+export type UploadInit = z.infer<typeof uploadInitSchema>;

@@ -316,3 +316,21 @@ export const clipCategories = sqliteTable('clip_categories', {
 }, (table) => [
   uniqueIndex('idx_clip_categories_unique').on(table.clipId, table.categoryId),
 ]);
+
+// ============================================
+// Moderation Tables (Epic 1: Content Moderation)
+// ============================================
+
+export const moderationLogs = sqliteTable('moderation_logs', {
+  id: text('id').primaryKey(),
+  clipId: text('clip_id').notNull().references(() => clips.id, { onDelete: 'cascade' }),
+  moderatorId: text('moderator_id').references(() => users.id, { onDelete: 'set null' }), // null = AI action
+  action: text('action').notNull(), // approve, reject, flag
+  reason: text('reason').notNull(),
+  confidence: real('confidence'), // AI confidence score (null for human actions)
+  aiModel: text('ai_model'), // e.g. "@cf/microsoft/resnet-50"
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_moderation_logs_clip').on(table.clipId),
+  index('idx_moderation_logs_moderator').on(table.moderatorId),
+]);

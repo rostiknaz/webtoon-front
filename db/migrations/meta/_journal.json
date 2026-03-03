@@ -22,6 +22,13 @@
       "when": 1772555162409,
       "tag": "0002_dashing_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1772576862766,
+      "tag": "0003_nosy_guardian",
+      "breakpoints": true
     }
   ]
 }

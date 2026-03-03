@@ -14,6 +14,7 @@ import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
+import { Route as CreatorUploadsRouteImport } from './routes/creator/uploads'
 
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
@@ -40,12 +41,18 @@ const SerialsSerialSlugRoute = SerialsSerialSlugRouteImport.update({
   path: '/serials/$serialSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorUploadsRoute = CreatorUploadsRouteImport.update({
+  id: '/creator/uploads',
+  path: '/creator/uploads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/feed': typeof FeedRoute
+  '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/feed': typeof FeedRoute
+  '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRoutesById {
@@ -61,19 +69,33 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
   '/feed': typeof FeedRoute
+  '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/auth-error' | '/feed' | '/serials/$serialSlug'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/auth-error'
+    | '/feed'
+    | '/creator/uploads'
+    | '/serials/$serialSlug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/auth-error' | '/feed' | '/serials/$serialSlug'
+  to:
+    | '/'
+    | '/account'
+    | '/auth-error'
+    | '/feed'
+    | '/creator/uploads'
+    | '/serials/$serialSlug'
   id:
     | '__root__'
     | '/'
     | '/account'
     | '/auth-error'
     | '/feed'
+    | '/creator/uploads'
     | '/serials/$serialSlug'
   fileRoutesById: FileRoutesById
 }
@@ -82,6 +104,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   AuthErrorRoute: typeof AuthErrorRoute
   FeedRoute: typeof FeedRoute
+  CreatorUploadsRoute: typeof CreatorUploadsRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
 }
 
@@ -122,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SerialsSerialSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creator/uploads': {
+      id: '/creator/uploads'
+      path: '/creator/uploads'
+      fullPath: '/creator/uploads'
+      preLoaderRoute: typeof CreatorUploadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -130,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   AuthErrorRoute: AuthErrorRoute,
   FeedRoute: FeedRoute,
+  CreatorUploadsRoute: CreatorUploadsRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,
 }
 export const routeTree = rootRouteImport

@@ -67,5 +67,8 @@
       "binding": "VIDEO_STORAGE",
       "bucket_name": "webtoon-hls"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }

@@ -214,3 +214,30 @@ export const categoriesResponseSchema = z.object({
 
 export type CategoryItem = z.infer<typeof categoryItemSchema>;
 export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
+
+// ==================== Creator Clips Schemas ====================
+
+export const creatorClipSchema = z.object({
+    _id: z.string(),
+    title: z.string(),
+    status: z.enum(['processing', 'published', 'rejected', 'review']),
+    thumbnailUrl: z.string().nullable(),
+    videoUrl: z.string().nullable(),
+    duration: z.number().nullable(),
+    views: z.number(),
+    downloadCount: z.number(),
+    nsfwRating: z.string(),
+    seriesId: z.string().nullable(),
+    episodeNumber: z.number().nullable(),
+    moderationReason: z.string().nullable(),
+    moderationAction: z.string().nullable(),
+    publishedAt: z.string().nullable(),
+    createdAt: z.string(),
+});
+
+export const creatorClipsResponseSchema = z.object({
+    clips: z.array(creatorClipSchema),
+});
+
+export type CreatorClip = z.infer<typeof creatorClipSchema>;
+export type CreatorClipsResponse = z.infer<typeof creatorClipsResponseSchema>;
