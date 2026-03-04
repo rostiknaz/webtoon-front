@@ -11,7 +11,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { Search, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { NsfwToggle } from '@/components/NsfwToggle';
+import { useNsfwToggle } from '@/hooks/useNsfwToggle';
 
 import { ClipCard } from '@/components/ClipCard';
 import { BottomNav, SideNavItems, SideCategoryItem } from '@/components/BottomNav';
@@ -57,14 +59,15 @@ const containerVariants = {
 };
 
 function BrowsePage() {
-  const { category, sort = 'latest', search, nsfw } = Route.useSearch();
+  const { category, sort = 'latest', search } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const { nsfwParam } = useNsfwToggle();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useFeed({
     category,
     sort,
     search,
-    nsfw,
+    nsfw: nsfwParam,
   });
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
@@ -164,6 +167,11 @@ function BrowsePage() {
               ))}
             </div>
           </div>
+          <div className="mx-6 h-px bg-white/6 mb-4" />
+          <div className="px-6 mb-6 flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/30">Content</span>
+            <NsfwToggle />
+          </div>
         </div>
       )}
 
@@ -172,8 +180,9 @@ function BrowsePage() {
         {/* Header + search */}
         <div className="sticky top-0 z-30 bg-[hsl(240_8%_3%)]/95 backdrop-blur-sm">
           <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center gap-2">
             {/* Search bar */}
-            <div className="relative">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" strokeWidth={1.5} />
               <input
                 type="text"
@@ -192,6 +201,8 @@ function BrowsePage() {
                   <X className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               )}
+            </div>
+            <NsfwToggle />
             </div>
           </div>
 
@@ -245,14 +256,17 @@ function BrowsePage() {
             </div>
           ) : (
             <motion.div
+              layout
               className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
               variants={containerVariants}
               initial="hidden"
               animate="show"
             >
-              {clips.map((clip) => (
-                <ClipCard key={clip._id} clip={clip} />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {clips.map((clip) => (
+                  <ClipCard key={clip._id} clip={clip} showNsfwIndicator={nsfwParam === 'all'} />
+                ))}
+              </AnimatePresence>
             </motion.div>
           )}
 

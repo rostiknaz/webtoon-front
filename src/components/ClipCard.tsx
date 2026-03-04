@@ -43,13 +43,21 @@ export const cardVariants = {
 
 interface ClipCardProps {
   clip: FeedClip;
+  showNsfwIndicator?: boolean;
 }
 
-export const ClipCard = memo(function ClipCard({ clip }: ClipCardProps) {
+export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: ClipCardProps) {
   const gradientIdx = getGradientIndex(clip._id);
 
   return (
-    <motion.div variants={cardVariants}>
+    <motion.div
+      layout
+      variants={cardVariants}
+      initial="hidden"
+      animate="show"
+      exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+      style={{ borderRadius: '0.5rem' }}
+    >
       <Link
         to="/feed"
         className="group block"
@@ -78,6 +86,11 @@ export const ClipCard = memo(function ClipCard({ clip }: ClipCardProps) {
             <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-black/50 backdrop-blur-sm text-[10px] font-medium text-white/80">
               Ep {clip.episodeNumber}{clip.seriesTotalEpisodes ? `/${clip.seriesTotalEpisodes}` : ''}
             </div>
+          )}
+
+          {/* NSFW indicator — top-right */}
+          {showNsfwIndicator && clip.nsfwRating !== 'safe' && (
+            <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-nsfw" title="18+ content" />
           )}
 
           {/* Duration badge — bottom-right */}
