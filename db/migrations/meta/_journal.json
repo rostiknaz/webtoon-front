@@ -36,6 +36,20 @@
       "when": 1772632705910,
       "tag": "0004_polite_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1772657018064,
+      "tag": "0005_striped_joseph",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1772658072949,
+      "tag": "0006_glamorous_black_bird",
+      "breakpoints": true
     }
   ]
 }

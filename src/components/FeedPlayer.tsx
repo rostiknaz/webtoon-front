@@ -4,17 +4,24 @@
  * Main feed swipe player using Swiper.js with EffectCreative and Virtual modules.
  * Uses native <video> for short clips (no xgplayer dependency).
  * Implements infinite scroll by triggering onLoadMore when near end of loaded clips.
+ * Integrates swipe gate: shows registration card overlay after N swipes for anonymous users.
  */
 
 import { useCallback, useRef, useMemo, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { EffectCreative, Virtual } from 'swiper/modules';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css/bundle';
 
 import { FeedSlide } from './FeedSlide';
 import { FeedOverlay } from './FeedOverlay';
+import { RegistrationCard } from './RegistrationCard';
+import { useSwipeGate } from '@/hooks/useSwipeGate';
 import type { FeedClip, CategoryItem } from '../types';
+
+const GATE_TRANSITION = { type: 'spring' as const, stiffness: 300, damping: 30 };
+const SWIPER_STYLE = { perspective: '1000px' } as const;
 
 interface FeedPlayerProps {
   clips: FeedClip[];
@@ -39,6 +46,15 @@ export function FeedPlayer({
 }: FeedPlayerProps) {
   const swiperRef = useRef<SwiperType | null>(null);
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const shouldReduceMotion = useReducedMotion() ?? false;
+
+  const {
+    shouldShowGate,
+    incrementSwipeCount,
+    markGateShown,
+    markRegistered,
+    isAuthenticated,
+  } = useSwipeGate();
 
   // Clean up stale video refs when clips change (e.g. category filter)
   const clipIds = useMemo(() => new Set(clips.map((c) => c._id)), [clips]);
@@ -142,6 +158,11 @@ export function FeedPlayer({
       const currentClip = clips[currentIndex];
       const previousClip = clips[swiper.previousIndex];
 
+      // Track swipe count for gate logic (only for anonymous users)
+      if (!isAuthenticated) {
+        incrementSwipeCount();
+      }
+
       // Pause previous
       if (previousClip && previousClip._id !== currentClip?._id) {
         pauseClip(previousClip._id);
@@ -162,7 +183,7 @@ export function FeedPlayer({
         onLoadMore();
       }
     },
-    [clips, hasMore, onLoadMore, ensureVideoElement, playClip, pauseClip],
+    [clips, hasMore, onLoadMore, ensureVideoElement, playClip, pauseClip, isAuthenticated, incrementSwipeCount],
   );
 
   if (clips.length === 0) {
@@ -214,7 +235,7 @@ export function FeedPlayer({
           addSlidesAfter: 2,
         }}
         className="w-full h-full"
-        style={{ perspective: '1000px' }}
+        style={SWIPER_STYLE}
       >
         {clips.map((clip, index) => (
           <SwiperSlide key={clip._id} virtualIndex={index}>
@@ -233,6 +254,39 @@ export function FeedPlayer({
           </SwiperSlide>
         ))}
       </Swiper>
+
+      {/* Registration gate overlay — slides up from bottom like the next video */}
+      <AnimatePresence>
+        {shouldShowGate && (
+          shouldReduceMotion ? (
+            <div
+              key="registration-gate"
+              className="absolute inset-0 z-50"
+              data-testid="registration-gate"
+            >
+              <RegistrationCard
+                onDismiss={markGateShown}
+                onRegistered={markRegistered}
+              />
+            </div>
+          ) : (
+            <motion.div
+              key="registration-gate"
+              className="absolute inset-0 z-50"
+              data-testid="registration-gate"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={GATE_TRANSITION}
+            >
+              <RegistrationCard
+                onDismiss={markGateShown}
+                onRegistered={markRegistered}
+              />
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
     </div>
   );
 }

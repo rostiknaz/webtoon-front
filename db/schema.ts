@@ -249,6 +249,28 @@ export const watchHistory = sqliteTable('watch_history', {
 
 
 // ============================================
+// Credits & Download Tables (Epic 3: Registration & Downloads)
+// ============================================
+
+export const credits = sqliteTable('credits', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  balance: integer('balance').notNull().default(0),
+  freeDownloadsRemaining: integer('free_downloads_remaining').notNull().default(3),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export const creditTransactions = sqliteTable('credit_transactions', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  type: text('type').notNull(), // 'registration' | 'purchase' | 'download' | 'refund'
+  clipId: text('clip_id'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_credit_transactions_user_id').on(table.userId),
+]);
+
+// ============================================
 // Creator Content Tables (Epic 2: Content Discovery)
 // ============================================
 

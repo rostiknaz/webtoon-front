@@ -14,6 +14,7 @@ import * as schema from '../../db/schema';
 import type { Bindings } from '../lib/types';
 import { hashPassword, verifyPassword } from '../lib/password';
 import { subscriptionCookiePlugin } from './subscription-cookie-plugin';
+import { creditCookiePlugin } from './credit-cookie-plugin';
 
 /**
  * Create Better Auth instance for runtime (per-request)
@@ -132,6 +133,11 @@ export function createAuth(env: Bindings, cf?: IncomingRequestCfProperties) {
           subscriptionCookiePlugin({
             db,
             cache: env.CACHE,
+            secret: env.BETTER_AUTH_SECRET,
+            isSecure,
+          }),
+          creditCookiePlugin({
+            db,
             secret: env.BETTER_AUTH_SECRET,
             isSecure,
           }),

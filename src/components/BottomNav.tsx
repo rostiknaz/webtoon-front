@@ -12,25 +12,10 @@
  * to have aria-current="page" on the same page.
  */
 
+import { memo, useCallback } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { NavIcon } from './NavIcon';
-
-// Routes
-const ROUTES = {
-  FEED: '/feed',
-  BROWSE: '/browse',
-  PROFILE: '/feed', // Placeholder until profile route exists
-  UPLOAD: '/feed', // Placeholder until upload route exists
-} as const;
-
-// Active paths for nav matching (different from actual routes due to placeholders)
-const ACTIVE_PATHS = {
-  FEED: '/feed',
-  BROWSE: '/browse',
-  PROFILE: '/profile',
-  UPLOAD: '/creator/upload',
-} as const;
 
 type NavItem = {
   icon: 'feed' | 'browse' | 'profile' | 'upload';
@@ -39,76 +24,52 @@ type NavItem = {
   activePath: string;
 };
 
-const BASE_NAV_ITEMS: NavItem[] = [
-  { icon: 'feed', label: 'Feed', to: ROUTES.FEED, activePath: ACTIVE_PATHS.FEED },
-  { icon: 'browse', label: 'Browse', to: ROUTES.BROWSE, activePath: ACTIVE_PATHS.BROWSE },
+// Pre-built arrays — no allocation on render
+const CONSUMER_NAV_ITEMS: NavItem[] = [
+  { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
+  { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
+  { icon: 'profile', label: 'Profile', to: '/feed', activePath: '/profile' }, // placeholder
 ];
 
-const PROFILE_NAV_ITEM: NavItem = {
-  icon: 'profile',
-  label: 'Profile',
-  to: ROUTES.PROFILE,
-  activePath: ACTIVE_PATHS.PROFILE,
-};
+const CREATOR_NAV_ITEMS: NavItem[] = [
+  { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
+  { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
+  { icon: 'upload', label: 'Upload', to: '/feed', activePath: '/creator/upload' }, // placeholder
+  { icon: 'profile', label: 'Profile', to: '/feed', activePath: '/profile' },
+];
 
-const UPLOAD_NAV_ITEM: NavItem = {
-  icon: 'upload',
-  label: 'Upload',
-  to: ROUTES.UPLOAD,
-  activePath: ACTIVE_PATHS.UPLOAD,
-};
+const isNavItemActive = (currentPath: string, activePath: string): boolean =>
+  currentPath === activePath || currentPath.startsWith(activePath + '/');
 
-/**
- * Determines if a nav item is active based on current path
- */
-const isNavItemActive = (currentPath: string, activePath: string): boolean => {
-  return currentPath === activePath || currentPath.startsWith(activePath + '/');
-};
+// Stable transition object — avoids allocation per render
+const SPRING_TRANSITION = { type: 'spring' as const, stiffness: 400, damping: 30 };
 
-/**
- * Returns nav items array based on user role
- */
-const getNavItems = (isCreator: boolean): NavItem[] => {
-  if (isCreator) {
-    return [...BASE_NAV_ITEMS, UPLOAD_NAV_ITEM, PROFILE_NAV_ITEM];
-  }
-  return [...BASE_NAV_ITEMS, PROFILE_NAV_ITEM];
-};
+const INDICATOR_CLASS = 'absolute bottom-0 w-[3px] h-[3px] rounded-full bg-primary';
+
+// Stable inline style object for safe area
+const NAV_STYLE = {
+  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  height: 'calc(52px + env(safe-area-inset-bottom, 0px))',
+} as const;
 
 /**
- * Active indicator dot component with reduced motion support
+ * Memoized nav link — only re-renders when isActive or shouldReduceMotion changes
  */
-const ActiveIndicator = ({ shouldReduce }: { shouldReduce: boolean }) => {
-  const baseClasses = "absolute bottom-0 w-[3px] h-[3px] rounded-full bg-primary";
-
-  if (shouldReduce) {
-    return <span className={baseClasses} />;
-  }
-
-  return (
-    <motion.span
-      layoutId="nav-indicator"
-      className={baseClasses}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-    />
-  );
-};
-
-/**
- * Individual navigation link component
- */
-interface NavLinkProps {
+const NavLink = memo(function NavLink({
+  item,
+  isActive,
+  shouldReduceMotion,
+  onNavigate,
+}: {
   item: NavItem;
   isActive: boolean;
   shouldReduceMotion: boolean;
-  onClick: (to: string) => void;
-}
-
-const NavLink = ({ item, isActive, shouldReduceMotion, onClick }: NavLinkProps) => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  onNavigate: (to: string) => void;
+}) {
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    onClick(item.to);
-  };
+    onNavigate(item.to);
+  }, [onNavigate, item.to]);
 
   return (
     <a
@@ -123,42 +84,42 @@ const NavLink = ({ item, isActive, shouldReduceMotion, onClick }: NavLinkProps) 
       <span className="text-[10px] font-medium tracking-[0.03em] leading-none font-[Inter,sans-serif]">
         {item.label}
       </span>
-      {isActive && <ActiveIndicator shouldReduce={shouldReduceMotion} />}
+      {isActive && (
+        shouldReduceMotion
+          ? <span className={INDICATOR_CLASS} />
+          : <motion.span layoutId="nav-indicator" className={INDICATOR_CLASS} transition={SPRING_TRANSITION} />
+      )}
     </a>
   );
-};
+});
 
 /**
  * Mobile bottom navigation bar
  */
 export function BottomNav({ isCreator = false }: { isCreator?: boolean }) {
-  const routerState = useRouterState();
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const currentPath = routerState.location.pathname;
-  const navItems = getNavItems(isCreator);
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const navItems = isCreator ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
 
-  const handleNavigate = (to: string) => {
+  const handleNavigate = useCallback((to: string) => {
     navigate({ to });
-  };
+  }, [navigate]);
 
   return (
     <nav
       role="navigation"
       aria-label="Main navigation"
       className="absolute bottom-0 left-0 right-0 z-40 bg-black/70 backdrop-blur-xl border-t border-white/4 flex items-center justify-around"
-      style={{
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        height: 'calc(52px + env(safe-area-inset-bottom, 0px))'
-      }}
+      style={NAV_STYLE}
     >
       {navItems.map((item) => (
         <NavLink
           key={item.icon}
           item={item}
           isActive={isNavItemActive(currentPath, item.activePath)}
-          shouldReduceMotion={shouldReduceMotion ?? false}
-          onClick={handleNavigate}
+          shouldReduceMotion={shouldReduceMotion}
+          onNavigate={handleNavigate}
         />
       ))}
     </nav>
@@ -166,30 +127,30 @@ export function BottomNav({ isCreator = false }: { isCreator?: boolean }) {
 }
 
 /**
- * Desktop side navigation link component
+ * Memoized side nav link
  */
-interface SideNavLinkProps {
+const SideNavLink = memo(function SideNavLink({
+  item,
+  isActive,
+  onNavigate,
+}: {
   item: NavItem;
   isActive: boolean;
-  onClick: (to: string) => void;
-}
-
-const SideNavLink = ({ item, isActive, onClick }: SideNavLinkProps) => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  onNavigate: (to: string) => void;
+}) {
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    onClick(item.to);
-  };
-
-  const bgClasses = isActive
-    ? 'bg-white/8 text-white/90'
-    : 'text-white/40 hover:bg-white/4 hover:text-white/60';
+    onNavigate(item.to);
+  }, [onNavigate, item.to]);
 
   return (
     <a
       href={item.to}
       onClick={handleClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${bgClasses}`}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+        isActive ? 'bg-white/8 text-white/90' : 'text-white/40 hover:bg-white/4 hover:text-white/60'
+      }`}
     >
       <span className="w-5 h-5 shrink-0">
         <NavIcon icon={item.icon} />
@@ -198,20 +159,19 @@ const SideNavLink = ({ item, isActive, onClick }: SideNavLinkProps) => {
       {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
     </a>
   );
-};
+});
 
 /**
  * Desktop side navigation items
  */
 export function SideNavItems({ isCreator = false }: { isCreator?: boolean }) {
-  const routerState = useRouterState();
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const currentPath = routerState.location.pathname;
-  const navItems = getNavItems(isCreator);
+  const navItems = isCreator ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
 
-  const handleNavigate = (to: string) => {
+  const handleNavigate = useCallback((to: string) => {
     navigate({ to });
-  };
+  }, [navigate]);
 
   return (
     <nav className="px-4 mb-6" aria-label="Main navigation">
@@ -220,7 +180,7 @@ export function SideNavItems({ isCreator = false }: { isCreator?: boolean }) {
           key={item.icon}
           item={item}
           isActive={isNavItemActive(currentPath, item.activePath)}
-          onClick={handleNavigate}
+          onNavigate={handleNavigate}
         />
       ))}
     </nav>
@@ -230,27 +190,26 @@ export function SideNavItems({ isCreator = false }: { isCreator?: boolean }) {
 /**
  * Sidebar category button for desktop layout
  */
-export function SideCategoryItem({
+export const SideCategoryItem = memo(function SideCategoryItem({
   name,
   active,
-  onClick
+  onClick,
 }: {
   name: string;
   active: boolean;
   onClick: () => void;
 }) {
-  const activeClasses = 'bg-white/8 text-white/85 border border-white/8';
-  const inactiveClasses = 'text-white/40 hover:bg-white/4 hover:text-white/60 border border-transparent';
-
   return (
     <button
       type="button"
       onClick={onClick}
       className={`text-left px-3 py-2 rounded-md text-[13px] font-medium transition-all ${
-        active ? activeClasses : inactiveClasses
+        active
+          ? 'bg-white/8 text-white/85 border border-white/8'
+          : 'text-white/40 hover:bg-white/4 hover:text-white/60 border border-transparent'
       }`}
     >
       {name}
     </button>
   );
-}
+});

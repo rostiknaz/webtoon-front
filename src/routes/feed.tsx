@@ -11,6 +11,7 @@ import { useMemo, useState, useCallback, useRef } from 'react';
 import { z } from 'zod';
 import { Menu, X } from 'lucide-react';
 import { NsfwToggle } from '@/components/NsfwToggle';
+import { CreditCounter } from '@/components/CreditCounter';
 import { useNsfwToggle } from '@/hooks/useNsfwToggle';
 import { Swiper as SwiperComponent, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperType } from 'swiper';
@@ -110,7 +111,10 @@ function FeedPage() {
           <span className="text-[15px] font-semibold text-white/85 tracking-[-0.01em]">
             aniclip
           </span>
-          <NsfwToggle />
+          <div className="flex items-center gap-2">
+            <CreditCounter />
+            <NsfwToggle />
+          </div>
         </div>
 
         {/* Feed player */}

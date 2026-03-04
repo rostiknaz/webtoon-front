@@ -29,6 +29,15 @@ interface NsfwSlice {
   nsfwToggle: () => void;
 }
 
+interface SwipeGateSlice {
+  swipeCount: number;
+  gateShownCount: number;
+  registered: boolean;
+  incrementSwipeCount: () => void;
+  markGateShown: () => void;
+  markRegistered: () => void;
+}
+
 interface LikesSlice {
   likedEpisodes: Record<string, boolean>;
   setLiked: (episodeId: string, liked: boolean) => void;
@@ -36,7 +45,7 @@ interface LikesSlice {
   isLiked: (episodeId: string) => boolean;
 }
 
-export type PreferencesStore = AgeGateSlice & NsfwSlice & LikesSlice;
+export type PreferencesStore = AgeGateSlice & NsfwSlice & LikesSlice & SwipeGateSlice;
 
 // ── Slice Creators ──
 
@@ -58,6 +67,20 @@ const createNsfwSlice: StateCreator<
 > = (set, get) => ({
   nsfwEnabled: false,
   nsfwToggle: () => set({ nsfwEnabled: !get().nsfwEnabled }),
+});
+
+const createSwipeGateSlice: StateCreator<
+  PreferencesStore,
+  [['zustand/persist', unknown]],
+  [],
+  SwipeGateSlice
+> = (set) => ({
+  swipeCount: 0,
+  gateShownCount: 0,
+  registered: false,
+  incrementSwipeCount: () => set((state) => ({ swipeCount: state.swipeCount + 1 })),
+  markGateShown: () => set((state) => ({ gateShownCount: state.gateShownCount + 1 })),
+  markRegistered: () => set({ registered: true }),
 });
 
 const createLikesSlice: StateCreator<
@@ -88,6 +111,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
     (...a) => ({
       ...createAgeGateSlice(...a),
       ...createNsfwSlice(...a),
+      ...createSwipeGateSlice(...a),
       ...createLikesSlice(...a),
     }),
     {
@@ -95,6 +119,9 @@ export const usePreferencesStore = create<PreferencesStore>()(
       partialize: (state) => ({
         ageGateConfirmed: state.ageGateConfirmed,
         nsfwEnabled: state.nsfwEnabled,
+        swipeCount: state.swipeCount,
+        gateShownCount: state.gateShownCount,
+        registered: state.registered,
         likedEpisodes: state.likedEpisodes,
       }),
     },

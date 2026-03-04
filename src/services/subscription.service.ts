@@ -147,8 +147,10 @@ export const subscriptionQueryKey = ['subscription-status'] as const;
 
 /**
  * Query function for TanStack Query
- * Uses hybrid approach: cookie first, API only if no cookie
+ * Always calls the API to get fresh data (the cookie is used as
+ * placeholderData in the hook, not here). The API response also
+ * refreshes the cookie via Set-Cookie header.
  */
 export async function fetchSubscriptionStatus(): Promise<SubscriptionData> {
-  return getSubscription();
+  return getSubscriptionFromApi();
 }

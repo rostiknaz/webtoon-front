@@ -13,6 +13,7 @@ import {
     creatorSeriesListResponseSchema,
     creatorSeriesDetailResponseSchema,
     creatorSeriesCreateResponseSchema,
+    creditsBalanceResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -287,6 +288,20 @@ export const getCategories = async (): Promise<CategoriesResponse> => {
         errorMessage: 'Failed to fetch categories',
     });
     return categoriesResponseSchema.parse(data);
+};
+
+// ==================== Credits API ====================
+
+/**
+ * Fetch current user's credit balance (auth required)
+ * Also refreshes the credit cookie server-side
+ */
+export const getCreditsBalance = async () => {
+    const data = await fetchJson('/api/credits/balance', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch credits',
+    });
+    return creditsBalanceResponseSchema.parse(data);
 };
 
 // ==================== Creator Clips API ====================

@@ -6,6 +6,8 @@
  * No verification needed on client - server validates on API calls.
  */
 
+import { parseSignedCookiePayload, getCookie } from './cookie-utils';
+
 const COOKIE_NAME = 'webtoon.sub';
 
 interface SubscriptionPayload {
@@ -14,53 +16,12 @@ interface SubscriptionPayload {
 }
 
 /**
- * Base64 decode (URL-safe)
- */
-function b64Decode(str: string): string {
-  try {
-    const padded = str.replace(/-/g, '+').replace(/_/g, '/');
-    return atob(padded);
-  } catch {
-    return '';
-  }
-}
-
-/**
- * Get a cookie value by name
- */
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [cookieName, ...cookieValue] = cookie.split('=');
-    if (cookieName.trim() === name) {
-      return cookieValue.join('=').trim();
-    }
-  }
-  return null;
-}
-
-/**
  * Parse the subscription cookie payload
  *
  * @returns Subscription payload or null if cookie doesn't exist/is invalid
  */
 export function parseSubscriptionCookie(): SubscriptionPayload | null {
-  const cookieValue = getCookie(COOKIE_NAME);
-  if (!cookieValue) return null;
-
-  try {
-    const [payloadB64] = cookieValue.split('.');
-    if (!payloadB64) return null;
-
-    const payloadStr = b64Decode(payloadB64);
-    if (!payloadStr) return null;
-
-    return JSON.parse(payloadStr) as SubscriptionPayload;
-  } catch {
-    return null;
-  }
+  return parseSignedCookiePayload<SubscriptionPayload>(COOKIE_NAME);
 }
 
 /**

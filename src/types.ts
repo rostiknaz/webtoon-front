@@ -215,6 +215,15 @@ export const categoriesResponseSchema = z.object({
 export type CategoryItem = z.infer<typeof categoryItemSchema>;
 export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
 
+// ==================== Credits Schemas ====================
+
+export const creditsBalanceResponseSchema = z.object({
+    balance: z.number(),
+    freeDownloads: z.number(),
+});
+
+export type CreditsBalanceResponse = z.infer<typeof creditsBalanceResponseSchema>;
+
 // ==================== Creator Clips Schemas ====================
 
 export const creatorClipSchema = z.object({

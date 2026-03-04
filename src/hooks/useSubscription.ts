@@ -47,12 +47,13 @@ export function useSubscription(options: UseSubscriptionOptions = {}) {
   const cookieData = useMemo(() => getSubscriptionSync(), [cookieVersion]);
 
   // Background API validation - only when authenticated
+  // refetchOnWindowFocus catches admin-side subscription changes on tab switch
   const apiQuery = useQuery({
     queryKey: subscriptionQueryKey,
     queryFn: fetchSubscriptionStatus,
     enabled: isAuthenticated,
     staleTime,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
