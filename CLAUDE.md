@@ -60,7 +60,40 @@ Browser → Cloudflare Worker → Hono Router
 - `worker/routes/` - API route handlers
 - `worker/db/services/` - Database service layer
 - `src/routes/` - TanStack Router file-based routes
+- `src/stores/` - Zustand global state stores
 - `db/schema.ts` - Drizzle ORM schema (all tables)
+
+### State Management
+
+**Decision hierarchy (strict order):**
+
+| Scope | Tool | When |
+|-------|------|------|
+| **Local** | `useState`, `useRef` | Single-component UI state (drawers, form inputs, animations) |
+| **Server** | TanStack Query | Data from API endpoints (feeds, sessions, series, subscriptions) |
+| **Global client** | **Zustand** | Cross-component state that isn't server data (preferences, UI toggles, liked state) |
+| **Subtree** | React Context | Complex imperative logic scoped to a component subtree (e.g., VideoPlayerCacheContext) |
+
+**Zustand conventions:**
+- Store files live in `src/stores/` (e.g., `usePreferencesStore.ts`)
+- Use the **slices pattern** for stores with multiple concerns
+- Use `persist` middleware for state that survives page reload
+- Use `partialize` to persist only data, not functions
+- **Always use atomic selectors** to prevent unnecessary re-renders:
+  ```ts
+  // GOOD — only re-renders when nsfwEnabled changes
+  const nsfwEnabled = usePreferencesStore((s) => s.nsfwEnabled);
+
+  // BAD — re-renders on ANY store change
+  const store = usePreferencesStore();
+  ```
+- Use `useShallow` when selecting multiple properties:
+  ```ts
+  import { useShallow } from 'zustand/react/shallow';
+  const { a, b } = useStore(useShallow((s) => ({ a: s.a, b: s.b })));
+  ```
+- Wrapper hooks in `src/hooks/` are optional but useful for adding derived state or side effects
+- **Never use** `useSyncExternalStore` with manual listeners, module-level singleton state, or raw `localStorage` for cross-component state — use Zustand instead
 
 ### Authentication
 Uses Better Auth with email/password and Google OAuth. Session stored in cookies. Subscription status uses signed cookies (HMAC-SHA256) for instant client-side access checks without API calls.

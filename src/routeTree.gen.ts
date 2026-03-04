@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
+import { Route as AgeRestrictedRouteImport } from './routes/age-restricted'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
@@ -34,6 +35,11 @@ const BrowseRoute = BrowseRouteImport.update({
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth-error',
   path: '/auth-error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgeRestrictedRoute = AgeRestrictedRouteImport.update({
+  id: '/age-restricted',
+  path: '/age-restricted',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -81,6 +87,7 @@ const CreatorSeriesSeriesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/age-restricted'
     | '/auth-error'
     | '/browse'
     | '/feed'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/age-restricted'
     | '/auth-error'
     | '/browse'
     | '/feed'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/account'
+    | '/age-restricted'
     | '/auth-error'
     | '/browse'
     | '/feed'
@@ -163,6 +175,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  AgeRestrictedRoute: typeof AgeRestrictedRoute
   AuthErrorRoute: typeof AuthErrorRoute
   BrowseRoute: typeof BrowseRoute
   FeedRoute: typeof FeedRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/auth-error'
       fullPath: '/auth-error'
       preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/age-restricted': {
+      id: '/age-restricted'
+      path: '/age-restricted'
+      fullPath: '/age-restricted'
+      preLoaderRoute: typeof AgeRestrictedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -271,6 +291,7 @@ const CreatorSeriesSeriesIdRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  AgeRestrictedRoute: AgeRestrictedRoute,
   AuthErrorRoute: AuthErrorRoute,
   BrowseRoute: BrowseRoute,
   FeedRoute: FeedRoute,

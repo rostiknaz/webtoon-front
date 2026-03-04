@@ -83,7 +83,8 @@
     "vaul": "^1.1.2",
     "xgplayer": "^3.0.23",
     "xgplayer-hls.js": "^3.0.23",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.20.1",

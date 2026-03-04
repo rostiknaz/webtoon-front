@@ -24,6 +24,7 @@ interface FeedPlayerProps {
   categories?: CategoryItem[];
   onFilterTap?: () => void;
   activeCategoryName?: string;
+  showNsfwIndicator?: boolean;
 }
 
 export function FeedPlayer({
@@ -34,6 +35,7 @@ export function FeedPlayer({
   categories,
   onFilterTap,
   activeCategoryName,
+  showNsfwIndicator,
 }: FeedPlayerProps) {
   const swiperRef = useRef<SwiperType | null>(null);
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
@@ -220,6 +222,7 @@ export function FeedPlayer({
               clip={clip}
               onCreatorTap={onCreatorTap}
               categoryName={getCategoryName(clip)}
+              showNsfwIndicator={showNsfwIndicator}
             />
             <FeedOverlay
               likeCount={clip.likes}

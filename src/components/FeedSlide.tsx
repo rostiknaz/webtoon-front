@@ -24,12 +24,14 @@ export interface FeedSlideProps {
   clip: FeedClip;
   onCreatorTap: (creatorId: string) => void;
   categoryName?: string;
+  showNsfwIndicator?: boolean;
 }
 
 export const FeedSlide = memo(function FeedSlide({
   clip,
   onCreatorTap,
   categoryName,
+  showNsfwIndicator,
 }: FeedSlideProps) {
   const gradientClass = `brand-gradient-${getGradientIndex(clip._id)}`;
 
@@ -56,6 +58,12 @@ export const FeedSlide = memo(function FeedSlide({
           {categoryName && (
             <span className="inline-flex items-center rounded-[4px] bg-white/8 backdrop-blur-sm px-2 py-[3px] text-[10px] font-medium text-white/55 tracking-[0.02em]">
               {categoryName}
+            </span>
+          )}
+          {showNsfwIndicator && clip.nsfwRating !== 'safe' && (
+            <span className="inline-flex items-center gap-1 rounded-[4px] bg-nsfw/15 backdrop-blur-sm px-2 py-[3px] text-[10px] font-semibold text-nsfw tracking-[0.02em]">
+              <span className="block w-1.5 h-1.5 rounded-full bg-nsfw" />
+              18+
             </span>
           )}
         </div>

@@ -10,6 +10,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState, useCallback, useRef } from 'react';
 import { z } from 'zod';
 import { Menu, X } from 'lucide-react';
+import { NsfwToggle } from '@/components/NsfwToggle';
+import { useNsfwToggle } from '@/hooks/useNsfwToggle';
 import { Swiper as SwiperComponent, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css/bundle';
@@ -46,8 +48,9 @@ export const Route = createFileRoute('/feed')({
 function FeedPage() {
   const { category } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const { nsfwParam } = useNsfwToggle();
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useFeed({ category });
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useFeed({ category, nsfw: nsfwParam });
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
 
@@ -102,11 +105,12 @@ function FeedPage() {
 
       {/* ══════ MOBILE LAYOUT ══════ */}
       {!isDesktop && <div className="relative w-full h-full bg-[hsl(240_10%_4%)]">
-        {/* Top bar — wordmark only */}
-        <div className="absolute top-0 left-0 right-0 z-40 pt-6 px-4">
+        {/* Top bar — wordmark + NSFW toggle */}
+        <div className="absolute top-0 left-0 right-0 z-40 pt-6 px-4 flex items-center justify-between">
           <span className="text-[15px] font-semibold text-white/85 tracking-[-0.01em]">
             aniclip
           </span>
+          <NsfwToggle />
         </div>
 
         {/* Feed player */}
@@ -119,6 +123,7 @@ function FeedPage() {
             categories={categories}
             onFilterTap={() => setFilterDrawerOpen(true)}
             activeCategoryName={activeCategoryName}
+            showNsfwIndicator={nsfwParam === 'all'}
           />
         </div>
 
@@ -159,6 +164,12 @@ function FeedPage() {
                   ))}
                 </div>
               </div>
+
+              <div className="mx-6 h-px bg-white/6 mb-4" />
+              <div className="px-6 mb-6 flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/30">Content</span>
+                <NsfwToggle />
+              </div>
             </div>
           </SwiperSlide>
 
@@ -175,7 +186,7 @@ function FeedPage() {
               </button>
 
               <div className="relative h-full max-h-full" style={{ aspectRatio: '9/16' }}>
-                <FeedPlayer clips={clips} onLoadMore={handleLoadMore} hasMore={!!hasNextPage} onCreatorTap={handleCreatorTap} categories={categories} />
+                <FeedPlayer clips={clips} onLoadMore={handleLoadMore} hasMore={!!hasNextPage} onCreatorTap={handleCreatorTap} categories={categories} showNsfwIndicator={nsfwParam === 'all'} />
               </div>
             </div>
           </SwiperSlide>

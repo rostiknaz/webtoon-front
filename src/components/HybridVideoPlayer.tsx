@@ -12,8 +12,9 @@
  */
 
 import type { Episode } from "../types.ts";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useVideoPlayerCache } from "@/contexts/VideoPlayerCacheContext";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { PlayerErrorBoundary } from "./ErrorBoundary";
 import { EpisodeSlide } from "./EpisodeSlide";
 import type Player from "xgplayer";
@@ -62,8 +63,9 @@ export function HybridVideoPlayer({
   onLockedEpisode,
   onShowEpisodes,
 }: HybridVideoPlayerProps) {
-  // Track likes per episode
-  const [likedEpisodes, setLikedEpisodes] = useState<Record<string, boolean>>({});
+  // Likes from Zustand store — persisted, cross-component sync
+  const likedEpisodes = usePreferencesStore((s) => s.likedEpisodes);
+  const storeLikeToggle = usePreferencesStore((s) => s.toggleLike);
 
   const swiperRef = useRef<SwiperType | null>(null);
   // Track which players have had events set up (per component instance)
@@ -80,13 +82,10 @@ export function HybridVideoPlayer({
   // Use the cache context for player management
   const cache = useVideoPlayerCache();
 
-  // Toggle like for a specific episode
+  // Toggle like — delegates to Zustand store (persisted + cross-component)
   const toggleLike = useCallback((episodeId: string) => {
-    setLikedEpisodes(prev => ({
-      ...prev,
-      [episodeId]: !prev[episodeId]
-    }));
-  }, []);
+    storeLikeToggle(episodeId);
+  }, [storeLikeToggle]);
 
   // Handle click on video area to toggle play/pause
   const handleVideoClick = useCallback(() => {

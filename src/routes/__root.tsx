@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import type { QueryClient } from '@tanstack/react-query'
 import NotFound from "@/pages/NotFound.tsx";
 import { useAuthToast } from "@/hooks/useAuthToast"
+import { AgeGate } from "@/components/AgeGate"
 
 // Lazy load devtools - only imported in development
 const ReactQueryDevtools = import.meta.env.DEV
@@ -32,6 +33,7 @@ function RootComponent() {
 
     return (
         <TooltipProvider>
+            <AgeGate />
             <Toaster />
             <Sonner />
             <Outlet />

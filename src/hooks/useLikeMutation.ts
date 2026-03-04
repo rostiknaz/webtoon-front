@@ -2,42 +2,26 @@
  * Like Mutation Hook with Optimistic Updates
  *
  * Handles episode likes with:
- * - localStorage persistence for liked state
- * - Optimistic cache updates (finds series cache dynamically)
+ * - Zustand store for liked state (global, persisted, cross-component sync)
+ * - TanStack Query mutations for API calls
+ * - Optimistic cache updates for series stats
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { likeEpisode, unlikeEpisode } from '@/api';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import type { SeriesMetadata } from '@/types';
 
-const LIKES_STORAGE_KEY = 'webtoon_liked_episodes';
-
-function getLikedEpisodes(): Set<string> {
-  try {
-    const stored = localStorage.getItem(LIKES_STORAGE_KEY);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveLikedEpisodes(liked: Set<string>): void {
-  try {
-    localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify([...liked]));
-  } catch {}
-}
-
 /**
- * Hook for liking/unliking episodes with optimistic updates
+ * Hook for liking/unliking episodes with optimistic updates.
+ * Uses Zustand store for cross-component sync (e.g., HybridVideoPlayer
+ * and EpisodeSidebar see the same like state).
  */
 export function useLikeMutation(episodeId: string) {
   const queryClient = useQueryClient();
-  const [isLiked, setIsLiked] = useState(false);
-
-  useEffect(() => {
-    setIsLiked(getLikedEpisodes().has(episodeId));
-  }, [episodeId]);
+  const isLiked = usePreferencesStore((s) => s.likedEpisodes[episodeId]);
+  const setLiked = usePreferencesStore((s) => s.setLiked);
 
   // Update all series caches that contain this episode
   const updateCache = (delta: number) => {
@@ -57,36 +41,24 @@ export function useLikeMutation(episodeId: string) {
   const likeMutation = useMutation({
     mutationFn: () => likeEpisode(episodeId),
     onMutate: () => {
-      setIsLiked(true);
+      setLiked(episodeId, true);
       updateCache(1);
-      const liked = getLikedEpisodes();
-      liked.add(episodeId);
-      saveLikedEpisodes(liked);
     },
     onError: () => {
-      setIsLiked(false);
+      setLiked(episodeId, false);
       updateCache(-1);
-      const liked = getLikedEpisodes();
-      liked.delete(episodeId);
-      saveLikedEpisodes(liked);
     },
   });
 
   const unlikeMutation = useMutation({
     mutationFn: () => unlikeEpisode(episodeId),
     onMutate: () => {
-      setIsLiked(false);
+      setLiked(episodeId, false);
       updateCache(-1);
-      const liked = getLikedEpisodes();
-      liked.delete(episodeId);
-      saveLikedEpisodes(liked);
     },
     onError: () => {
-      setIsLiked(true);
+      setLiked(episodeId, true);
       updateCache(1);
-      const liked = getLikedEpisodes();
-      liked.add(episodeId);
-      saveLikedEpisodes(liked);
     },
   });
 
