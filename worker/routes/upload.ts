@@ -30,8 +30,8 @@ function getR2Client(env: AppEnvWithDB['Bindings']) {
 }
 
 function buildClipVideoUrl(env: AppEnvWithDB['Bindings'], clipId: string) {
-  const cdnBase = env.R2_CDN_URL || 'https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev';
-  return `${cdnBase}/clips/${clipId}/video.mp4`;
+  if (!env.R2_CDN_URL) throw Errors.internal('R2_CDN_URL not configured');
+  return `${env.R2_CDN_URL}/clips/${clipId}/video.mp4`;
 }
 
 async function generateClipPresignedUrl(env: AppEnvWithDB['Bindings'], clipId: string) {
@@ -113,7 +113,8 @@ upload.post(
     await updateClipVideoUrl(db, clipId, videoUrl);
 
     const ai = c.env.AI || null;
-    const result = await processClipModeration(db, ai, clip);
+    // Pass clip with updated videoUrl (clip was fetched before the update)
+    const result = await processClipModeration(db, ai, { ...clip, videoUrl });
 
     return c.json({ _id: clipId, status: result.status, reason: result.reason });
   },

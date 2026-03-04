@@ -11,6 +11,8 @@ import { getFeed } from '../api';
 interface FeedOptions {
   category?: string;
   nsfw?: string;
+  sort?: string;
+  search?: string;
 }
 
 /**
@@ -18,16 +20,19 @@ interface FeedOptions {
  */
 export function feedQueryOptions(options: FeedOptions = {}) {
   return infiniteQueryOptions({
-    queryKey: ['feed', { category: options.category, nsfw: options.nsfw }] as const,
+    queryKey: ['feed', { category: options.category, nsfw: options.nsfw, sort: options.sort, search: options.search }] as const,
     queryFn: ({ pageParam }) =>
       getFeed({
         cursor: pageParam,
         category: options.category,
         nsfw: options.nsfw,
+        sort: options.sort,
+        search: options.search,
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
-    staleTime: 2 * 60 * 1000, // 2 minutes — match KV cache TTL
+    // No staleTime for search queries (instant freshness); 2 minutes for regular feed
+    staleTime: options.search ? 0 : 2 * 60 * 1000,
   });
 }
 

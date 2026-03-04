@@ -10,15 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
 import { Route as CreatorUploadsRouteImport } from './routes/creator/uploads'
+import { Route as CreatorSeriesRouteImport } from './routes/creator/series'
+import { Route as CreatorSeriesNewRouteImport } from './routes/creator/series_.new'
+import { Route as CreatorSeriesSeriesIdRouteImport } from './routes/creator/series_.$seriesId'
+import { Route as CreatorSeriesSeriesIdEditRouteImport } from './routes/creator/series_.$seriesId.edit'
 
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrowseRoute = BrowseRouteImport.update({
+  id: '/browse',
+  path: '/browse',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
@@ -46,31 +56,67 @@ const CreatorUploadsRoute = CreatorUploadsRouteImport.update({
   path: '/creator/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorSeriesRoute = CreatorSeriesRouteImport.update({
+  id: '/creator/series',
+  path: '/creator/series',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreatorSeriesNewRoute = CreatorSeriesNewRouteImport.update({
+  id: '/creator/series_/new',
+  path: '/creator/series/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreatorSeriesSeriesIdRoute = CreatorSeriesSeriesIdRouteImport.update({
+  id: '/creator/series_/$seriesId',
+  path: '/creator/series/$seriesId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreatorSeriesSeriesIdEditRoute =
+  CreatorSeriesSeriesIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => CreatorSeriesSeriesIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
+  '/creator/series/new': typeof CreatorSeriesNewRoute
+  '/creator/series/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
+  '/creator/series/new': typeof CreatorSeriesNewRoute
+  '/creator/series/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/auth-error': typeof AuthErrorRoute
+  '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/creator/series_/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
+  '/creator/series_/new': typeof CreatorSeriesNewRoute
+  '/creator/series_/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -78,34 +124,53 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/auth-error'
+    | '/browse'
     | '/feed'
+    | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/creator/series/$seriesId'
+    | '/creator/series/new'
+    | '/creator/series/$seriesId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
     | '/auth-error'
+    | '/browse'
     | '/feed'
+    | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/creator/series/$seriesId'
+    | '/creator/series/new'
+    | '/creator/series/$seriesId/edit'
   id:
     | '__root__'
     | '/'
     | '/account'
     | '/auth-error'
+    | '/browse'
     | '/feed'
+    | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/creator/series_/$seriesId'
+    | '/creator/series_/new'
+    | '/creator/series_/$seriesId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   AuthErrorRoute: typeof AuthErrorRoute
+  BrowseRoute: typeof BrowseRoute
   FeedRoute: typeof FeedRoute
+  CreatorSeriesRoute: typeof CreatorSeriesRoute
   CreatorUploadsRoute: typeof CreatorUploadsRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
+  CreatorSeriesSeriesIdRoute: typeof CreatorSeriesSeriesIdRouteWithChildren
+  CreatorSeriesNewRoute: typeof CreatorSeriesNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/feed'
       fullPath: '/feed'
       preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/browse': {
+      id: '/browse'
+      path: '/browse'
+      fullPath: '/browse'
+      preLoaderRoute: typeof BrowseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth-error': {
@@ -152,16 +224,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreatorUploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creator/series': {
+      id: '/creator/series'
+      path: '/creator/series'
+      fullPath: '/creator/series'
+      preLoaderRoute: typeof CreatorSeriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/creator/series_/new': {
+      id: '/creator/series_/new'
+      path: '/creator/series/new'
+      fullPath: '/creator/series/new'
+      preLoaderRoute: typeof CreatorSeriesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/creator/series_/$seriesId': {
+      id: '/creator/series_/$seriesId'
+      path: '/creator/series/$seriesId'
+      fullPath: '/creator/series/$seriesId'
+      preLoaderRoute: typeof CreatorSeriesSeriesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/creator/series_/$seriesId/edit': {
+      id: '/creator/series_/$seriesId/edit'
+      path: '/edit'
+      fullPath: '/creator/series/$seriesId/edit'
+      preLoaderRoute: typeof CreatorSeriesSeriesIdEditRouteImport
+      parentRoute: typeof CreatorSeriesSeriesIdRoute
+    }
   }
 }
+
+interface CreatorSeriesSeriesIdRouteChildren {
+  CreatorSeriesSeriesIdEditRoute: typeof CreatorSeriesSeriesIdEditRoute
+}
+
+const CreatorSeriesSeriesIdRouteChildren: CreatorSeriesSeriesIdRouteChildren = {
+  CreatorSeriesSeriesIdEditRoute: CreatorSeriesSeriesIdEditRoute,
+}
+
+const CreatorSeriesSeriesIdRouteWithChildren =
+  CreatorSeriesSeriesIdRoute._addFileChildren(
+    CreatorSeriesSeriesIdRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   AuthErrorRoute: AuthErrorRoute,
+  BrowseRoute: BrowseRoute,
   FeedRoute: FeedRoute,
+  CreatorSeriesRoute: CreatorSeriesRoute,
   CreatorUploadsRoute: CreatorUploadsRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,
+  CreatorSeriesSeriesIdRoute: CreatorSeriesSeriesIdRouteWithChildren,
+  CreatorSeriesNewRoute: CreatorSeriesNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

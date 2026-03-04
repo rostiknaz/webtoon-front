@@ -52,7 +52,7 @@ export function CategoryChips({
   return (
     <div
       ref={scrollRef}
-      className="flex gap-2 overflow-x-auto scrollbar-none flex-nowrap px-3 py-2"
+      className="flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap px-3 py-2"
       role="toolbar"
       aria-label="Category filter"
     >

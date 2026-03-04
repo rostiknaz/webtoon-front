@@ -35,9 +35,13 @@ creators.post(
     const db = c.get('db');
     const data = c.req.valid('json');
 
-    // Check if already a creator
+    // Check if already a creator or admin (prevent role downgrade)
     const existing = await getCreatorProfile(db, userId);
     if (existing) throw Errors.conflict('Already registered as creator');
+
+    // Prevent admin from downgrading their role
+    const session = c.get('session');
+    if (session?.user?.role === 'admin') throw Errors.conflict('Admin users cannot register as creator');
 
     const result = await registerAsCreator(db, userId, {
       displayName: data.displayName,
@@ -45,6 +49,11 @@ creators.post(
       payoutMethod: data.payoutMethod,
       payoutEmail: data.payoutEmail,
     });
+
+    // Invalidate cached creator profile (prevent stale 404s)
+    try {
+      await c.env.CACHE.delete(buildCacheKey('creator', userId));
+    } catch { /* non-critical */ }
 
     return c.json({
       success: true,

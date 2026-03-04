@@ -241,3 +241,51 @@ export const creatorClipsResponseSchema = z.object({
 
 export type CreatorClip = z.infer<typeof creatorClipSchema>;
 export type CreatorClipsResponse = z.infer<typeof creatorClipsResponseSchema>;
+
+// ==================== Creator Series Schemas ====================
+
+export const creatorSeriesItemSchema = z.object({
+    _id: z.string(),
+    slug: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    coverUrl: z.string().nullable(),
+    genre: z.string().nullable(),
+    status: z.string(),
+    nsfwRating: z.string(),
+    totalEpisodes: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+});
+
+export const seriesEpisodeSchema = z.object({
+    _id: z.string(),
+    title: z.string(),
+    status: z.string(),
+    thumbnailUrl: z.string().nullable(),
+    videoUrl: z.string().nullable(),
+    duration: z.number().nullable(),
+    views: z.number(),
+    episodeNumber: z.number().nullable(),
+    publishedAt: z.string().nullable(),
+    createdAt: z.string(),
+});
+
+export const creatorSeriesListResponseSchema = z.object({
+    series: z.array(creatorSeriesItemSchema),
+});
+
+export const creatorSeriesDetailResponseSchema = creatorSeriesItemSchema.extend({
+    episodes: z.array(seriesEpisodeSchema),
+});
+
+export const creatorSeriesCreateResponseSchema = z.object({
+    _id: z.string(),
+    slug: z.string(),
+});
+
+export type CreatorSeriesItem = z.infer<typeof creatorSeriesItemSchema>;
+export type SeriesEpisodeItem = z.infer<typeof seriesEpisodeSchema>;
+export type CreatorSeriesListResponse = z.infer<typeof creatorSeriesListResponseSchema>;
+export type CreatorSeriesDetailResponse = z.infer<typeof creatorSeriesDetailResponseSchema>;
+export type CreatorSeriesCreateResponse = z.infer<typeof creatorSeriesCreateResponseSchema>;

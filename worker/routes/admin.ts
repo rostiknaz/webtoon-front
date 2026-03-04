@@ -11,9 +11,7 @@ import { z } from 'zod';
 import type { AppEnvWithDB } from '../db/types';
 import { requireAdmin } from '../middleware/auth-guard';
 import { validationHook } from '../lib/schemas';
-import { Errors } from '../lib/errors';
 import { getModerationQueue, adminModerateClip } from '../db/services/moderation.service';
-import { getClipById } from '../db/services/clips.service';
 
 const admin = new Hono<AppEnvWithDB>();
 
@@ -51,10 +49,6 @@ admin.post(
     const db = c.get('db');
     const clipId = c.req.param('clipId');
     const { action, reason } = c.req.valid('json');
-
-    const clip = await getClipById(db, clipId);
-    if (!clip) throw Errors.notFound('Clip', clipId);
-    if (clip.status !== 'review') throw Errors.badRequest('Clip is not in review state');
 
     await adminModerateClip(db, clipId, adminId, action, reason);
 

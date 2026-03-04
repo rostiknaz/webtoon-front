@@ -33,9 +33,10 @@ interface CacheOptions {
   isPrivate?: boolean;
 
   /**
-   * Function to generate cache key from context
+   * Function to generate cache key from context.
+   * Return null to skip caching for this request.
    */
-  keyGenerator?: (c: Context<AppEnv>) => string;
+  keyGenerator?: (c: Context<AppEnv>) => string | null;
 }
 
 /**
@@ -57,8 +58,12 @@ export function kvCache(options: CacheOptions) {
   return async (c: Context<AppEnv>, next: Next) => {
     const { ttl, cacheControl, isPrivate = false, keyGenerator } = options;
 
-    // Generate cache key
+    // Generate cache key (null = skip caching)
     const cacheKey = keyGenerator ? keyGenerator(c) : c.req.url;
+    if (cacheKey === null) {
+      await next();
+      return;
+    }
 
     // Try to get from KV cache
     try {

@@ -77,6 +77,8 @@ export const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   category: z.string().optional(),
   nsfw: z.enum(['safe', 'all']).default('safe'),
+  sort: z.enum(['latest', 'popular', 'trending']).default('latest'),
+  search: z.string().max(100).optional(),
 });
 
 // ==================== Upload Schemas ====================
@@ -108,6 +110,33 @@ export const uploadInitSchema = z.object({
   episodeNumber: z.number().int().positive().optional(),
 });
 
+// ==================== Creator Series Schemas ====================
+
+const seriesStatusEnum = z.enum(['ongoing', 'completed', 'hiatus']);
+const nsfwRatingEnum = z.enum(['safe', 'suggestive', 'explicit']);
+
+/**
+ * POST /api/creator-series — create a new series
+ */
+export const seriesCreateSchema = z.object({
+  title: z.string().min(2, 'Title must be at least 2 characters').max(100),
+  description: z.string().max(2000).optional(),
+  genre: z.string().max(50).optional(),
+  nsfwRating: nsfwRatingEnum,
+  status: seriesStatusEnum.default('ongoing'),
+});
+
+/**
+ * PUT /api/creator-series/:seriesId — partial update
+ */
+export const seriesUpdateSchema = z.object({
+  title: z.string().min(2, 'Title must be at least 2 characters').max(100).optional(),
+  description: z.string().max(2000).optional(),
+  genre: z.string().max(50).optional(),
+  nsfwRating: nsfwRatingEnum.optional(),
+  status: seriesStatusEnum.optional(),
+});
+
 // ==================== Type Exports ====================
 
 export type IdParam = z.infer<typeof idParamSchema>;
@@ -115,3 +144,5 @@ export type SubscribeBody = z.infer<typeof subscribeBodySchema>;
 export type CreatorRegistration = z.infer<typeof creatorRegistrationSchema>;
 export type FeedQuery = z.infer<typeof feedQuerySchema>;
 export type UploadInit = z.infer<typeof uploadInitSchema>;
+export type SeriesCreate = z.infer<typeof seriesCreateSchema>;
+export type SeriesUpdate = z.infer<typeof seriesUpdateSchema>;

@@ -10,6 +10,9 @@ import {
     feedResponseSchema,
     categoriesResponseSchema,
     creatorClipsResponseSchema,
+    creatorSeriesListResponseSchema,
+    creatorSeriesDetailResponseSchema,
+    creatorSeriesCreateResponseSchema,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -19,6 +22,9 @@ import {
     type FeedResponse,
     type CategoriesResponse,
     type CreatorClipsResponse,
+    type CreatorSeriesListResponse,
+    type CreatorSeriesDetailResponse,
+    type CreatorSeriesCreateResponse,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -244,6 +250,8 @@ interface FeedParams {
     limit?: number;
     category?: string;
     nsfw?: string;
+    sort?: string;
+    search?: string;
 }
 
 /**
@@ -256,6 +264,8 @@ export const getFeed = async (params: FeedParams = {}): Promise<FeedResponse> =>
     if (params.limit) searchParams.set('limit', String(params.limit));
     if (params.category) searchParams.set('category', params.category);
     if (params.nsfw) searchParams.set('nsfw', params.nsfw);
+    if (params.sort) searchParams.set('sort', params.sort);
+    if (params.search) searchParams.set('search', params.search);
 
     const query = searchParams.toString();
     const url = `/api/feed${query ? `?${query}` : ''}`;
@@ -291,4 +301,83 @@ export const getCreatorClips = async (): Promise<CreatorClipsResponse> => {
         errorMessage: 'Failed to fetch creator clips',
     });
     return creatorClipsResponseSchema.parse(data);
+};
+
+// ==================== Creator Series API ====================
+
+export const getCreatorSeriesList = async (): Promise<CreatorSeriesListResponse> => {
+    const data = await fetchJson('/api/creator-series', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch series list',
+    });
+    return creatorSeriesListResponseSchema.parse(data);
+};
+
+export const getCreatorSeriesDetail = async (seriesId: string): Promise<CreatorSeriesDetailResponse> => {
+    const data = await fetchJson(`/api/creator-series/${seriesId}`, {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch series detail',
+    });
+    return creatorSeriesDetailResponseSchema.parse(data);
+};
+
+interface CreateSeriesInput {
+    title: string;
+    description?: string;
+    genre?: string;
+    nsfwRating: string;
+    status?: string;
+}
+
+export const createCreatorSeries = async (input: CreateSeriesInput): Promise<CreatorSeriesCreateResponse> => {
+    const data = await fetchJson('/api/creator-series', {
+        method: 'POST',
+        body: JSON.stringify(input),
+        credentials: 'include',
+        errorMessage: 'Failed to create series',
+    });
+    return creatorSeriesCreateResponseSchema.parse(data);
+};
+
+interface UpdateSeriesInput {
+    title?: string;
+    description?: string;
+    genre?: string;
+    nsfwRating?: string;
+    status?: string;
+}
+
+export const updateCreatorSeries = async (seriesId: string, input: UpdateSeriesInput): Promise<void> => {
+    await fetchJson(`/api/creator-series/${seriesId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+        credentials: 'include',
+        errorMessage: 'Failed to update series',
+    });
+};
+
+export const deleteCreatorSeries = async (seriesId: string): Promise<void> => {
+    await fetchJson(`/api/creator-series/${seriesId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        errorMessage: 'Failed to delete series',
+    });
+};
+
+export const getSeriesCoverUploadUrl = async (seriesId: string, contentType = 'image/jpeg'): Promise<{ presignedUrl: string; key: string; expiresIn: number }> => {
+    return fetchJson(`/api/creator-series/${seriesId}/cover`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-content-type': contentType },
+        errorMessage: 'Failed to get cover upload URL',
+    });
+};
+
+export const completeSeriesCoverUpload = async (seriesId: string, contentType = 'image/jpeg'): Promise<{ _id: string; coverUrl: string }> => {
+    return fetchJson(`/api/creator-series/${seriesId}/cover/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ contentType }),
+        credentials: 'include',
+        errorMessage: 'Failed to complete cover upload',
+    });
 };

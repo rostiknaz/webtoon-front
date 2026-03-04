@@ -5,7 +5,7 @@
  * clip CRUD for upload pipeline.
  */
 
-import { eq, and, lt, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, lt, gt, desc, inArray, like, sql, type SQL } from 'drizzle-orm';
 import { clips, users, creatorSeries, clipCategories, moderationLogs } from '../../../db/schema';
 import type { DB } from '../index';
 
@@ -36,6 +36,8 @@ export interface FeedQueryOptions {
   limit?: number;
   category?: string;
   nsfw?: string;
+  sort?: 'latest' | 'popular' | 'trending';
+  search?: string;
 }
 
 export interface FeedResult {
@@ -67,42 +69,79 @@ const feedSelectColumns = {
  *
  * Uses "limit + 1" pattern to determine if there's a next page.
  * Joins users for creatorName, creatorSeries for seriesTotalEpisodes.
+ *
+ * Sort modes:
+ * - latest: keyset cursor on publishedAt (existing behavior)
+ * - popular: offset cursor on views DESC
+ * - trending: offset cursor on views DESC, filtered to last 7 days
  */
 export async function getFeedClips(db: DB, options: FeedQueryOptions): Promise<FeedResult> {
-  const { cursor, limit = 20, category, nsfw = 'safe' } = options;
+  const { cursor, limit = 20, category, nsfw = 'safe', sort = 'latest', search } = options;
+  const useOffsetPagination = sort !== 'latest';
 
-  const conditions: ReturnType<typeof eq>[] = [eq(clips.status, 'published')];
+  const conditions: SQL[] = [eq(clips.status, 'published')];
   if (nsfw === 'safe') conditions.push(eq(clips.nsfwRating, 'safe'));
-  if (cursor) conditions.push(lt(clips.publishedAt, new Date(cursor)));
+
+  // Keyset cursor for latest sort
+  if (!useOffsetPagination && cursor) {
+    conditions.push(lt(clips.publishedAt, new Date(cursor)));
+  }
+
+  // Trending: only clips published in the last 7 days
+  if (sort === 'trending') {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    conditions.push(gt(clips.publishedAt, sevenDaysAgo));
+  }
+
+  // Search: case-insensitive LIKE on title (escape wildcards in user input)
+  if (search) {
+    const escaped = search.replace(/[%_]/g, '\\$&');
+    conditions.push(like(clips.title, `%${escaped}%`));
+  }
+
+  // Determine ORDER BY (secondary sort on id for stable tie-breaking)
+  const orderBy = sort === 'latest'
+    ? [desc(clips.publishedAt), desc(clips.id)]
+    : [desc(clips.views), desc(clips.id)];
+
+  // Offset for non-latest sorts (validated: NaN → 0, clamped to 0..10000)
+  const rawOffset = useOffsetPagination && cursor ? parseInt(cursor, 10) : 0;
+  const offset = Number.isNaN(rawOffset) ? 0 : Math.max(0, Math.min(rawOffset, 10000));
 
   if (category) {
-    const results = await db
+    let query = db
       .select(feedSelectColumns)
       .from(clips)
       .innerJoin(clipCategories, eq(clips.id, clipCategories.clipId))
       .leftJoin(users, eq(clips.creatorId, users.id))
       .leftJoin(creatorSeries, eq(clips.seriesId, creatorSeries.id))
       .where(and(...conditions, eq(clipCategories.categoryId, category)))
-      .orderBy(desc(clips.publishedAt))
+      .orderBy(...orderBy)
       .limit(limit + 1);
+    if (useOffsetPagination && offset > 0) query = query.offset(offset) as typeof query;
 
-    return buildFeedResult(results, limit);
+    const results = await query;
+    return buildFeedResult(results, limit, useOffsetPagination ? offset : undefined);
   }
 
-  const results = await db
+  let query = db
     .select(feedSelectColumns)
     .from(clips)
     .leftJoin(users, eq(clips.creatorId, users.id))
     .leftJoin(creatorSeries, eq(clips.seriesId, creatorSeries.id))
     .where(and(...conditions))
-    .orderBy(desc(clips.publishedAt))
+    .orderBy(...orderBy)
     .limit(limit + 1);
+  if (useOffsetPagination && offset > 0) query = query.offset(offset) as typeof query;
 
-  return buildFeedResult(results, limit);
+  const results = await query;
+  return buildFeedResult(results, limit, useOffsetPagination ? offset : undefined);
 }
 
 /**
  * Build FeedResult from raw query results using limit+1 pattern
+ *
+ * @param offset - if provided, uses offset-based cursor (for popular/trending)
  */
 function buildFeedResult(
   results: Array<{
@@ -124,13 +163,21 @@ function buildFeedResult(
     publishedAt: Date | null;
   }>,
   limit: number,
+  offset?: number,
 ): FeedResult {
   const hasMore = results.length > limit;
   const items = hasMore ? results.slice(0, limit) : results;
 
-  const nextCursor = hasMore && items.length > 0 && items[items.length - 1].publishedAt
-    ? items[items.length - 1].publishedAt!.toISOString()
-    : null;
+  let nextCursor: string | null = null;
+  if (hasMore) {
+    if (offset !== undefined) {
+      // Offset-based cursor for popular/trending
+      nextCursor = String(offset + limit);
+    } else if (items.length > 0 && items[items.length - 1].publishedAt) {
+      // Keyset cursor for latest
+      nextCursor = items[items.length - 1].publishedAt!.toISOString();
+    }
+  }
 
   return {
     clips: items.map((row) => ({

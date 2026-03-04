@@ -29,6 +29,13 @@
       "when": 1772576862766,
       "tag": "0003_nosy_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1772632705910,
+      "tag": "0004_polite_elektra",
+      "breakpoints": true
     }
   ]
 }

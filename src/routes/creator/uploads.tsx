@@ -23,7 +23,7 @@ export const Route = createFileRoute('/creator/uploads')({
       staleTime: 5 * 60 * 1000,
     });
 
-    if (!session || (session as any).user?.role === 'consumer') {
+    if (!session || session.user?.role === 'consumer') {
       throw redirect({ to: '/' });
     }
 

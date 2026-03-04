@@ -15,7 +15,7 @@ import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css/bundle';
 
 import { FeedPlayer } from '@/components/FeedPlayer';
-import { NavIcon } from '@/components/NavIcon';
+import { BottomNav, SideNavItems, SideCategoryItem } from '@/components/BottomNav';
 import { useFeed, feedQueryOptions } from '@/hooks/useFeed';
 import { useCategories, categoriesQueryOptions } from '@/hooks/useCategories';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
@@ -123,12 +123,7 @@ function FeedPage() {
         </div>
 
         {/* Bottom nav */}
-        <div className="absolute bottom-0 left-0 right-0 z-40 h-[52px] bg-black/70 backdrop-blur-xl border-t border-white/4 flex items-center justify-around">
-          <NavItem icon="feed" label="Feed" active />
-          <NavItem icon="browse" label="Browse" />
-          <NavItem icon="updates" label="Updates" />
-          <NavItem icon="profile" label="Profile" />
-        </div>
+        <BottomNav />
       </div>}
 
       {/* ══════ DESKTOP LAYOUT — Swiper Slideable Menu ══════ */}
@@ -151,12 +146,7 @@ function FeedPage() {
                 </span>
               </div>
 
-              <nav className="px-4 mb-6">
-                <SideNavItem icon="feed" label="Feed" active />
-                <SideNavItem icon="browse" label="Browse" />
-                <SideNavItem icon="updates" label="Updates" />
-                <SideNavItem icon="profile" label="Profile" />
-              </nav>
+              <SideNavItems />
 
               <div className="mx-6 h-px bg-white/6 mb-6" />
 
@@ -249,47 +239,4 @@ function FeedPage() {
   );
 }
 
-/* ═══ Sub-Components ═══ */
-
-function NavItem({ icon, label, active }: { icon: 'feed' | 'browse' | 'updates' | 'profile'; label: string; active?: boolean }) {
-  const color = active ? 'text-white/85' : 'text-white/30 hover:text-white/50';
-  return (
-    <div className={`flex flex-col items-center gap-[3px] cursor-pointer transition-colors ${color}`}>
-      <NavIcon icon={icon} />
-      <span className="text-[9px] font-medium tracking-[0.03em] leading-none">
-        {label}
-        {active && <span className="block w-[3px] h-[3px] rounded-full bg-primary mx-auto mt-[3px]" />}
-      </span>
-    </div>
-  );
-}
-
-function SideNavItem({ icon, label, active }: { icon: 'feed' | 'browse' | 'updates' | 'profile'; label: string; active?: boolean }) {
-  const bg = active ? 'bg-white/8 text-white/90' : 'text-white/40 hover:bg-white/4 hover:text-white/60';
-  return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${bg}`}>
-      <span className="w-5 h-5 shrink-0">
-        <NavIcon icon={icon} />
-      </span>
-      <span className="text-[13px] font-medium tracking-[0.01em]">{label}</span>
-      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-    </div>
-  );
-}
-
-function SideCategoryItem({ name, active, onClick }: { name: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left px-3 py-2 rounded-md text-[13px] font-medium transition-all ${
-        active
-          ? 'bg-white/8 text-white/85 border border-white/8'
-          : 'text-white/40 hover:bg-white/4 hover:text-white/60 border border-transparent'
-      }`}
-    >
-      {name}
-    </button>
-  );
-}
 

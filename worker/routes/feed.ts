@@ -30,16 +30,18 @@ feed.get(
   kvCache({
     ttl: CACHE_TTL.FEED,
     keyGenerator: (c) => {
-      const { category, nsfw, cursor } = c.req.query();
-      return buildCacheKey('feed', category || 'all', nsfw || 'safe', cursor || 'first');
+      const { category, nsfw, cursor, sort, search } = c.req.query();
+      // Skip caching for search queries (results change too frequently)
+      if (search) return null;
+      return buildCacheKey('feed', category || 'all', nsfw || 'safe', sort || 'latest', cursor || 'first');
     },
   }),
   async (c) => {
-    const { cursor, limit, category, nsfw } = c.req.valid('query');
+    const { cursor, limit, category, nsfw, sort, search } = c.req.valid('query');
     const db = c.get('db');
 
     // Fetch clips with cursor pagination
-    const result = await getFeedClips(db, { cursor, limit, category, nsfw });
+    const result = await getFeedClips(db, { cursor, limit, category, nsfw, sort, search });
 
     // Batch fetch category IDs for all clips in this page
     const clipIds = result.clips.map((clip) => clip._id);

@@ -5,7 +5,7 @@
  * Follows the standalone function pattern (db as first param).
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { users } from '../../../db/schema';
 import type { DB } from '../index';
 
@@ -72,8 +72,8 @@ export async function getCreatorCount(db: DB): Promise<number> {
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(users)
-    .where(eq(users.role, 'creator'));
-  return result[0]?.count ?? 0;
+    .where(inArray(users.role, ['creator', 'admin']));
+  return Number(result[0]?.count ?? 0);
 }
 
 /**

@@ -1,0 +1,1 @@
+CREATE INDEX `idx_clips_popular` ON `clips` (`status`,`views`);

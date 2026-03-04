@@ -14,6 +14,7 @@ interface SessionUser {
   name: string;
   image?: string | null;
   emailVerified: boolean;
+  role: string;
   createdAt: Date;
   updatedAt: Date;
 }

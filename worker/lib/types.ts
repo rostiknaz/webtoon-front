@@ -24,13 +24,14 @@ export type Bindings = {
   // Google OAuth
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  // Workers AI for content moderation
-  AI: Ai;
+  // Workers AI for content moderation (optional — falls back to manual review)
+  AI?: Ai;
   // R2 presigned URL credentials (S3-compatible API)
   R2_ACCOUNT_ID: string;
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
+  R2_CDN_URL: string;
   ASSETS: Fetcher;
 };
 

@@ -283,7 +283,7 @@ export const clips = sqliteTable('clips', {
   seriesId: text('series_id').references(() => creatorSeries.id, { onDelete: 'set null' }),
   episodeNumber: integer('episode_number'),
   nsfwRating: text('nsfw_rating').notNull().default('safe'), // safe, suggestive, nsfw
-  status: text('status').notNull().default('processing'), // processing, published, rejected
+  status: text('status').notNull().default('processing'), // processing, published, rejected, review
   creditCost: integer('credit_cost').notNull().default(1),
   downloadCount: integer('download_count').notNull().default(0),
   views: integer('views').notNull().default(0),
@@ -295,6 +295,7 @@ export const clips = sqliteTable('clips', {
   index('idx_clips_creator').on(table.creatorId),
   index('idx_clips_feed').on(table.status, table.publishedAt),
   index('idx_clips_nsfw_feed').on(table.status, table.nsfwRating, table.publishedAt),
+  index('idx_clips_popular').on(table.status, table.views),
   index('idx_clips_series').on(table.seriesId, table.episodeNumber),
 ]);
 
@@ -315,6 +316,7 @@ export const clipCategories = sqliteTable('clip_categories', {
   categoryId: text('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
 }, (table) => [
   uniqueIndex('idx_clip_categories_unique').on(table.clipId, table.categoryId),
+  index('idx_clip_categories_category').on(table.categoryId, table.clipId),
 ]);
 
 // ============================================

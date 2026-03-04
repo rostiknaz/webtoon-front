@@ -25,6 +25,7 @@ import categoriesRoutes from './routes/categories';
 import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
 import clipsRoutes from './routes/clips';
+import creatorSeriesRoutes from './routes/creator-series';
 import { drizzleMiddleware } from './db';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
@@ -71,7 +72,7 @@ app.use('*', cors({
     return allowedOrigins[2]; // Default to production URL
   },
   credentials: true, // Allow cookies for Better Auth sessions
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-content-type'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   exposeHeaders: ['Set-Cookie'],
   maxAge: 86400, // 24 hours
@@ -136,6 +137,7 @@ app.route('/api/categories', categoriesRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/clips', clipsRoutes);
+app.route('/api/creator-series', creatorSeriesRoutes);
 
 /**
  * Health check endpoint

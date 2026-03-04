@@ -5,14 +5,16 @@
  * moderation log auditing, and admin queue management.
  */
 
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { clips, moderationLogs, users } from '../../../db/schema';
 import type { DB } from '../index';
 import { updateClipStatus, getClipById } from './clips.service';
+import { Errors } from '../../lib/errors';
 
 // Confidence thresholds (Decision 9)
 const SAFE_THRESHOLD = 0.85;
 const REJECT_THRESHOLD = 0.5;
+const MISMATCH_THRESHOLD = 0.15; // Low bar for flagging content rating mismatches
 
 // NSFW-indicative labels from ResNet-50 classification
 const NSFW_LABELS = new Set([
@@ -97,8 +99,8 @@ function determineClipStatus(
     };
   }
 
-  // Content rating mismatch (AC 5): creator said safe but AI detects NSFW
-  if (creatorNsfwRating === 'safe' && scores.nsfw > REJECT_THRESHOLD) {
+  // Content rating mismatch (AC 5): creator said safe but AI detects any NSFW signal
+  if (creatorNsfwRating === 'safe' && scores.nsfw > MISMATCH_THRESHOLD) {
     return {
       status: 'review',
       action: 'flag',
@@ -179,9 +181,21 @@ export async function processClipModeration(
 }
 
 /**
- * Get clips in review queue for admin moderation
+ * Get clips in review queue for admin moderation.
+ * Uses a subquery for the latest moderation log to avoid duplicate rows from the join.
  */
 export async function getModerationQueue(db: DB) {
+  // Subquery: latest moderation log per clip
+  const latestLog = db
+    .select({
+      clipId: moderationLogs.clipId,
+      reason: moderationLogs.reason,
+      confidence: moderationLogs.confidence,
+      rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${moderationLogs.clipId} ORDER BY ${moderationLogs.createdAt} DESC)`.as('rn'),
+    })
+    .from(moderationLogs)
+    .as('latest_log');
+
   const results = await db
     .select({
       clipId: clips.id,
@@ -191,12 +205,12 @@ export async function getModerationQueue(db: DB) {
       nsfwRating: clips.nsfwRating,
       thumbnailUrl: clips.thumbnailUrl,
       createdAt: clips.createdAt,
-      logReason: moderationLogs.reason,
-      logConfidence: moderationLogs.confidence,
+      logReason: latestLog.reason,
+      logConfidence: latestLog.confidence,
     })
     .from(clips)
     .leftJoin(users, eq(clips.creatorId, users.id))
-    .leftJoin(moderationLogs, eq(clips.id, moderationLogs.clipId))
+    .leftJoin(latestLog, sql`${latestLog.clipId} = ${clips.id} AND ${latestLog.rn} = 1`)
     .where(eq(clips.status, 'review'))
     .orderBy(desc(clips.createdAt))
     .limit(50);
@@ -225,8 +239,8 @@ export async function adminModerateClip(
   reason?: string,
 ): Promise<void> {
   const clip = await getClipById(db, clipId);
-  if (!clip) throw new Error(`Clip not found: ${clipId}`);
-  if (clip.status !== 'review') throw new Error(`Clip is not in review state: ${clip.status}`);
+  if (!clip) throw Errors.notFound('Clip', clipId);
+  if (clip.status !== 'review') throw Errors.badRequest(`Clip is not in review state: ${clip.status}`);
 
   const newStatus = action === 'approve' ? 'published' : 'rejected';
   const logReason = reason || (action === 'approve' ? 'Admin approved' : 'Admin rejected');
