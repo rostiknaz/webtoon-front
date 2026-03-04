@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
@@ -22,6 +23,11 @@ import { Route as CreatorSeriesNewRouteImport } from './routes/creator/series_.n
 import { Route as CreatorSeriesSeriesIdRouteImport } from './routes/creator/series_.$seriesId'
 import { Route as CreatorSeriesSeriesIdEditRouteImport } from './routes/creator/series_.$seriesId.edit'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/profile': typeof ProfileRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/profile': typeof ProfileRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
+  '/profile': typeof ProfileRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/auth-error'
     | '/browse'
     | '/feed'
+    | '/profile'
     | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/auth-error'
     | '/browse'
     | '/feed'
+    | '/profile'
     | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/auth-error'
     | '/browse'
     | '/feed'
+    | '/profile'
     | '/creator/series'
     | '/creator/uploads'
     | '/serials/$serialSlug'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   AuthErrorRoute: typeof AuthErrorRoute
   BrowseRoute: typeof BrowseRoute
   FeedRoute: typeof FeedRoute
+  ProfileRoute: typeof ProfileRoute
   CreatorSeriesRoute: typeof CreatorSeriesRoute
   CreatorUploadsRoute: typeof CreatorUploadsRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
@@ -188,6 +201,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/feed': {
       id: '/feed'
       path: '/feed'
@@ -295,6 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthErrorRoute: AuthErrorRoute,
   BrowseRoute: BrowseRoute,
   FeedRoute: FeedRoute,
+  ProfileRoute: ProfileRoute,
   CreatorSeriesRoute: CreatorSeriesRoute,
   CreatorUploadsRoute: CreatorUploadsRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,

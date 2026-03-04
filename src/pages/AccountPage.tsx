@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useLoaderData } from '@tanstack/react-router';
+import { getInitials } from '@/lib/utils';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,22 +49,6 @@ const AccountPage = () => {
   // Use React Query-based hook for linked accounts (prevents duplicate API calls)
   const { data: linkedAccounts = [], isPending: isLoadingAccounts } = useLinkedAccounts(true);
   const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
-
-  // Get user initials for avatar fallback
-  const getInitials = (name?: string | null, email?: string) => {
-    if (name) {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (email) {
-      return email[0].toUpperCase();
-    }
-    return 'U';
-  };
 
   // Format date
   const formatDate = (date: Date | number | null | undefined) => {

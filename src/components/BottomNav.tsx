@@ -8,7 +8,7 @@
  *
  * Uses <a> + useNavigate instead of TanStack Router's <Link> because Link
  * auto-adds aria-current="page" when `to` matches the URL, which conflicts
- * with placeholder routes (e.g. Profile → /feed) causing multiple elements
+ * with placeholder routes (e.g. Upload → /feed) causing multiple elements
  * to have aria-current="page" on the same page.
  */
 
@@ -28,14 +28,14 @@ type NavItem = {
 const CONSUMER_NAV_ITEMS: NavItem[] = [
   { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
   { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
-  { icon: 'profile', label: 'Profile', to: '/feed', activePath: '/profile' }, // placeholder
+  { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
 ];
 
 const CREATOR_NAV_ITEMS: NavItem[] = [
   { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
   { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
   { icon: 'upload', label: 'Upload', to: '/feed', activePath: '/creator/upload' }, // placeholder
-  { icon: 'profile', label: 'Profile', to: '/feed', activePath: '/profile' },
+  { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
 ];
 
 const isNavItemActive = (currentPath: string, activePath: string): boolean =>

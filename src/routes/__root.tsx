@@ -11,12 +11,14 @@ import NotFound from "@/pages/NotFound.tsx";
 import { useAuthToast } from "@/hooks/useAuthToast"
 import { AgeGate } from "@/components/AgeGate"
 
-// Lazy load devtools - only imported in development
-const ReactQueryDevtools = import.meta.env.DEV
+// Lazy load devtools - only in development, disabled during E2E tests (navigator.webdriver is set by Playwright/automation)
+const showDevtools = import.meta.env.DEV && typeof navigator !== 'undefined' && !navigator.webdriver
+
+const ReactQueryDevtools = showDevtools
     ? lazy(() => import('@tanstack/react-query-devtools').then(m => ({ default: m.ReactQueryDevtools })))
     : () => null
 
-const TanStackRouterDevtools = import.meta.env.DEV
+const TanStackRouterDevtools = showDevtools
     ? lazy(() => import('@tanstack/react-router-devtools').then(m => ({ default: m.TanStackRouterDevtools })))
     : () => null
 
@@ -37,7 +39,7 @@ function RootComponent() {
             <Toaster />
             <Sonner />
             <Outlet />
-            {import.meta.env.DEV && (
+            {showDevtools && (
                 <Suspense fallback={null}>
                     <ReactQueryDevtools buttonPosition="top-right" />
                     <TanStackRouterDevtools position="bottom-right" />

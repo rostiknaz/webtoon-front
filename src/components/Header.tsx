@@ -16,6 +16,7 @@ import { Link } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth.client";
 import { AuthDrawer } from "@/components/AuthDrawer";
 import { useOptimizedSession, useInvalidateSession } from "@/hooks/useOptimizedSession";
+import { getInitials } from "@/lib/utils";
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -41,22 +42,6 @@ const Header = () => {
         },
       },
     });
-  };
-
-  // Get user initials for avatar fallback
-  const getInitials = (name?: string | null, email?: string) => {
-    if (name) {
-      return name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (email) {
-      return email[0].toUpperCase();
-    }
-    return "U";
   };
 
   return (
