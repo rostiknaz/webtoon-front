@@ -309,6 +309,17 @@ export const getCreditsBalance = async () => {
 // ==================== Download API ====================
 
 /**
+ * Fetch clip IDs the current user has downloaded
+ */
+export const getMyDownloadIds = async (): Promise<string[]> => {
+    const data = await fetchJson<{ clipIds: string[] }>('/api/download/mine', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch downloads',
+    });
+    return data.clipIds;
+};
+
+/**
  * Download a clip (auth required, deducts credits)
  * Returns presigned R2 URL for direct download
  */

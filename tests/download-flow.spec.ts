@@ -175,6 +175,126 @@ test.describe('Download API Tests (Story 4.1)', () => {
   });
 });
 
+test.describe('Credit Gating UI Tests (Story 4.2)', () => {
+  // ── AC5: Zero-state credit counter visible ──
+
+  test('credit counter shows "0" for authenticated user with no credits (AC5)', async ({ page, request }) => {
+    test.slow();
+    const id = Date.now().toString(36);
+    const user = { name: `CG ${id}`, email: `cg-${id}@test.com`, password: 'TestPass123!' };
+
+    await bypassAgeGate(page);
+    await signUpUser(page, user);
+
+    // Get clips and exhaust all 3 free downloads
+    const feedResponse = await request.get(`${BASE_URL}/api/feed?limit=10`);
+    const feedData = await feedResponse.json();
+    for (let i = 0; i < 3; i++) {
+      await page.request.post(`${BASE_URL}/api/download/${feedData.clips[i]._id}`);
+    }
+
+    // Navigate to feed and check credit counter shows 0
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const counter = page.getByTestId('credit-counter');
+    await expect(counter).toBeVisible({ timeout: 5000 });
+    await expect(counter).toContainText('0');
+  });
+
+  // ── AC2: Pricing drawer opens on download with 0 credits ──
+
+  test('pricing drawer opens when user with 0 credits taps download (AC2)', async ({ page, request }) => {
+    test.slow();
+    const id = Date.now().toString(36);
+    const user = { name: `CG ${id}`, email: `cg-${id}@test.com`, password: 'TestPass123!' };
+
+    await bypassAgeGate(page);
+    await signUpUser(page, user);
+
+    // Exhaust all free downloads
+    const feedResponse = await request.get(`${BASE_URL}/api/feed?limit=10`);
+    const feedData = await feedResponse.json();
+    for (let i = 0; i < 3; i++) {
+      await page.request.post(`${BASE_URL}/api/download/${feedData.clips[i]._id}`);
+    }
+
+    // Go to browse, try to download
+    await page.goto('/browse');
+    await page.waitForLoadState('networkidle');
+
+    const downloadButton = page.locator('button[aria-label="Download clip"]').first();
+    await expect(downloadButton).toBeVisible({ timeout: 5000 });
+    await downloadButton.click();
+
+    // Pricing drawer should open
+    const drawer = page.locator('[role="dialog"]');
+    await expect(drawer).toBeVisible({ timeout: 5000 });
+    await expect(drawer).toContainText("You're out of credits");
+  });
+
+  // ── AC6: Lock icon on download button ──
+
+  test('download button shows lock icon for user with 0 credits (AC6)', async ({ page, request }) => {
+    test.slow();
+    const id = Date.now().toString(36);
+    const user = { name: `CG ${id}`, email: `cg-${id}@test.com`, password: 'TestPass123!' };
+
+    await bypassAgeGate(page);
+    await signUpUser(page, user);
+
+    // Exhaust all free downloads
+    const feedResponse = await request.get(`${BASE_URL}/api/feed?limit=10`);
+    const feedData = await feedResponse.json();
+    for (let i = 0; i < 3; i++) {
+      await page.request.post(`${BASE_URL}/api/download/${feedData.clips[i]._id}`);
+    }
+
+    // Go to browse and check for lock icon
+    await page.goto('/browse');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(500);
+
+    // Lock icon should be present near download button
+    const lockIcon = page.locator('button[aria-label="Download clip"]').first().locator('..').locator('svg.lucide-lock');
+    await expect(lockIcon).toBeVisible({ timeout: 5000 });
+  });
+
+  // ── AC1: Credit counter animation (DOM change verification) ──
+
+  test('credit counter value changes after download (AC1)', async ({ page }) => {
+    const id = Date.now().toString(36);
+    const user = { name: `CG ${id}`, email: `cg-${id}@test.com`, password: 'TestPass123!' };
+
+    await bypassAgeGate(page);
+    await signUpUser(page, user);
+
+    // Navigate to feed to see credit counter
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const counter = page.getByTestId('credit-counter');
+    await expect(counter).toBeVisible({ timeout: 5000 });
+    const initialText = await counter.textContent();
+
+    // Download a clip via API
+    const feedResponse = await page.request.get(`${BASE_URL}/api/feed?limit=1`);
+    const feedData = await feedResponse.json();
+    await page.request.post(`${BASE_URL}/api/download/${feedData.clips[0]._id}`);
+
+    // Reload to pick up new cookie
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    const counterAfter = page.getByTestId('credit-counter');
+    await expect(counterAfter).toBeVisible({ timeout: 5000 });
+    const afterText = await counterAfter.textContent();
+
+    // Value should have decreased
+    expect(Number(afterText)).toBeLessThan(Number(initialText));
+  });
+});
+
 test.describe('Download UI Tests (Story 4.1)', () => {
   // ── AC2: Download button shows for authenticated user in browse ──
 

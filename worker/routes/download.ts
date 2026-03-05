@@ -15,6 +15,24 @@ import { Errors } from '../lib/errors';
 const downloadRoute = new Hono<AppEnvWithDB>();
 
 /**
+ * GET /api/download/mine
+ *
+ * Returns clip IDs the current user has downloaded.
+ * Used client-side to show checkmark state on download buttons.
+ */
+downloadRoute.get('/mine', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    throw Errors.unauthorized();
+  }
+
+  const { getDownloadedClipIds } = await import('../db/services/download.service');
+  const clipIds = await getDownloadedClipIds(c.get('db'), userId);
+
+  return c.json({ clipIds });
+});
+
+/**
  * POST /api/download/:clipId
  *
  * Atomically deducts credit and returns presigned R2 download URL.

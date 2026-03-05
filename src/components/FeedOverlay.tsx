@@ -2,14 +2,17 @@
  * FeedOverlay Component
  *
  * Right-side action column for the vertical feed.
- * Buttons: heart (with count), download (primary accent, with count), share, filter.
- * No creator profile button — creator name is tappable in FeedSlide metadata.
+ * Buttons: heart (with count), download (with count + lock overlay), share, filter.
  */
 
-import { memo, useCallback } from 'react';
-import { Heart, Download, Loader2, Share2, SlidersHorizontal } from 'lucide-react';
+import { memo, useCallback, useState } from 'react';
+import { Heart, Download, Check, Loader2, Share2, SlidersHorizontal, Lock } from 'lucide-react';
 import { useDownload } from '@/hooks/useDownload';
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
+import { useCredits } from '@/hooks/useCredits';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useDownloadedClips } from '@/hooks/useDownloadedClips';
+import { PricingDrawer } from './PricingDrawer';
 
 const formatCount = (num: number) => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -51,10 +54,18 @@ export const FeedOverlay = memo(function FeedOverlay({
   activeCategoryName,
   onAuthRequired,
 }: FeedOverlayProps) {
-  const { download, isDownloading } = useDownload();
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const { download, isDownloading } = useDownload({
+    onNeedsCredits: () => setPricingOpen(true),
+  });
   const { data: session } = useOptimizedSession();
   const isAuthenticated = !!session;
+  const { totalCredits } = useCredits();
+  const { data: subscription } = useSubscription();
+  const { isDownloaded } = useDownloadedClips();
   const loading = isDownloading(clipId);
+  const alreadyDownloaded = isDownloaded(clipId);
+  const showLock = isAuthenticated && totalCredits === 0 && !subscription?.hasSubscription && !alreadyDownloaded;
 
   const handleDownload = useCallback(() => {
     if (!isAuthenticated) {
@@ -77,63 +88,74 @@ export const FeedOverlay = memo(function FeedOverlay({
   }, []);
 
   return (
-    <div
-      className="absolute right-3.5 bottom-[120px] flex flex-col items-center gap-5 z-20"
-      onClick={stopPropagation}
-    >
-      {/* Creator avatar */}
-      {creatorName && (
-        <button type="button" onClick={onCreatorTap} className={AVATAR_BASE} aria-label={`View ${creatorName}'s profile`}>
-          {creatorName.charAt(0).toUpperCase()}
-        </button>
-      )}
-
-      {/* Heart with count */}
-      <div className="flex flex-col items-center gap-[3px]">
-        <button type="button" className={BUTTON_GLASS} aria-label="Like">
-          <Heart className="w-[18px] h-[18px]" strokeWidth={1.5} />
-        </button>
-        <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
-          {formatCount(likeCount)}
-        </span>
-      </div>
-
-      {/* Download */}
-      <div className="flex flex-col items-center gap-[3px]">
-        <button type="button" onClick={handleDownload} className={BUTTON_GLASS} aria-label="Download" disabled={loading}>
-          {loading
-            ? <Loader2 className="w-[18px] h-[18px] animate-spin" strokeWidth={1.5} />
-            : <Download className="w-[18px] h-[18px]" strokeWidth={1.5} />
-          }
-        </button>
-        <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
-          {formatCount(downloadCount)}
-        </span>
-      </div>
-
-      {/* Share */}
-      <button type="button" onClick={handleShare} className={BUTTON_GLASS} aria-label="Share">
-        <Share2 className="w-[18px] h-[18px]" strokeWidth={1.5} />
-      </button>
-
-      {/* Filter — opens category drawer */}
-      {onFilterTap && (
-        <div className="flex flex-col items-center gap-[3px]">
-          <button
-            type="button"
-            onClick={onFilterTap}
-            className={getFilterButtonClass(!!activeCategoryName)}
-            aria-label="Filter"
-          >
-            <SlidersHorizontal className="w-[18px] h-[18px]" strokeWidth={1.5} />
+    <>
+      <div
+        className="absolute right-3.5 bottom-[120px] flex flex-col items-center gap-5 z-20"
+        onClick={stopPropagation}
+      >
+        {/* Creator avatar */}
+        {creatorName && (
+          <button type="button" onClick={onCreatorTap} className={AVATAR_BASE} aria-label={`View ${creatorName}'s profile`}>
+            {creatorName.charAt(0).toUpperCase()}
           </button>
-          {activeCategoryName && (
-            <span className="text-[10px] font-medium text-white/60 tracking-[0.01em]">
-              {activeCategoryName}
-            </span>
-          )}
+        )}
+
+        {/* Heart with count */}
+        <div className="flex flex-col items-center gap-[3px]">
+          <button type="button" className={BUTTON_GLASS} aria-label="Like">
+            <Heart className="w-[18px] h-[18px]" strokeWidth={1.5} />
+          </button>
+          <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
+            {formatCount(likeCount)}
+          </span>
         </div>
-      )}
-    </div>
+
+        {/* Download with lock overlay */}
+        <div className="flex flex-col items-center gap-[3px]">
+          <div className="relative">
+            <button type="button" onClick={handleDownload} className={BUTTON_GLASS} aria-label={alreadyDownloaded ? 'Re-download' : 'Download'} disabled={loading}>
+              {loading
+                ? <Loader2 className="w-[18px] h-[18px] animate-spin" strokeWidth={1.5} />
+                : alreadyDownloaded
+                  ? <Check className="w-[18px] h-[18px] text-green-400" strokeWidth={1.5} />
+                  : <Download className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              }
+            </button>
+            {showLock && (
+              <Lock className="absolute -bottom-0.5 -right-0.5 w-3 h-3 text-white/50" strokeWidth={2} />
+            )}
+          </div>
+          <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
+            {formatCount(downloadCount)}
+          </span>
+        </div>
+
+        {/* Share */}
+        <button type="button" onClick={handleShare} className={BUTTON_GLASS} aria-label="Share">
+          <Share2 className="w-[18px] h-[18px]" strokeWidth={1.5} />
+        </button>
+
+        {/* Filter — opens category drawer */}
+        {onFilterTap && (
+          <div className="flex flex-col items-center gap-[3px]">
+            <button
+              type="button"
+              onClick={onFilterTap}
+              className={getFilterButtonClass(!!activeCategoryName)}
+              aria-label="Filter"
+            >
+              <SlidersHorizontal className="w-[18px] h-[18px]" strokeWidth={1.5} />
+            </button>
+            {activeCategoryName && (
+              <span className="text-[10px] font-medium text-white/60 tracking-[0.01em]">
+                {activeCategoryName}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <PricingDrawer open={pricingOpen} onOpenChange={setPricingOpen} />
+    </>
   );
 });

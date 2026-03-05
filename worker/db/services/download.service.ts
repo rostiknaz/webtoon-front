@@ -39,6 +39,17 @@ function extractR2Key(videoUrl: string, cdnUrl: string): string {
  * 5. Insert download record + credit transaction
  * 6. Increment clip downloadCount (first download only)
  */
+/**
+ * Get all clip IDs a user has downloaded
+ */
+export async function getDownloadedClipIds(db: DB, userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ clipId: downloads.clipId })
+    .from(downloads)
+    .where(eq(downloads.userId, userId));
+  return rows.map((r) => r.clipId);
+}
+
 export async function processDownload(
   db: DB,
   userId: string,
