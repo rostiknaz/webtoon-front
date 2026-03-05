@@ -14,22 +14,29 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useDownloadedClips } from '@/hooks/useDownloadedClips';
 import { PricingDrawer } from './PricingDrawer';
 
-const formatCount = (num: number) => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-  return num.toString();
-};
-
+// Constants - defined once, reused across all instances
 const BUTTON_BASE = 'flex items-center justify-center w-10 h-10 rounded-full transition-all';
 const BUTTON_GLASS = `${BUTTON_BASE} bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90`;
 const AVATAR_BASE = 'flex items-center justify-center w-9 h-9 rounded-full bg-white/8 border-[1.5px] border-white/12 text-[13px] font-semibold text-white/70 mb-1';
 
-const getFilterButtonClass = (active: boolean) =>
-  `${BUTTON_BASE} backdrop-blur-2xl border ${
+// Helper functions - extracted outside component to avoid recreation on every render
+function formatCount(num: number): string {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+  return num.toString();
+}
+
+function stopPropagation(e: React.MouseEvent): void {
+  e.stopPropagation();
+}
+
+function getFilterButtonClass(active: boolean): string {
+  return `${BUTTON_BASE} backdrop-blur-2xl border ${
     active
       ? 'bg-white/15 border-white/10 text-white/90'
       : 'bg-white/8 border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90'
   }`;
+}
 
 export interface FeedOverlayProps {
   clipId: string;
@@ -42,8 +49,6 @@ export interface FeedOverlayProps {
   onAuthRequired?: () => void;
 }
 
-const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
-
 export const FeedOverlay = memo(function FeedOverlay({
   clipId,
   likeCount,
@@ -55,8 +60,9 @@ export const FeedOverlay = memo(function FeedOverlay({
   onAuthRequired,
 }: FeedOverlayProps) {
   const [pricingOpen, setPricingOpen] = useState(false);
+  const handleNeedsCredits = useCallback(() => setPricingOpen(true), []);
   const { download, isDownloading } = useDownload({
-    onNeedsCredits: () => setPricingOpen(true),
+    onNeedsCredits: handleNeedsCredits,
   });
   const { data: session } = useOptimizedSession();
   const isAuthenticated = !!session;

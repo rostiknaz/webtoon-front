@@ -16,6 +16,7 @@ import { PricingDrawer } from './PricingDrawer';
 import { Download } from 'lucide-react';
 
 const PILL_TRANSITION = { type: 'spring' as const, stiffness: 400, damping: 30 };
+const POINTER_STYLE = { cursor: 'pointer' } as const;
 
 export const CreditCounter = memo(function CreditCounter() {
   const { data: session } = useOptimizedSession();
@@ -25,7 +26,7 @@ export const CreditCounter = memo(function CreditCounter() {
   const [pricingOpen, setPricingOpen] = useState(false);
 
   const isZero = totalCredits === 0;
-  const pillClass = `flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/6 border border-white/6${isZero ? ' animate-pulse' : ''}`;
+  const pillClass = `flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/6 border border-white/6${isZero && !shouldReduceMotion ? ' animate-pulse' : ''}`;
 
   const handleClick = () => {
     if (isZero) setPricingOpen(true);
@@ -42,7 +43,7 @@ export const CreditCounter = memo(function CreditCounter() {
               data-testid="credit-counter"
               onClick={handleClick}
               role={isZero ? 'button' : undefined}
-              style={isZero ? { cursor: 'pointer' } : undefined}
+              style={isZero ? POINTER_STYLE : undefined}
             >
               <Download className="h-3 w-3 text-white/55" aria-hidden="true" />
               <AnimateNumber value={totalCredits} className="text-xs font-semibold text-white/55 tabular-nums" />
@@ -58,7 +59,7 @@ export const CreditCounter = memo(function CreditCounter() {
               transition={PILL_TRANSITION}
               onClick={handleClick}
               role={isZero ? 'button' : undefined}
-              style={isZero ? { cursor: 'pointer' } : undefined}
+              style={isZero ? POINTER_STYLE : undefined}
             >
               <Download className="h-3 w-3 text-white/55" aria-hidden="true" />
               <AnimateNumber value={totalCredits} className="text-xs font-semibold text-white/55 tabular-nums" />

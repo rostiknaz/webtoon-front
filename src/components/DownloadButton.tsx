@@ -10,6 +10,7 @@ import { useDownload } from '@/hooks/useDownload';
 import { useCredits } from '@/hooks/useCredits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useDownloadedClips } from '@/hooks/useDownloadedClips';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { PricingDrawer } from './PricingDrawer';
 import { cn } from '@/lib/utils';
 
@@ -20,15 +21,18 @@ interface DownloadButtonProps {
 
 export function DownloadButton({ clipId, className }: DownloadButtonProps) {
   const [pricingOpen, setPricingOpen] = useState(false);
+  const handleNeedsCredits = useCallback(() => setPricingOpen(true), []);
   const { download, isDownloading } = useDownload({
-    onNeedsCredits: () => setPricingOpen(true),
+    onNeedsCredits: handleNeedsCredits,
   });
+  const { data: session } = useOptimizedSession();
+  const isAuthenticated = !!session;
   const { totalCredits } = useCredits();
   const { data: subscription } = useSubscription();
   const { isDownloaded } = useDownloadedClips();
   const loading = isDownloading(clipId);
   const alreadyDownloaded = isDownloaded(clipId);
-  const showLock = totalCredits === 0 && !subscription?.hasSubscription && !alreadyDownloaded;
+  const showLock = isAuthenticated && totalCredits === 0 && !subscription?.hasSubscription && !alreadyDownloaded;
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

@@ -28,6 +28,7 @@ import clipsRoutes from './routes/clips';
 import creatorSeriesRoutes from './routes/creator-series';
 import creditsRoutes from './routes/credits';
 import downloadRoutes from './routes/download';
+import videoRoutes from './routes/video';
 import { drizzleMiddleware } from './db';
 import { createAuth } from './auth';
 import type { AppEnvWithDB } from './db/types';
@@ -142,6 +143,7 @@ app.route('/api/clips', clipsRoutes);
 app.route('/api/creator-series', creatorSeriesRoutes);
 app.route('/api/credits', creditsRoutes);
 app.route('/api/download', downloadRoutes);
+app.route('/api/video', videoRoutes);
 
 /**
  * Health check endpoint

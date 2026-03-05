@@ -11,6 +11,7 @@ import NotFound from "@/pages/NotFound.tsx";
 import { useAuthToast } from "@/hooks/useAuthToast"
 import { AgeGate } from "@/components/AgeGate"
 import { AppShell } from "@/components/AppShell"
+import { usePreferencesStore } from "@/stores/usePreferencesStore"
 
 // Lazy load devtools - only in development, disabled during E2E tests (navigator.webdriver is set by Playwright/automation)
 const showDevtools = import.meta.env.DEV && typeof navigator !== 'undefined' && !navigator.webdriver
@@ -33,15 +34,19 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
     // Handle OAuth success/error toast notifications
     useAuthToast()
+    const ageGateConfirmed = usePreferencesStore((s) => s.ageGateConfirmed)
 
     return (
         <TooltipProvider>
-            <AgeGate />
+            {!ageGateConfirmed ? (
+                <AgeGate />
+            ) : (
+                <AppShell>
+                    <Outlet />
+                </AppShell>
+            )}
             <Toaster />
             <Sonner />
-            <AppShell>
-                <Outlet />
-            </AppShell>
             {showDevtools && (
                 <Suspense fallback={null}>
                     <ReactQueryDevtools buttonPosition="top-right" />

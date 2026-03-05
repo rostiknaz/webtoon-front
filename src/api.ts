@@ -15,7 +15,9 @@ import {
     creatorSeriesCreateResponseSchema,
     creditsBalanceResponseSchema,
     downloadClipResponseSchema,
+    downloadHistoryResponseSchema,
     type DownloadClipResponse,
+    type DownloadHistoryResponse,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -317,6 +319,23 @@ export const getMyDownloadIds = async (): Promise<string[]> => {
         errorMessage: 'Failed to fetch downloads',
     });
     return data.clipIds;
+};
+
+/**
+ * Fetch paginated download history with clip metadata
+ */
+export const getDownloadHistory = async (cursor?: string, limit?: number): Promise<DownloadHistoryResponse> => {
+    const params = new URLSearchParams();
+    if (cursor) params.set('cursor', cursor);
+    if (limit) params.set('limit', String(limit));
+    const query = params.toString();
+    const url = `/api/download/history${query ? `?${query}` : ''}`;
+
+    const data = await fetchJson(url, {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch download history',
+    });
+    return downloadHistoryResponseSchema.parse(data);
 };
 
 /**

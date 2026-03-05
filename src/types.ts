@@ -236,6 +236,25 @@ export const downloadClipResponseSchema = z.object({
 
 export type DownloadClipResponse = z.infer<typeof downloadClipResponseSchema>;
 
+// ==================== Download History Schemas ====================
+
+export const downloadHistoryItemSchema = z.object({
+    clipId: z.string(),
+    title: z.string(),
+    creatorName: z.string(),
+    thumbnailUrl: z.string().nullable(),
+    downloadDate: z.string(),
+    creditCost: z.number(),
+});
+
+export const downloadHistoryResponseSchema = z.object({
+    downloads: z.array(downloadHistoryItemSchema),
+    nextCursor: z.string().nullable(),
+});
+
+export type DownloadHistoryItem = z.infer<typeof downloadHistoryItemSchema>;
+export type DownloadHistoryResponse = z.infer<typeof downloadHistoryResponseSchema>;
+
 // ==================== Creator Clips Schemas ====================
 
 export const creatorClipSchema = z.object({

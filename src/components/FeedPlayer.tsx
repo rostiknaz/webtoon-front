@@ -18,7 +18,13 @@ import { FeedSlide } from './FeedSlide';
 import { FeedOverlay } from './FeedOverlay';
 import { RegistrationCard } from './RegistrationCard';
 import { useSwipeGate } from '@/hooks/useSwipeGate';
+import { getSignedVideoUrlSync, prefetchVideoTokens, R2_CDN_URL } from '@/lib/video-url';
 import type { FeedClip, CategoryItem } from '../types';
+
+// Helper extracted outside component to avoid recreation on every render
+function extractR2Path(videoUrl: string): string {
+  return videoUrl.replace(R2_CDN_URL + '/', '');
+}
 
 const GATE_TRANSITION = { type: 'spring' as const, stiffness: 300, damping: 30 };
 const SWIPER_STYLE = { perspective: '1000px' } as const;
@@ -55,6 +61,15 @@ export function FeedPlayer({
     markRegistered,
     isAuthenticated,
   } = useSwipeGate();
+
+  // Prefetch video tokens for initial clips
+  useEffect(() => {
+    const paths = clips.slice(0, 5).map((clip) => {
+      if (!clip.videoUrl) return null;
+      return extractR2Path(clip.videoUrl);
+    }).filter(Boolean) as string[];
+    if (paths.length > 0) prefetchVideoTokens(paths);
+  }, [clips]);
 
   // Clean up stale video refs when clips change (e.g. category filter)
   const clipIds = useMemo(() => new Set(clips.map((c) => c._id)), [clips]);
@@ -102,10 +117,15 @@ export function FeedPlayer({
   }, []);
 
   // Ensure video element exists in the slide's video-host
+  // Use ref to access current clips without adding to deps (avoids callback recreation)
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
+
   const ensureVideoElement = useCallback(
     (swiper: SwiperType, index: number) => {
-      if (index < 0 || index >= clips.length) return;
-      const clip = clips[index];
+      const currentClips = clipsRef.current;
+      if (index < 0 || index >= currentClips.length) return;
+      const clip = currentClips[index];
       if (!clip) return;
 
       // Already have a video ref for this clip
@@ -119,7 +139,10 @@ export function FeedPlayer({
       if (slideEl.querySelector('video')) return;
 
       const video = document.createElement('video');
-      if (clip.videoUrl) video.src = clip.videoUrl;
+      if (clip.videoUrl) {
+        const r2Path = extractR2Path(clip.videoUrl);
+        video.src = getSignedVideoUrlSync(r2Path, R2_CDN_URL);
+      }
       if (clip.thumbnailUrl) video.poster = clip.thumbnailUrl;
       video.muted = true;
       video.playsInline = true;
@@ -129,7 +152,7 @@ export function FeedPlayer({
       slideEl.appendChild(video);
       videoRefs.current.set(clip._id, video);
     },
-    [clips],
+    [], // No dependencies - uses ref for current clips
   );
 
   const handleSwiperInit = useCallback(
@@ -139,7 +162,7 @@ export function FeedPlayer({
       // Wait for Virtual slides to render
       requestAnimationFrame(() => {
         if (!swiper?.el) return;
-        const clip = clips[swiper.activeIndex];
+        const clip = clipsRef.current[swiper.activeIndex];
         if (!clip) return;
 
         ensureVideoElement(swiper, swiper.activeIndex);
@@ -149,14 +172,15 @@ export function FeedPlayer({
         ensureVideoElement(swiper, swiper.activeIndex + 1);
       });
     },
-    [clips, ensureVideoElement, playClip],
+    [ensureVideoElement, playClip], // clips removed - uses ref
   );
 
   const handleSlideChange = useCallback(
     (swiper: SwiperType) => {
       const currentIndex = swiper.activeIndex;
-      const currentClip = clips[currentIndex];
-      const previousClip = clips[swiper.previousIndex];
+      const currentClips = clipsRef.current;
+      const currentClip = currentClips[currentIndex];
+      const previousClip = currentClips[swiper.previousIndex];
 
       // Track swipe count for gate logic (only for anonymous users)
       if (!isAuthenticated) {
@@ -178,12 +202,12 @@ export function FeedPlayer({
       ensureVideoElement(swiper, currentIndex + 1);
 
       // Infinite scroll: trigger load more when within 5 clips of end
-      const remaining = clips.length - currentIndex;
+      const remaining = currentClips.length - currentIndex;
       if (remaining <= 5 && hasMore) {
         onLoadMore();
       }
     },
-    [clips, hasMore, onLoadMore, ensureVideoElement, playClip, pauseClip, isAuthenticated, incrementSwipeCount],
+    [hasMore, onLoadMore, ensureVideoElement, playClip, pauseClip, isAuthenticated, incrementSwipeCount], // clips removed - uses ref
   );
 
   if (clips.length === 0) {

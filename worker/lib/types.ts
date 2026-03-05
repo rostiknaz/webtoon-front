@@ -32,6 +32,7 @@ export type Bindings = {
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
   R2_CDN_URL: string;
+  VIDEO_STORAGE: R2Bucket;
   ASSETS: Fetcher;
 };
 

@@ -19,6 +19,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { AuthDrawer } from '@/components/AuthDrawer';
 import { SubscriptionDrawer } from '@/components/SubscriptionDrawer';
+import { DownloadHistory } from '@/components/DownloadHistory';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -135,6 +136,17 @@ function AuthenticatedProfile() {
               <span className="text-sm font-semibold tabular-nums">{balance + freeDownloads}</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* My Downloads */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Download className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">My Downloads</p>
+          </div>
+          <DownloadHistory />
         </CardContent>
       </Card>
 

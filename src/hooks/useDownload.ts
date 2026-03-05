@@ -16,6 +16,23 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useHaptic } from '@/hooks/useHaptic';
 import type { DownloadClipResponse } from '@/types';
 
+function getDownloadToastMessage(
+  data: DownloadClipResponse,
+  hasSubscription: boolean,
+): string {
+  if (data.alreadyDownloaded) return 'Already in your downloads';
+  if (hasSubscription) return 'Downloaded! Commercial use included — Unlimited';
+  if (
+    data.freeDownloadsRemaining === 0 &&
+    data.creditCost > 0 &&
+    data.creditsRemaining > 0
+  ) {
+    return 'Last free download used! Get more credits to continue downloading';
+  }
+  const remaining = data.creditsRemaining + data.freeDownloadsRemaining;
+  return `Downloaded! Commercial use included — ${remaining} credits left`;
+}
+
 /**
  * Trigger browser download via hidden anchor element
  */
@@ -36,8 +53,9 @@ interface UseDownloadOptions {
 export function useDownload(options: UseDownloadOptions = {}) {
   const queryClient = useQueryClient();
   const { data: subscription } = useSubscription();
-  const { totalCredits } = useCredits();
+  const { totalCredits, freeDownloads } = useCredits();
   const haptic = useHaptic();
+  const { onNeedsCredits } = options;
   // Track which clips are currently downloading to prevent double-tap
   const downloadingClips = useRef(new Set<string>());
 
@@ -59,17 +77,7 @@ export function useDownload(options: UseDownloadOptions = {}) {
       );
 
       // Toast message based on state
-      if (data.alreadyDownloaded) {
-        toast.success('Already in your downloads');
-      } else if (subscription?.hasSubscription) {
-        toast.success('Downloaded! Commercial use included — Unlimited');
-      } else if (data.freeDownloadsRemaining === 0 && data.creditCost > 0) {
-        // Last free download or last paid credit used
-        toast.success('Last free download used! Get more credits to continue downloading');
-      } else {
-        const remaining = data.creditsRemaining + data.freeDownloadsRemaining;
-        toast.success(`Downloaded! Commercial use included — ${remaining} credits left`);
-      }
+      toast.success(getDownloadToastMessage(data, !!subscription?.hasSubscription));
     },
     onError: (error: Error, clipId: string) => {
       haptic.error();
@@ -97,20 +105,21 @@ export function useDownload(options: UseDownloadOptions = {}) {
       if (downloadingClips.current.has(clipId)) return;
 
       // Pre-flight: if no credits and no subscription, open pricing drawer
-      if (totalCredits === 0 && !subscription?.hasSubscription && options.onNeedsCredits) {
-        options.onNeedsCredits();
+      if (totalCredits === 0 && !subscription?.hasSubscription && onNeedsCredits) {
+        onNeedsCredits();
         return;
       }
 
       downloadingClips.current.add(clipId);
       mutation.mutate(clipId);
     },
-    [mutation, totalCredits, subscription, options],
+    [mutation, totalCredits, subscription, onNeedsCredits],
   );
 
+  // Stable callback - only checks ref, no re-render on mutation state change
   const isDownloading = useCallback(
-    (clipId: string) => downloadingClips.current.has(clipId) || (mutation.isPending && mutation.variables === clipId),
-    [mutation.isPending, mutation.variables],
+    (clipId: string) => downloadingClips.current.has(clipId),
+    [],
   );
 
   return {

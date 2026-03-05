@@ -13,6 +13,7 @@ import { useAgeGate } from '@/hooks/useAgeGate';
 export function AgeGate() {
   const { isConfirmed, isPending, confirm, deny } = useAgeGate();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const denyRef = useRef<HTMLButtonElement>(null);
 
   // Focus trap: focus confirm button when modal opens
   useEffect(() => {
@@ -26,22 +27,15 @@ export function AgeGate() {
     if (!isPending) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Block escape key
       if (e.key === 'Escape') {
         e.preventDefault();
         return;
       }
 
-      // Trap Tab within dialog buttons
       if (e.key === 'Tab') {
-        const dialog = document.getElementById('age-gate-dialog');
-        if (!dialog) return;
-
-        const focusable = dialog.querySelectorAll<HTMLElement>('button');
-        if (focusable.length === 0) return;
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+        const first = confirmRef.current;
+        const last = denyRef.current;
+        if (!first || !last) return;
 
         if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
@@ -70,7 +64,6 @@ export function AgeGate() {
           transition={{ duration: 0.3 }}
         >
           <motion.div
-            id="age-gate-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="age-gate-title"
@@ -114,6 +107,7 @@ export function AgeGate() {
                 I am 18 or older
               </button>
               <button
+                ref={denyRef}
                 type="button"
                 onClick={deny}
                 className="w-full py-3 rounded-lg bg-white/6 text-white/50 text-[14px] font-medium transition-colors hover:bg-white/10 hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-white/20"

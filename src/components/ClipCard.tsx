@@ -94,7 +94,7 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
 
           {/* NSFW indicator — top-right */}
           {showNsfwIndicator && clip.nsfwRating !== 'safe' && (
-            <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded bg-red-600/80 backdrop-blur-sm text-[10px] font-bold text-white tracking-wider">
+            <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded bg-nsfw/15 backdrop-blur-sm text-[10px] font-semibold text-nsfw tracking-[0.02em]">
               18+
             </div>
           )}

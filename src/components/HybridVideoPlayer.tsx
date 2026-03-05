@@ -26,9 +26,7 @@ import type { Swiper as SwiperType } from "swiper";
 // Individual module CSS imports have Vite 7 compatibility issues with exports field conditions
 import "swiper/css/bundle";
 
-// R2 CDN base URL for self-hosted video streaming (FREE egress!)
-// Fallback provided since VITE_ vars are replaced at build time and may not be available in CI/CD
-const R2_CDN_URL = import.meta.env.VITE_R2_CDN_URL || 'https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev';
+import { getSignedVideoUrlSync, prefetchVideoTokens, R2_CDN_URL } from '@/lib/video-url';
 
 /**
  * Video format configuration
@@ -101,19 +99,22 @@ export function HybridVideoPlayer({
   }, [cache]);
 
   /**
-   * Generate video URL for the episode based on VIDEO_FORMAT config
-   *
-   * MP4 path: {seriesSlug}/ep_{paddedEpisodeNumber}/video.mp4
-   * HLS path: {seriesSlug}/ep_{paddedEpisodeNumber}/manifest.m3u8
+   * Get the R2 object path for an episode (without CDN prefix).
+   */
+  const getR2Path = useCallback((ep: Episode) => {
+    const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
+    const filename = VIDEO_FORMAT === 'mp4' ? 'video.mp4' : 'manifest.m3u8';
+    return `${seriesSlug}/ep_${paddedEp}/${filename}`;
+  }, [seriesSlug]);
+
+  /**
+   * Generate signed video URL for the episode.
+   * Uses cached token when available, falls back to CDN URL.
    */
   const getVideoUrl = useCallback((ep: Episode) => {
-    const paddedEp = ep.episodeNumber.toString().padStart(2, '0');
-    const basePath = `${R2_CDN_URL}/${seriesSlug}/ep_${paddedEp}`;
-
-    return VIDEO_FORMAT === 'mp4'
-      ? `${basePath}/video.mp4`
-      : `${basePath}/manifest.m3u8`;
-  }, [seriesSlug]);
+    const r2Path = getR2Path(ep);
+    return getSignedVideoUrlSync(r2Path, R2_CDN_URL);
+  }, [getR2Path]);
 
   // Generate poster URL for the episode - shows immediately while HLS loads
   // Path: {seriesSlug}/ep_{paddedEpisodeNumber}/poster.jpg
@@ -495,6 +496,16 @@ export function HybridVideoPlayer({
     },
     [episodes, cache, preloadEpisode]
   );
+
+  // Prefetch signed video tokens for initial + adjacent episodes
+  useEffect(() => {
+    const paths: string[] = [];
+    for (let i = Math.max(0, initialIndex - 1); i <= Math.min(episodes.length - 1, initialIndex + 2); i++) {
+      const ep = episodes[i];
+      if (ep && !ep.isLocked) paths.push(getR2Path(ep));
+    }
+    if (paths.length > 0) prefetchVideoTokens(paths);
+  }, [initialIndex, episodes, getR2Path]);
 
   // Navigate to specific episode (called from parent via initialIndex change)
   // Player initialization is handled by handleSlideChange when slideTo triggers onSlideChange

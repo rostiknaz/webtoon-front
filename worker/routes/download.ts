@@ -6,13 +6,43 @@
  */
 
 import { Hono } from 'hono';
-import { processDownload } from '../db/services/download.service';
+import { processDownload, getDownloadedClipIds } from '../db/services/download.service';
+import { getDownloadHistory } from '../db/services/download-history.service';
 import { createCreditSetCookie } from '../lib/credit-cookie';
 import { createR2Client, generatePresignedGetUrl } from '../lib/r2';
 import type { AppEnvWithDB } from '../db/types';
 import { Errors } from '../lib/errors';
 
 const downloadRoute = new Hono<AppEnvWithDB>();
+
+/**
+ * GET /api/download/history
+ *
+ * Returns paginated download history with clip metadata.
+ * Auth required. Cursor-based pagination via `cursor` query param.
+ */
+downloadRoute.get('/history', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    throw Errors.unauthorized();
+  }
+
+  const cursorParam = c.req.query('cursor');
+  const limitParam = c.req.query('limit');
+
+  const parsedCursor = cursorParam ? Number(cursorParam) : undefined;
+  if (parsedCursor !== undefined && (isNaN(parsedCursor) || parsedCursor < 0)) {
+    throw Errors.validation('Invalid cursor');
+  }
+  const cursor = parsedCursor;
+
+  const parsedLimit = limitParam ? Number(limitParam) : 20;
+  const limit = isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 50);
+
+  const result = await getDownloadHistory(c.get('db'), userId, cursor, limit);
+
+  return c.json(result);
+});
 
 /**
  * GET /api/download/mine
@@ -26,7 +56,6 @@ downloadRoute.get('/mine', async (c) => {
     throw Errors.unauthorized();
   }
 
-  const { getDownloadedClipIds } = await import('../db/services/download.service');
   const clipIds = await getDownloadedClipIds(c.get('db'), userId);
 
   return c.json({ clipIds });
