@@ -50,6 +50,13 @@
       "when": 1772658072949,
       "tag": "0006_glamorous_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1772707936411,
+      "tag": "0007_useful_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

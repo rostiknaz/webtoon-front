@@ -25,7 +25,8 @@
   "vars": {
     "BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
     "VITE_BETTER_AUTH_URL": "https://webtoon-front.rostiknaz.workers.dev",
-    "VITE_R2_CDN_URL": "https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev"
+    "VITE_R2_CDN_URL": "https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev",
+    "R2_CDN_URL": "https://pub-e8eb9b2155904feeb0e7c5e0712a87e2.r2.dev"
   },
   // D1 Database with read replication
   // To enable read replication (reduces global read latency from 100-200ms to 10-50ms):

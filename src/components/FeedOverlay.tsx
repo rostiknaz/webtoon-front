@@ -7,7 +7,9 @@
  */
 
 import { memo, useCallback } from 'react';
-import { Heart, Download, Share2, SlidersHorizontal } from 'lucide-react';
+import { Heart, Download, Loader2, Share2, SlidersHorizontal } from 'lucide-react';
+import { useDownload } from '@/hooks/useDownload';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 
 const formatCount = (num: number) => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -17,7 +19,7 @@ const formatCount = (num: number) => {
 
 const BUTTON_BASE = 'flex items-center justify-center w-10 h-10 rounded-full transition-all';
 const BUTTON_GLASS = `${BUTTON_BASE} bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90`;
-const BUTTON_ACCENT = `${BUTTON_BASE} bg-primary/15 border border-primary/12 text-primary hover:bg-primary/22`;
+const AVATAR_BASE = 'flex items-center justify-center w-9 h-9 rounded-full bg-white/8 border-[1.5px] border-white/12 text-[13px] font-semibold text-white/70 mb-1';
 
 const getFilterButtonClass = (active: boolean) =>
   `${BUTTON_BASE} backdrop-blur-2xl border ${
@@ -27,20 +29,41 @@ const getFilterButtonClass = (active: boolean) =>
   }`;
 
 export interface FeedOverlayProps {
+  clipId: string;
   likeCount: number;
   downloadCount: number;
+  creatorName?: string;
+  onCreatorTap?: () => void;
   onFilterTap?: () => void;
   activeCategoryName?: string;
+  onAuthRequired?: () => void;
 }
 
 const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
 export const FeedOverlay = memo(function FeedOverlay({
+  clipId,
   likeCount,
   downloadCount,
+  creatorName,
+  onCreatorTap,
   onFilterTap,
   activeCategoryName,
+  onAuthRequired,
 }: FeedOverlayProps) {
+  const { download, isDownloading } = useDownload();
+  const { data: session } = useOptimizedSession();
+  const isAuthenticated = !!session;
+  const loading = isDownloading(clipId);
+
+  const handleDownload = useCallback(() => {
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    download(clipId);
+  }, [isAuthenticated, onAuthRequired, download, clipId]);
+
   const handleShare = useCallback(async () => {
     if (navigator.share) {
       try {
@@ -58,6 +81,13 @@ export const FeedOverlay = memo(function FeedOverlay({
       className="absolute right-3.5 bottom-[120px] flex flex-col items-center gap-5 z-20"
       onClick={stopPropagation}
     >
+      {/* Creator avatar */}
+      {creatorName && (
+        <button type="button" onClick={onCreatorTap} className={AVATAR_BASE} aria-label={`View ${creatorName}'s profile`}>
+          {creatorName.charAt(0).toUpperCase()}
+        </button>
+      )}
+
       {/* Heart with count */}
       <div className="flex flex-col items-center gap-[3px]">
         <button type="button" className={BUTTON_GLASS} aria-label="Like">
@@ -68,10 +98,13 @@ export const FeedOverlay = memo(function FeedOverlay({
         </span>
       </div>
 
-      {/* Download — primary accent */}
+      {/* Download */}
       <div className="flex flex-col items-center gap-[3px]">
-        <button type="button" className={BUTTON_ACCENT} aria-label="Download">
-          <Download className="w-[18px] h-[18px]" strokeWidth={1.5} />
+        <button type="button" onClick={handleDownload} className={BUTTON_GLASS} aria-label="Download" disabled={loading}>
+          {loading
+            ? <Loader2 className="w-[18px] h-[18px] animate-spin" strokeWidth={1.5} />
+            : <Download className="w-[18px] h-[18px]" strokeWidth={1.5} />
+          }
         </button>
         <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
           {formatCount(downloadCount)}

@@ -103,7 +103,7 @@ export const RegistrationCard = memo(function RegistrationCard({
     try {
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/feed?login_success=google',
+        callbackURL: '/?login_success=google',
       });
 
       if (result?.error) {
@@ -195,12 +195,15 @@ export const RegistrationCard = memo(function RegistrationCard({
         {...wrapperProps}
         className="w-full max-w-sm mx-auto px-6 flex flex-col items-center text-center"
       >
+        {/* Decorative line */}
+        <div className="w-8 h-[1.5px] bg-primary/40 mb-6" />
+
         {/* Headline */}
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Unlock Unlimited Browsing
+        <h2 className="text-[22px] font-semibold text-foreground tracking-[-0.02em] mb-2">
+          Keep watching
         </h2>
-        <p className="text-muted-foreground text-sm mb-8">
-          Sign up and get <span className="text-primary font-semibold">3 free downloads</span>
+        <p className="text-muted-foreground text-[13px] leading-relaxed mb-7 max-w-[240px]">
+          Create a free account to unlock unlimited browsing and <span className="text-primary font-semibold">3 free downloads</span>.
         </p>
 
         {/* Google OAuth — Primary CTA */}
@@ -243,7 +246,7 @@ export const RegistrationCard = memo(function RegistrationCard({
             onClick={() => setShowEmailForm(true)}
           >
             <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
-            Continue with Email
+            Sign up with email
             <ChevronDown className="ml-auto h-4 w-4" aria-hidden="true" />
           </Button>
         ) : (
@@ -387,11 +390,25 @@ export const RegistrationCard = memo(function RegistrationCard({
           </>
         )}
 
+        {/* Login link */}
+        {!showEmailForm && (
+          <p className="mt-4 text-[12px] text-muted-foreground">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={() => { setShowEmailForm(true); switchMode('login'); }}
+              className="text-muted-foreground border-b border-white/20 hover:text-foreground transition-colors"
+            >
+              Log in
+            </button>
+          </p>
+        )}
+
         {/* Dismiss link */}
         <button
           type="button"
           onClick={onDismiss}
-          className="mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Maybe later
         </button>

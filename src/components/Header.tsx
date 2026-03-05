@@ -146,9 +146,9 @@ const Header = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/account" className="cursor-pointer">
+                    <Link to="/profile" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
-                      My Account
+                      My Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

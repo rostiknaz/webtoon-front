@@ -7,7 +7,14 @@
  */
 
 import { memo } from 'react';
+import { Eye } from 'lucide-react';
 import type { FeedClip } from '../types';
+
+const formatCount = (num: number) => {
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return num.toString();
+};
 
 const GRADIENT_COUNT = 5;
 
@@ -85,12 +92,11 @@ export const FeedSlide = memo(function FeedSlide({
           >
             {clip.creatorName}
           </button>
-          {clip.duration && (
-            <>
-              <span className="mx-1.5">·</span>
-              <span>{clip.duration}s</span>
-            </>
-          )}
+          <span className="mx-1.5">·</span>
+          <span className="inline-flex items-center gap-0.5">
+            <Eye className="w-3 h-3" strokeWidth={1.5} />
+            {formatCount(clip.views)}
+          </span>
         </div>
       </div>
     </div>

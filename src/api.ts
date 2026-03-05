@@ -14,6 +14,8 @@ import {
     creatorSeriesDetailResponseSchema,
     creatorSeriesCreateResponseSchema,
     creditsBalanceResponseSchema,
+    downloadClipResponseSchema,
+    type DownloadClipResponse,
     SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
@@ -302,6 +304,21 @@ export const getCreditsBalance = async () => {
         errorMessage: 'Failed to fetch credits',
     });
     return creditsBalanceResponseSchema.parse(data);
+};
+
+// ==================== Download API ====================
+
+/**
+ * Download a clip (auth required, deducts credits)
+ * Returns presigned R2 URL for direct download
+ */
+export const downloadClip = async (clipId: string): Promise<DownloadClipResponse> => {
+    const data = await fetchJson(`/api/download/${clipId}`, {
+        method: 'POST',
+        credentials: 'include',
+        errorMessage: 'Failed to download clip',
+    });
+    return downloadClipResponseSchema.parse(data);
 };
 
 // ==================== Creator Clips API ====================

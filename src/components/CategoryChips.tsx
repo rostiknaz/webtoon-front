@@ -62,7 +62,7 @@ export function CategoryChips({
         aria-pressed={isAllActive}
         onClick={() => handleChipClick(undefined)}
         onKeyDown={handleKeyDown}
-        className={`shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+        className={`cursor-pointer shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
           isAllActive
             ? 'bg-white/20 text-white border border-white/30 backdrop-blur-sm'
             : 'bg-transparent text-white/50 hover:text-white/80'
@@ -80,7 +80,7 @@ export function CategoryChips({
             aria-pressed={isActive}
             onClick={() => handleChipClick(category.id)}
             onKeyDown={handleKeyDown}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap ${
+            className={`cursor-pointer shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap ${
               isActive
                 ? 'bg-white/20 text-white border border-white/30 backdrop-blur-sm'
                 : 'bg-transparent text-white/50 hover:text-white/80'

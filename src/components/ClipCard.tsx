@@ -7,8 +7,10 @@
 
 import { memo } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Download, Eye, Film } from 'lucide-react';
+import { Eye, Film } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { DownloadButton } from './DownloadButton';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import type { FeedClip } from '../types';
 
 const GRADIENT_COUNT = 5;
@@ -48,6 +50,8 @@ interface ClipCardProps {
 
 export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: ClipCardProps) {
   const gradientIdx = getGradientIndex(clip._id);
+  const { data: session } = useOptimizedSession();
+  const isAuthenticated = !!session;
 
   return (
     <motion.div
@@ -59,7 +63,7 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
       style={{ borderRadius: '0.5rem' }}
     >
       <Link
-        to="/feed"
+        to="/"
         className="group block"
       >
         {/* Thumbnail */}
@@ -90,7 +94,9 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
 
           {/* NSFW indicator — top-right */}
           {showNsfwIndicator && clip.nsfwRating !== 'safe' && (
-            <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-nsfw" title="18+ content" />
+            <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded bg-red-600/80 backdrop-blur-sm text-[10px] font-bold text-white tracking-wider">
+              18+
+            </div>
           )}
 
           {/* Duration badge — bottom-right */}
@@ -109,15 +115,14 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
           <p className="text-[11px] text-white/40 truncate mt-0.5">
             @{clip.creatorName}
           </p>
-          <div className="flex items-center gap-3 mt-1 text-[11px] text-white/30">
-            <span className="flex items-center gap-0.5">
-              <Download className="w-3 h-3" strokeWidth={1.5} />
-              {formatCount(clip.downloadCount)}
-            </span>
-            <span className="flex items-center gap-0.5">
+          <div className="flex items-center justify-between mt-1">
+            <span className="flex items-center gap-0.5 text-[11px] text-white/30">
               <Eye className="w-3 h-3" strokeWidth={1.5} />
               {formatCount(clip.views)}
             </span>
+            {isAuthenticated && (
+              <DownloadButton clipId={clip._id} className="!p-1.5 !w-[26px] !h-[26px] !rounded-full" />
+            )}
           </div>
         </div>
       </Link>

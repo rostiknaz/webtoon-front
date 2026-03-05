@@ -29,26 +29,26 @@ export const CreditCounter = memo(function CreditCounter() {
         shouldReduceMotion ? (
           <div
             key="credit-counter"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/20"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/6 border border-white/6"
             data-testid="credit-counter"
           >
-            <Download className="h-3 w-3 text-primary" aria-hidden="true" />
-            <span className="text-xs font-semibold text-primary tabular-nums">
+            <Download className="h-3 w-3 text-white/55" aria-hidden="true" />
+            <span className="text-xs font-semibold text-white/55 tabular-nums">
               {totalCredits}
             </span>
           </div>
         ) : (
           <motion.div
             key="credit-counter"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/20"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/6 border border-white/6"
             data-testid="credit-counter"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={PILL_TRANSITION}
           >
-            <Download className="h-3 w-3 text-primary" aria-hidden="true" />
-            <span className="text-xs font-semibold text-primary tabular-nums">
+            <Download className="h-3 w-3 text-white/55" aria-hidden="true" />
+            <span className="text-xs font-semibold text-white/55 tabular-nums">
               {totalCredits}
             </span>
           </motion.div>

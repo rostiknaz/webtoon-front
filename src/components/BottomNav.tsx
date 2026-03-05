@@ -15,6 +15,7 @@
 import { memo, useCallback } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { NavIcon } from './NavIcon';
 
 type NavItem = {
@@ -26,20 +27,22 @@ type NavItem = {
 
 // Pre-built arrays — no allocation on render
 const CONSUMER_NAV_ITEMS: NavItem[] = [
-  { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
+  { icon: 'feed', label: 'Feed', to: '/', activePath: '/' },
   { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
   { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
 ];
 
 const CREATOR_NAV_ITEMS: NavItem[] = [
-  { icon: 'feed', label: 'Feed', to: '/feed', activePath: '/feed' },
+  { icon: 'feed', label: 'Feed', to: '/', activePath: '/' },
   { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
-  { icon: 'upload', label: 'Upload', to: '/feed', activePath: '/creator/upload' }, // placeholder
+  { icon: 'upload', label: 'Upload', to: '/creator/uploads', activePath: '/creator/upload' },
   { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
 ];
 
-const isNavItemActive = (currentPath: string, activePath: string): boolean =>
-  currentPath === activePath || currentPath.startsWith(activePath + '/');
+const isNavItemActive = (currentPath: string, activePath: string): boolean => {
+  if (activePath === '/') return currentPath === '/';
+  return currentPath === activePath || currentPath.startsWith(activePath + '/');
+};
 
 // Stable transition object — avoids allocation per render
 const SPRING_TRANSITION = { type: 'spring' as const, stiffness: 400, damping: 30 };
@@ -76,7 +79,7 @@ const NavLink = memo(function NavLink({
       href={item.to}
       onClick={handleClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`relative flex flex-col items-center gap-[3px] pt-2 pb-1 transition-colors ${
+      className={`cursor-pointer relative flex flex-col items-center gap-[3px] pt-2 pb-1 transition-colors ${
         isActive ? 'text-white/85' : 'text-white/30'
       }`}
     >
@@ -96,11 +99,13 @@ const NavLink = memo(function NavLink({
 /**
  * Mobile bottom navigation bar
  */
-export function BottomNav({ isCreator = false }: { isCreator?: boolean }) {
+export function BottomNav({ isCreator }: { isCreator?: boolean } = {}) {
+  const { data: session } = useOptimizedSession();
+  const creatorMode = isCreator ?? session?.user?.role === 'creator';
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion() ?? false;
-  const navItems = isCreator ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
+  const navItems = creatorMode ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
 
   const handleNavigate = useCallback((to: string) => {
     navigate({ to });
@@ -110,7 +115,7 @@ export function BottomNav({ isCreator = false }: { isCreator?: boolean }) {
     <nav
       role="navigation"
       aria-label="Main navigation"
-      className="absolute bottom-0 left-0 right-0 z-40 bg-black/70 backdrop-blur-xl border-t border-white/4 flex items-center justify-around"
+      className="absolute bottom-0 left-0 right-0 z-[60] bg-black/70 backdrop-blur-xl border-t border-white/4 flex items-center justify-around"
       style={NAV_STYLE}
     >
       {navItems.map((item) => (
@@ -148,8 +153,8 @@ const SideNavLink = memo(function SideNavLink({
       href={item.to}
       onClick={handleClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-        isActive ? 'bg-white/8 text-white/90' : 'text-white/40 hover:bg-white/4 hover:text-white/60'
+      className={`cursor-pointer flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+        isActive ? 'bg-white/8 text-white/90 border-r-2 border-r-primary' : 'text-white/40 hover:bg-white/4 hover:text-white/60'
       }`}
     >
       <span className="w-5 h-5 shrink-0">
@@ -164,10 +169,12 @@ const SideNavLink = memo(function SideNavLink({
 /**
  * Desktop side navigation items
  */
-export function SideNavItems({ isCreator = false }: { isCreator?: boolean }) {
+export function SideNavItems({ isCreator }: { isCreator?: boolean } = {}) {
+  const { data: session } = useOptimizedSession();
+  const creatorMode = isCreator ?? session?.user?.role === 'creator';
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const navItems = isCreator ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
+  const navItems = creatorMode ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
 
   const handleNavigate = useCallback((to: string) => {
     navigate({ to });
@@ -203,7 +210,7 @@ export const SideCategoryItem = memo(function SideCategoryItem({
     <button
       type="button"
       onClick={onClick}
-      className={`text-left px-3 py-2 rounded-md text-[13px] font-medium transition-all ${
+      className={`cursor-pointer text-left px-3 py-2 rounded-md text-[13px] font-medium transition-all ${
         active
           ? 'bg-white/8 text-white/85 border border-white/8'
           : 'text-white/40 hover:bg-white/4 hover:text-white/60 border border-transparent'

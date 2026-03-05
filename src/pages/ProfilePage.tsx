@@ -1,35 +1,42 @@
 /**
  * Profile Page
  *
- * Lightweight profile overview accessible from the bottom nav.
- * - Authenticated: avatar, name, email, credits, subscription, logout
+ * Unified profile & account page accessible from bottom nav / sidebar.
+ * - Authenticated: avatar, name, email, credits, subscription, linked accounts, logout
  * - Anonymous: prompt to log in or sign up via AuthDrawer
+ *
+ * Navigation is provided by AppShell (sidebar on desktop, bottom nav on mobile).
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { authClient } from '@/lib/auth.client';
 import { useOptimizedSession, useInvalidateSession } from '@/hooks/useOptimizedSession';
 import { useCredits } from '@/hooks/useCredits';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { AuthDrawer } from '@/components/AuthDrawer';
-import { BottomNav } from '@/components/BottomNav';
+import { SubscriptionDrawer } from '@/components/SubscriptionDrawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { getInitials } from '@/lib/utils';
+import { GoogleIcon } from '@/components/icons';
 import {
   User,
   LogOut,
   Coins,
   Crown,
   Download,
-  ChevronRight,
-  Settings,
+  Mail,
+  Shield,
+  Github,
+  Link as LinkIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 const FADE_TRANSITION = { duration: 0.2 };
 const FADE_VARIANTS = {
@@ -38,13 +45,29 @@ const FADE_VARIANTS = {
   exit: { opacity: 0, y: -8 },
 };
 
+const PROVIDER_INFO: Record<string, { name: string; icon: ReactNode; color: string }> = {
+  google: { name: 'Google', icon: <GoogleIcon className="h-5 w-5" />, color: 'bg-blue-500/10' },
+  github: { name: 'GitHub', icon: <Github className="h-5 w-5" />, color: 'bg-gray-500/10 text-gray-400' },
+  discord: { name: 'Discord', icon: '🟣', color: 'bg-indigo-500/10 text-indigo-500' },
+  twitter: { name: 'Twitter', icon: '🐦', color: 'bg-sky-500/10 text-sky-500' },
+  credential: { name: 'Email', icon: <Mail className="h-5 w-5" />, color: 'bg-green-500/10 text-green-500' },
+};
+
+const formatDate = (date: Date | number | null | undefined) => {
+  if (!date) return 'N/A';
+  const d = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
 function AuthenticatedProfile() {
   const { data: session } = useOptimizedSession();
   const invalidateSession = useInvalidateSession();
   const navigate = useNavigate();
   const { balance, freeDownloads } = useCredits();
   const { data: subscription } = useSubscription();
+  const { data: linkedAccounts = [], isPending: isLoadingAccounts } = useLinkedAccounts(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
   const user = session?.user;
   if (!user) return null;
@@ -57,7 +80,7 @@ function AuthenticatedProfile() {
           onSuccess: () => {
             invalidateSession();
             toast.success('Logged out successfully');
-            navigate({ to: '/feed' });
+            navigate({ to: '/' });
           },
           onError: (ctx) => {
             toast.error(ctx.error.message ?? 'Logout failed');
@@ -81,6 +104,15 @@ function AuthenticatedProfile() {
         </Avatar>
         <h2 className="text-lg font-semibold">{user.name || 'User'}</h2>
         <p className="text-sm text-muted-foreground">{user.email}</p>
+        {user.emailVerified && (
+          <div className="flex items-center gap-1 text-xs text-green-500 mt-1">
+            <Shield className="h-3 w-3" />
+            <span>Verified</span>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-1">
+          Member since {formatDate(user.createdAt)}
+        </p>
       </div>
 
       {/* Credits */}
@@ -121,30 +153,75 @@ function AuthenticatedProfile() {
               <div>
                 <p className="text-sm font-medium">Subscription</p>
                 <p className="text-xs text-muted-foreground">
-                  {subscription.hasSubscription ? 'Premium plan' : 'Free tier'}
+                  {subscription.hasSubscription
+                    ? `Premium · expires ${formatDate(subscription.expiresAt)}`
+                    : 'Free tier'}
                 </p>
               </div>
             </div>
-            <Badge variant={subscription.hasSubscription ? 'default' : 'secondary'}>
-              {subscription.hasSubscription ? 'Active' : 'Free'}
-            </Badge>
+            {subscription.hasSubscription ? (
+              <Badge variant="default">Active</Badge>
+            ) : (
+              <MotionButton
+                size="sm"
+                variant="outline"
+                onClick={() => setIsSubscriptionDrawerOpen(true)}
+                {...buttonAnimations.press}
+              >
+                Upgrade
+              </MotionButton>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* My Account link */}
+      {/* Linked Accounts */}
       <Card>
-        <CardContent className="py-0">
-          <Link
-            to="/account"
-            className="flex items-center justify-between py-4 text-sm font-medium hover:text-primary transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <span>My Account</span>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <LinkIcon className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">Linked Accounts</p>
+          </div>
+          {isLoadingAccounts ? (
+            <div className="space-y-2">
+              <div className="h-10 bg-muted animate-pulse rounded-lg" />
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
+          ) : linkedAccounts.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No linked accounts</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedAccounts.map((account) => {
+                const providerInfo = PROVIDER_INFO[account.provider] || {
+                  name: account.provider,
+                  icon: '🔗',
+                  color: 'bg-gray-500/10 text-gray-500',
+                };
+                return (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`h-8 w-8 rounded-full flex items-center justify-center text-sm ${providerInfo.color}`}
+                      >
+                        {providerInfo.icon}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{providerInfo.name}</p>
+                        {account.createdAt && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Connected {formatDate(account.createdAt)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">Connected</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -159,6 +236,12 @@ function AuthenticatedProfile() {
         <LogOut className="mr-2 h-4 w-4" />
         {isLoggingOut ? 'Logging out...' : 'Log out'}
       </MotionButton>
+
+      {/* Subscription Drawer */}
+      <SubscriptionDrawer
+        open={isSubscriptionDrawerOpen}
+        onOpenChange={setIsSubscriptionDrawerOpen}
+      />
     </div>
   );
 }
@@ -167,7 +250,6 @@ function AnonymousProfile() {
   const [isAuthDrawerOpen, setIsAuthDrawerOpen] = useState(false);
   const invalidateSession = useInvalidateSession();
 
-  // Auto-open AuthDrawer once on initial mount (not on remounts from session flicker)
   useEffect(() => { setIsAuthDrawerOpen(true); }, []);
 
   const handleAuthSuccess = () => {
@@ -211,15 +293,15 @@ const ProfilePage = () => {
   const shouldReduceMotion = useReducedMotion() ?? false;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="h-full overflow-y-auto">
       {/* Simple header bar */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="container flex items-center justify-center h-14">
+        <div className="flex items-center justify-center h-14">
           <h1 className="text-base font-semibold">Profile</h1>
         </div>
       </div>
 
-      <main className="container max-w-md mx-auto px-4 py-6">
+      <main className="max-w-md mx-auto px-4 py-6">
         {isPending ? (
           <div className="flex flex-col items-center pt-8 space-y-4">
             <div className="h-20 w-20 rounded-full bg-muted animate-pulse" />
@@ -252,8 +334,6 @@ const ProfilePage = () => {
           </AnimatePresence>
         )}
       </main>
-
-      <BottomNav />
     </div>
   );
 };

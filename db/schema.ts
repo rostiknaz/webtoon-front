@@ -259,6 +259,19 @@ export const credits = sqliteTable('credits', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
 
+export const downloads = sqliteTable('downloads', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  clipId: text('clip_id').notNull().references(() => clips.id, { onDelete: 'cascade' }),
+  creditCost: integer('credit_cost').notNull().default(0), // 0 for subscriber/re-download
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  // Enforce one-purchase-per-clip per user (re-downloads are free)
+  uniqueIndex('idx_downloads_user_clip').on(table.userId, table.clipId),
+  // Download history lookup by user
+  index('idx_downloads_user_id').on(table.userId),
+]);
+
 export const creditTransactions = sqliteTable('credit_transactions', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

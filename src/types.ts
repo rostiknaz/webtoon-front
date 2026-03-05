@@ -224,6 +224,18 @@ export const creditsBalanceResponseSchema = z.object({
 
 export type CreditsBalanceResponse = z.infer<typeof creditsBalanceResponseSchema>;
 
+// ==================== Download Schemas ====================
+
+export const downloadClipResponseSchema = z.object({
+    downloadUrl: z.string(),
+    creditsRemaining: z.number(),
+    freeDownloadsRemaining: z.number(),
+    alreadyDownloaded: z.boolean(),
+    creditCost: z.number(),
+});
+
+export type DownloadClipResponse = z.infer<typeof downloadClipResponseSchema>;
+
 // ==================== Creator Clips Schemas ====================
 
 export const creatorClipSchema = z.object({

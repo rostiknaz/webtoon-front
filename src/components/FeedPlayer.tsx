@@ -208,6 +208,7 @@ export function FeedPlayer({
         longSwipesRatio={0.35}
         longSwipesMs={250}
         touchStartPreventDefault={false}
+        allowTouchMove={!shouldShowGate}
         watchSlidesProgress
         onSwiper={handleSwiperInit}
         onSlideChange={handleSlideChange}
@@ -246,8 +247,11 @@ export function FeedPlayer({
               showNsfwIndicator={showNsfwIndicator}
             />
             <FeedOverlay
+              clipId={clip._id}
               likeCount={clip.likes}
               downloadCount={clip.downloadCount}
+              creatorName={clip.creatorName}
+              onCreatorTap={() => onCreatorTap(clip.creatorId)}
               onFilterTap={onFilterTap}
               activeCategoryName={activeCategoryName}
             />
