@@ -9,12 +9,14 @@ import { zValidator } from '@hono/zod-validator';
 import type { AppEnvWithDB } from '../db/types';
 import { Errors } from '../lib/errors';
 import { creatorRegistrationSchema, validationHook } from '../lib/schemas';
-import { requireAuth } from '../middleware/auth-guard';
+import { requireAuth, requireCreator } from '../middleware/auth-guard';
 import {
   getCreatorProfile,
+  getCreatorStats,
   getPublicCreatorProfile,
   registerAsCreator,
 } from '../db/services/creators.service';
+import { getCreatorEarningsLedger } from '../db/services/earnings.service';
 import { kvCache, buildCacheKey } from '../middleware/cache';
 
 const creators = new Hono<AppEnvWithDB>();
@@ -85,6 +87,41 @@ creators.get('/me', requireAuth(), async (c) => {
     payoutMethod: profile.payoutMethod,
     payoutEmail: profile.payoutEmail,
     createdAt: profile.createdAt,
+  });
+});
+
+/**
+ * GET /api/creators/me/stats
+ *
+ * Get the current creator's performance stats.
+ * Requires creator role. Serves from D1 read replicas.
+ */
+creators.get('/me/stats', requireCreator(), async (c) => {
+  const userId = c.get('userId')!;
+  const db = c.get('db');
+  const stats = await getCreatorStats(db, userId);
+  return c.json(stats);
+});
+
+/**
+ * GET /api/creators/me/earnings
+ *
+ * Get the current creator's earnings ledger (last 12 months).
+ * Requires creator role.
+ */
+creators.get('/me/earnings', requireCreator(), async (c) => {
+  const userId = c.get('userId')!;
+  const db = c.get('db');
+  const earnings = await getCreatorEarningsLedger(db, userId);
+  return c.json({
+    earnings: earnings.map((e) => ({
+      month: e.month,
+      totalDownloads: e.totalDownloads,
+      earningsAmount: e.earningsAmount,
+      revenueShare: e.revenueShare,
+      status: e.status,
+      paidAt: e.paidAt?.toISOString() ?? null,
+    })),
   });
 });
 

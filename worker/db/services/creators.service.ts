@@ -6,8 +6,20 @@
  */
 
 import { eq, inArray, sql } from 'drizzle-orm';
-import { users } from '../../../db/schema';
+import { users, clips, creatorEarnings } from '../../../db/schema';
 import type { DB } from '../index';
+
+// ==================== Stats Interface ====================
+
+export interface CreatorStats {
+  totalUploads: number;
+  totalViews: number;
+  totalDownloads: number;
+  monthlyEarnings: number;
+  lifetimeEarnings: number;
+  revenueSharePercent: number;
+  isFoundingCreator: boolean;
+}
 
 // ==================== Interfaces ====================
 
@@ -139,5 +151,50 @@ export async function getPublicCreatorProfile(
     bio: result[0].bio,
     image: result[0].image,
     isFoundingCreator: result[0].isFoundingCreator,
+  };
+}
+
+/**
+ * Get creator stats: total uploads, views, downloads, and earnings.
+ * Runs 5 aggregate queries in parallel against D1 read replicas.
+ */
+export async function getCreatorStats(db: DB, userId: string): Promise<CreatorStats> {
+  const now = new Date();
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+  // 6 parallel queries — single D1 round trip
+  const [userResult, uploadsResult, viewsResult, downloadsResult, monthlyResult, lifetimeResult] = await Promise.all([
+    db.select({ isFoundingCreator: users.isFoundingCreator })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    db.select({ count: sql<number>`count(*)` })
+      .from(clips)
+      .where(sql`${clips.creatorId} = ${userId} AND ${clips.status} != 'rejected'`),
+    db.select({ total: sql<number>`COALESCE(SUM(${clips.views}), 0)` })
+      .from(clips)
+      .where(eq(clips.creatorId, userId)),
+    db.select({ total: sql<number>`COALESCE(SUM(${clips.downloadCount}), 0)` })
+      .from(clips)
+      .where(eq(clips.creatorId, userId)),
+    db.select({ amount: sql<number>`COALESCE(${creatorEarnings.earningsAmount}, 0)` })
+      .from(creatorEarnings)
+      .where(sql`${creatorEarnings.creatorId} = ${userId} AND ${creatorEarnings.month} = ${currentMonth}`)
+      .limit(1),
+    db.select({ total: sql<number>`COALESCE(SUM(${creatorEarnings.earningsAmount}), 0)` })
+      .from(creatorEarnings)
+      .where(eq(creatorEarnings.creatorId, userId)),
+  ]);
+
+  const isFoundingCreator = userResult[0]?.isFoundingCreator ?? false;
+
+  return {
+    totalUploads: Number(uploadsResult[0]?.count ?? 0),
+    totalViews: Number(viewsResult[0]?.total ?? 0),
+    totalDownloads: Number(downloadsResult[0]?.total ?? 0),
+    monthlyEarnings: Number(monthlyResult[0]?.amount ?? 0),
+    lifetimeEarnings: Number(lifetimeResult[0]?.total ?? 0),
+    revenueSharePercent: isFoundingCreator ? 70 : 50,
+    isFoundingCreator,
   };
 }

@@ -358,6 +358,29 @@ export const clipCategories = sqliteTable('clip_categories', {
 // Moderation Tables (Epic 1: Content Moderation)
 // ============================================
 
+// ============================================
+// Creator Economics Tables (Epic 6: Creator Payouts)
+// ============================================
+
+export const creatorEarnings = sqliteTable('creator_earnings', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  creatorId: text('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  month: text('month').notNull(), // format "YYYY-MM"
+  totalDownloads: integer('total_downloads').notNull().default(0),
+  platformRevenue: real('platform_revenue').notNull(), // total platform revenue for audit
+  totalPlatformDownloads: integer('total_platform_downloads').notNull(), // total downloads for audit
+  earningsAmount: real('earnings_amount').notNull(), // calculated earnings in cents
+  revenueShare: integer('revenue_share').notNull(), // 50 or 70 (percentage)
+  status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'paid'
+  paidAt: integer('paid_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_creator_earnings_creator').on(table.creatorId),
+  uniqueIndex('idx_creator_earnings_creator_month').on(table.creatorId, table.month),
+  index('idx_creator_earnings_month_status').on(table.month, table.status),
+]);
+
 export const moderationLogs = sqliteTable('moderation_logs', {
   id: text('id').primaryKey(),
   clipId: text('clip_id').notNull().references(() => clips.id, { onDelete: 'cascade' }),

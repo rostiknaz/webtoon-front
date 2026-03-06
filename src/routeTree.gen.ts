@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as AgeRestrictedRouteImport } from './routes/age-restricted'
@@ -33,6 +34,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BrowseRoute = BrowseRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
+  '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/clip/$clipId': typeof ClipClipIdRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
+  '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/clip/$clipId': typeof ClipClipIdRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/age-restricted': typeof AgeRestrictedRoute
   '/auth-error': typeof AuthErrorRoute
   '/browse': typeof BrowseRoute
+  '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/clip/$clipId': typeof ClipClipIdRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/age-restricted'
     | '/auth-error'
     | '/browse'
+    | '/dashboard'
     | '/feed'
     | '/profile'
     | '/clip/$clipId'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/age-restricted'
     | '/auth-error'
     | '/browse'
+    | '/dashboard'
     | '/feed'
     | '/profile'
     | '/clip/$clipId'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/age-restricted'
     | '/auth-error'
     | '/browse'
+    | '/dashboard'
     | '/feed'
     | '/profile'
     | '/clip/$clipId'
@@ -214,6 +226,7 @@ export interface RootRouteChildren {
   AgeRestrictedRoute: typeof AgeRestrictedRoute
   AuthErrorRoute: typeof AuthErrorRoute
   BrowseRoute: typeof BrowseRoute
+  DashboardRoute: typeof DashboardRoute
   FeedRoute: typeof FeedRoute
   ProfileRoute: typeof ProfileRoute
   ClipClipIdRoute: typeof ClipClipIdRoute
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/feed'
       fullPath: '/feed'
       preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/browse': {
@@ -354,6 +374,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgeRestrictedRoute: AgeRestrictedRoute,
   AuthErrorRoute: AuthErrorRoute,
   BrowseRoute: BrowseRoute,
+  DashboardRoute: DashboardRoute,
   FeedRoute: FeedRoute,
   ProfileRoute: ProfileRoute,
   ClipClipIdRoute: ClipClipIdRoute,

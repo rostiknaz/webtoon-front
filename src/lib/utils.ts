@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Format cents as dollar currency string (e.g., 999 → "$9.99") */
+export function formatCurrency(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 /** Extract up to 2 initials from a user's name or email for avatar fallback */
 export function getInitials(name?: string | null, email?: string): string {
   if (name) {

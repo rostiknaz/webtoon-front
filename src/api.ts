@@ -38,6 +38,10 @@ import {
     type UploadCompleteResponse,
     type UploadRetryResponse,
     type UploadInitInput,
+    creatorStatsResponseSchema,
+    type CreatorStatsResponse,
+    creatorEarningsResponseSchema,
+    type CreatorEarningsResponse,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -491,6 +495,30 @@ export const completeSeriesCoverUpload = async (seriesId: string, contentType = 
         credentials: 'include',
         errorMessage: 'Failed to complete cover upload',
     });
+};
+
+// ==================== Creator Stats API ====================
+
+export const creatorStatsQueryKey = ['creator-stats'] as const;
+
+export const getCreatorStats = async (): Promise<CreatorStatsResponse> => {
+    const data = await fetchJson('/api/creators/me/stats', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch creator stats',
+    });
+    return creatorStatsResponseSchema.parse(data);
+};
+
+// ==================== Creator Earnings API ====================
+
+export const creatorEarningsQueryKey = ['creator-earnings'] as const;
+
+export const getCreatorEarnings = async (): Promise<CreatorEarningsResponse> => {
+    const data = await fetchJson('/api/creators/me/earnings', {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch creator earnings',
+    });
+    return creatorEarningsResponseSchema.parse(data);
 };
 
 // ==================== Upload API ====================

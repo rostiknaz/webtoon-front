@@ -57,6 +57,13 @@
       "when": 1772707936411,
       "tag": "0007_useful_kitty_pryde",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772834647051,
+      "tag": "0008_orange_siren",
+      "breakpoints": true
     }
   ]
 }

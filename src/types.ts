@@ -330,6 +330,38 @@ export type CreatorSeriesListResponse = z.infer<typeof creatorSeriesListResponse
 export type CreatorSeriesDetailResponse = z.infer<typeof creatorSeriesDetailResponseSchema>;
 export type CreatorSeriesCreateResponse = z.infer<typeof creatorSeriesCreateResponseSchema>;
 
+// ==================== Creator Stats Schemas ====================
+
+export const creatorStatsResponseSchema = z.object({
+    totalUploads: z.number(),
+    totalViews: z.number(),
+    totalDownloads: z.number(),
+    monthlyEarnings: z.number(),
+    lifetimeEarnings: z.number(),
+    revenueSharePercent: z.number(),
+    isFoundingCreator: z.boolean(),
+});
+
+export type CreatorStatsResponse = z.infer<typeof creatorStatsResponseSchema>;
+
+// ==================== Creator Earnings Schemas ====================
+
+export const creatorEarningsEntrySchema = z.object({
+    month: z.string(),
+    totalDownloads: z.number(),
+    earningsAmount: z.number(),
+    revenueShare: z.number(),
+    status: z.string(),
+    paidAt: z.string().nullable(),
+});
+
+export const creatorEarningsResponseSchema = z.object({
+    earnings: z.array(creatorEarningsEntrySchema),
+});
+
+export type CreatorEarningsEntry = z.infer<typeof creatorEarningsEntrySchema>;
+export type CreatorEarningsResponse = z.infer<typeof creatorEarningsResponseSchema>;
+
 // ==================== Upload Schemas ====================
 
 export const uploadInitResponseSchema = z.object({
