@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { createCacheLayer } from '../../lib/cache';
 import {
   handlePaymentSuccessTransaction,
+  handleCreditPackPaymentTransaction,
   handleSubscriptionCreatedTransaction,
   handleSubscriptionRenewedTransaction,
   handleSubscriptionCanceledTransaction,
@@ -92,9 +93,15 @@ webhooks.post('/solidgate', async (c) => {
     // Idempotency is enforced by the UNIQUE constraint on webhookEvents.eventId
     // inside each transaction — duplicate webhooks will throw a constraint error.
     switch (payload.event) {
-      case 'payment.success':
-        userId = await handlePaymentSuccessTransaction(db, payload, body);
+      case 'payment.success': {
+        const metadata = payload.order?.order_metadata as { type?: string } | undefined;
+        if (metadata?.type === 'credit_pack') {
+          userId = await handleCreditPackPaymentTransaction(db, payload, body);
+        } else {
+          userId = await handlePaymentSuccessTransaction(db, payload, body);
+        }
         break;
+      }
 
       case 'subscription.created':
         userId = await handleSubscriptionCreatedTransaction(db, payload, body);

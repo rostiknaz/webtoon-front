@@ -2,22 +2,34 @@
  * Webhook Transaction Handlers
  *
  * Complex atomic operations for payment webhooks.
- * All operations wrapped in transactions to ensure data consistency.
+ * Uses db.batch() for atomic writes (D1 Sessions API doesn't support SQL transactions).
+ * Pattern: reads first, then batch all writes atomically.
  */
 
+import { eq, sql } from 'drizzle-orm';
+import {
+  credits,
+  creditTransactions,
+  subscriptions,
+  paymentTransactions,
+  webhookEvents,
+} from '../../../db/schema';
 import type { DB } from '../index';
 import {
   findUserByEmail,
-  createPaymentTransaction,
-  upsertSubscription,
-  updateSubscriptionPeriods,
-  cancelSubscription,
-  expireSubscription,
-  refundPaymentTransaction,
   getSubscriptionBySolidgateId,
   getPaymentTransactionBySolidgateOrderId,
-  logWebhookEvent,
 } from '../services/payment.service';
+
+/** Build a webhook event insert statement (reused in every handler) */
+function webhookEventInsert(db: DB, payload: SolidgateWebhookPayload, rawBody: string) {
+  return db.insert(webhookEvents).values({
+    id: crypto.randomUUID(),
+    eventId: `${payload.event}-${payload.order.order_id}`,
+    eventType: payload.event,
+    eventData: rawBody,
+  });
+}
 
 /**
  * Solidgate webhook payload structure
@@ -47,59 +59,41 @@ export interface SolidgateWebhookPayload {
 }
 
 /**
- * Handle payment success with atomic transaction
+ * Handle payment success atomically
  *
- * Ensures webhook logging and payment record creation happen atomically.
- *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID
+ * Reads user first, then batches webhook log + payment record.
  */
 export async function handlePaymentSuccessTransaction(
   db: DB,
   payload: SolidgateWebhookPayload,
   rawBody: string
 ): Promise<string> {
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event for idempotency
-    await logWebhookEvent(tx as any, {
-      id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+  // Read: find user
+  const user = await findUserByEmail(db, payload.order.customer.email);
+  if (!user) {
+    throw new Error(`User not found: ${payload.order.customer.email}`);
+  }
 
-    // 2. Find user
-    const user = await findUserByEmail(tx as any, payload.order.customer.email);
-    if (!user) {
-      throw new Error(`User not found: ${payload.order.customer.email}`);
-    }
-
-    // 3. Create payment transaction
-    await createPaymentTransaction(tx as any, {
+  // Batch: webhook log + payment record
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db.insert(paymentTransactions).values({
       id: crypto.randomUUID(),
       userId: user.id,
       amount: payload.order.amount,
       currency: payload.order.currency,
       solidgateOrderId: payload.order.order_id,
       status: 'completed',
-    });
+    }),
+  ]);
 
-    // All operations succeeded atomically
-    return user.id;
-  });
+  return user.id;
 }
 
 /**
- * Handle subscription created with atomic transaction
+ * Handle subscription created atomically
  *
- * Ensures webhook logging and subscription creation happen atomically.
- *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID
+ * Reads user first, then batches webhook log + subscription upsert.
  */
 export async function handleSubscriptionCreatedTransaction(
   db: DB,
@@ -110,49 +104,52 @@ export async function handleSubscriptionCreatedTransaction(
     throw new Error('No subscription data in payload');
   }
 
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event
-    await logWebhookEvent(tx as any, {
-      id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+  // Read: find user
+  const user = await findUserByEmail(db, payload.order.customer.email);
+  if (!user) {
+    throw new Error(`User not found: ${payload.order.customer.email}`);
+  }
 
-    // 2. Find user
-    const user = await findUserByEmail(tx as any, payload.order.customer.email);
-    if (!user) {
-      throw new Error(`User not found: ${payload.order.customer.email}`);
-    }
+  const sub = payload.order.subscription;
+  const periodStart = sub.current_period_start
+    ? new Date(sub.current_period_start * 1000)
+    : undefined;
+  const periodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000)
+    : undefined;
 
-    // 3. Ensure subscription data exists
-    if (!payload.order.subscription) {
-      throw new Error('Subscription data missing from webhook payload');
-    }
+  // Batch: webhook log + subscription upsert
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db
+      .insert(subscriptions)
+      .values({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        planId: sub.plan_id,
+        solidgateOrderId: payload.order.order_id,
+        solidgateSubscriptionId: sub.id,
+        status: 'active',
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+      })
+      .onConflictDoUpdate({
+        target: subscriptions.solidgateSubscriptionId,
+        set: {
+          status: 'active',
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+        },
+      }),
+  ]);
 
-    // 4. Upsert subscription (handles duplicate events gracefully)
-    await upsertSubscription(tx as any, {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      planId: payload.order.subscription.plan_id,
-      solidgateOrderId: payload.order.order_id,
-      solidgateSubscriptionId: payload.order.subscription.id,
-      status: 'active',
-      currentPeriodStart: payload.order.subscription.current_period_start,
-      currentPeriodEnd: payload.order.subscription.current_period_end,
-    });
-
-    return user.id;
-  });
+  return user.id;
 }
 
 /**
- * Handle subscription renewed with atomic transaction
+ * Handle subscription renewed atomically
  *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID or null if subscription not found
+ * Reads subscription for userId first, then batches webhook log + period update.
  */
 export async function handleSubscriptionRenewedTransaction(
   db: DB,
@@ -163,40 +160,30 @@ export async function handleSubscriptionRenewedTransaction(
     throw new Error('No subscription data in payload');
   }
 
-  const subscriptionData = payload.order.subscription;
+  const sub = payload.order.subscription;
 
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event
-    await logWebhookEvent(tx as any, {
-      id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+  // Read: get userId for cache invalidation
+  const subscription = await getSubscriptionBySolidgateId(db, sub.id);
 
-    // 2. Update subscription periods
-    await updateSubscriptionPeriods(tx as any, subscriptionData.id, {
-      currentPeriodStart: subscriptionData.current_period_start,
-      currentPeriodEnd: subscriptionData.current_period_end,
-    });
+  // Batch: webhook log + period update
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db
+      .update(subscriptions)
+      .set({
+        currentPeriodStart: new Date(sub.current_period_start * 1000),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000),
+      })
+      .where(eq(subscriptions.solidgateSubscriptionId, sub.id)),
+  ]);
 
-    // 3. Get user ID for cache invalidation
-    const subscription = await getSubscriptionBySolidgateId(
-      tx as any,
-      subscriptionData.id
-    );
-
-    return subscription?.userId ?? null;
-  });
+  return subscription?.userId ?? null;
 }
 
 /**
- * Handle subscription canceled with atomic transaction
+ * Handle subscription canceled atomically
  *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID or null if subscription not found
+ * Reads subscription for userId first, then batches webhook log + cancel.
  */
 export async function handleSubscriptionCanceledTransaction(
   db: DB,
@@ -207,37 +194,31 @@ export async function handleSubscriptionCanceledTransaction(
     throw new Error('No subscription data in payload');
   }
 
-  const subscriptionData = payload.order.subscription;
+  const sub = payload.order.subscription;
 
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event
-    await logWebhookEvent(tx as any, {
-      id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+  // Read: get userId for cache invalidation
+  const subscription = await getSubscriptionBySolidgateId(db, sub.id);
 
-    // 2. Cancel subscription
-    await cancelSubscription(tx as any, subscriptionData.id);
+  // Batch: webhook log + cancel
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db
+      .update(subscriptions)
+      .set({
+        status: 'canceled',
+        canceledAt: sql`unixepoch()`,
+        updatedAt: sql`unixepoch()`,
+      })
+      .where(eq(subscriptions.solidgateSubscriptionId, sub.id)),
+  ]);
 
-    // 3. Get user ID for cache invalidation
-    const subscription = await getSubscriptionBySolidgateId(
-      tx as any,
-      subscriptionData.id
-    );
-
-    return subscription?.userId ?? null;
-  });
+  return subscription?.userId ?? null;
 }
 
 /**
- * Handle subscription expired with atomic transaction
+ * Handle subscription expired atomically
  *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID or null if subscription not found
+ * Reads subscription for userId first, then batches webhook log + expire.
  */
 export async function handleSubscriptionExpiredTransaction(
   db: DB,
@@ -248,61 +229,110 @@ export async function handleSubscriptionExpiredTransaction(
     throw new Error('No subscription data in payload');
   }
 
-  const subscriptionData = payload.order.subscription;
+  const sub = payload.order.subscription;
 
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event
-    await logWebhookEvent(tx as any, {
-      id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+  // Read: get userId for cache invalidation
+  const subscription = await getSubscriptionBySolidgateId(db, sub.id);
 
-    // 2. Expire subscription
-    await expireSubscription(tx as any, subscriptionData.id);
+  // Batch: webhook log + expire
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db
+      .update(subscriptions)
+      .set({
+        status: 'expired',
+        endedAt: sql`unixepoch()`,
+        updatedAt: sql`unixepoch()`,
+      })
+      .where(eq(subscriptions.solidgateSubscriptionId, sub.id)),
+  ]);
 
-    // 3. Get user ID for cache invalidation
-    const subscription = await getSubscriptionBySolidgateId(
-      tx as any,
-      subscriptionData.id
-    );
-
-    return subscription?.userId ?? null;
-  });
+  return subscription?.userId ?? null;
 }
 
 /**
- * Handle refund success with atomic transaction
+ * Handle refund success atomically
  *
- * @param db - Drizzle database instance
- * @param payload - Solidgate webhook payload
- * @param rawBody - Raw webhook body for logging
- * @returns User ID or null if transaction not found
+ * Reads payment transaction for userId first, then batches webhook log + refund.
  */
 export async function handleRefundSuccessTransaction(
   db: DB,
   payload: SolidgateWebhookPayload,
   rawBody: string
 ): Promise<string | null> {
-  return await db.transaction(async (tx) => {
-    // 1. Log webhook event
-    await logWebhookEvent(tx as any, {
+  // Read: get userId for cache invalidation
+  const transaction = await getPaymentTransactionBySolidgateOrderId(
+    db,
+    payload.order.order_id
+  );
+
+  // Batch: webhook log + refund
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db
+      .update(paymentTransactions)
+      .set({ status: 'refunded' })
+      .where(eq(paymentTransactions.solidgateOrderId, payload.order.order_id)),
+  ]);
+
+  return transaction?.userId ?? null;
+}
+
+/**
+ * Handle credit pack payment atomically
+ *
+ * Reads user first, then batches webhook log + payment + credit increment + ledger entry.
+ */
+export async function handleCreditPackPaymentTransaction(
+  db: DB,
+  payload: SolidgateWebhookPayload,
+  rawBody: string,
+): Promise<string> {
+  const metadata = payload.order.order_metadata as {
+    type: string;
+    pack_id: string;
+    credits: number;
+    user_id: string;
+    clip_id?: string;
+  };
+
+  // Read: find user
+  const user = await findUserByEmail(db, payload.order.customer.email);
+  if (!user) {
+    throw new Error(`User not found: ${payload.order.customer.email}`);
+  }
+
+  // Batch: webhook log + payment + credit increment + ledger entry
+  await db.batch([
+    webhookEventInsert(db, payload, rawBody),
+    db.insert(paymentTransactions).values({
       id: crypto.randomUUID(),
-      eventId: `${payload.event}-${payload.order.order_id}`,
-      eventType: payload.event,
-      eventData: rawBody,
-    });
+      userId: user.id,
+      amount: payload.order.amount,
+      currency: payload.order.currency,
+      solidgateOrderId: payload.order.order_id,
+      status: 'completed',
+    }),
+    db
+      .insert(credits)
+      .values({
+        userId: user.id,
+        balance: metadata.credits,
+        freeDownloadsRemaining: 0,
+      })
+      .onConflictDoUpdate({
+        target: credits.userId,
+        set: {
+          balance: sql`${credits.balance} + ${metadata.credits}`,
+          updatedAt: sql`(unixepoch())`,
+        },
+      }),
+    db.insert(creditTransactions).values({
+      userId: user.id,
+      amount: metadata.credits,
+      type: 'purchase',
+    }),
+  ]);
 
-    // 2. Refund payment transaction
-    await refundPaymentTransaction(tx as any, payload.order.order_id);
-
-    // 3. Get user ID for cache invalidation
-    const transaction = await getPaymentTransactionBySolidgateOrderId(
-      tx as any,
-      payload.order.order_id
-    );
-
-    return transaction?.userId ?? null;
-  });
+  return user.id;
 }

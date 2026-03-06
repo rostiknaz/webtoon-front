@@ -66,39 +66,38 @@ export async function processDownload(
   clipId: string,
   cdnUrl: string,
 ): Promise<DownloadResult> {
-  // 1. Validate clip exists and is published
-  const clip = await db
-    .select({
-      id: clips.id,
-      videoUrl: clips.videoUrl,
-      creditCost: clips.creditCost,
-      status: clips.status,
-    })
-    .from(clips)
-    .where(eq(clips.id, clipId))
-    .limit(1);
+  // 1-3. Parallel: validate clip + check existing download + check subscription
+  const [clipRows, existingDownload, subscription] = await Promise.all([
+    db
+      .select({
+        id: clips.id,
+        videoUrl: clips.videoUrl,
+        creditCost: clips.creditCost,
+        status: clips.status,
+      })
+      .from(clips)
+      .where(eq(clips.id, clipId))
+      .limit(1),
+    db
+      .select({ id: downloads.id })
+      .from(downloads)
+      .where(and(eq(downloads.userId, userId), eq(downloads.clipId, clipId)))
+      .limit(1),
+    getUserActiveSubscription(db, userId),
+  ]);
 
-  if (!clip[0]) {
+  if (!clipRows[0] || clipRows[0].status !== 'published') {
     throw Errors.notFound('Clip', clipId);
   }
 
-  if (clip[0].status !== 'published') {
-    throw Errors.notFound('Clip', clipId);
-  }
-
-  if (!clip[0].videoUrl) {
+  if (!clipRows[0].videoUrl) {
     throw Errors.notFound('Clip video', clipId);
   }
 
+  const clip = clipRows;
   const r2Key = extractR2Key(clip[0].videoUrl, cdnUrl);
 
-  // 2. Check for existing download (re-download is free)
-  const existingDownload = await db
-    .select({ id: downloads.id })
-    .from(downloads)
-    .where(and(eq(downloads.userId, userId), eq(downloads.clipId, clipId)))
-    .limit(1);
-
+  // Re-download is free
   if (existingDownload[0]) {
     const userCredits = await getUserCreditsBalance(db, userId);
     return {
@@ -109,19 +108,21 @@ export async function processDownload(
       r2Key,
     };
   }
-
-  // 3. Check subscription (subscribers download for free)
-  const subscription = await getUserActiveSubscription(db, userId);
   if (subscription) {
-    // Insert download record with 0 cost
-    await db.insert(downloads).values({ userId, clipId, creditCost: 0 });
+    // Batch: download record + increment count + fetch credits (all independent)
+    const [, , creditsRows] = await db.batch([
+      db.insert(downloads).values({ userId, clipId, creditCost: 0 }),
+      db.update(clips)
+        .set({ downloadCount: sql`${clips.downloadCount} + 1` })
+        .where(eq(clips.id, clipId)),
+      db.select({ balance: credits.balance, freeDownloadsRemaining: credits.freeDownloadsRemaining })
+        .from(credits)
+        .where(eq(credits.userId, userId))
+        .limit(1),
+    ]);
 
-    // Increment download count
-    await db.update(clips)
-      .set({ downloadCount: sql`${clips.downloadCount} + 1` })
-      .where(eq(clips.id, clipId));
-
-    const userCredits = await getUserCreditsBalance(db, userId);
+    const userCredits = (creditsRows as { balance: number; freeDownloadsRemaining: number }[])[0]
+      ?? { balance: 0, freeDownloadsRemaining: 0 };
     return {
       alreadyDownloaded: false,
       creditCost: 0,
@@ -138,10 +139,10 @@ export async function processDownload(
   const clipCost = clip[0].creditCost;
 
   if (freeDownloads > 0) {
-    // Use free download — all operations in a transaction for atomicity
-    const result = await db.transaction(async (tx) => {
+    // Use free download — db.batch() for D1-native atomic execution
+    const [updated] = await db.batch([
       // Atomic decrement with WHERE guard
-      const updated = await tx.update(credits)
+      db.update(credits)
         .set({
           freeDownloadsRemaining: sql`${credits.freeDownloadsRemaining} - 1`,
           updatedAt: sql`(unixepoch())`,
@@ -150,45 +151,41 @@ export async function processDownload(
           eq(credits.userId, userId),
           sql`${credits.freeDownloadsRemaining} > 0`,
         ))
-        .returning({ freeDownloadsRemaining: credits.freeDownloadsRemaining, balance: credits.balance });
-
-      if (!updated[0]) {
-        throw Errors.forbidden('Insufficient credits');
-      }
-
+        .returning({ freeDownloadsRemaining: credits.freeDownloadsRemaining, balance: credits.balance }),
       // Insert credit transaction ledger entry
-      await tx.insert(creditTransactions).values({
+      db.insert(creditTransactions).values({
         userId,
         amount: -1,
         type: 'download',
         clipId,
-      });
-
+      }),
       // Insert download record
-      await tx.insert(downloads).values({ userId, clipId, creditCost: 1 });
-
+      db.insert(downloads).values({ userId, clipId, creditCost: 1 }),
       // Increment download count
-      await tx.update(clips)
+      db.update(clips)
         .set({ downloadCount: sql`${clips.downloadCount} + 1` })
-        .where(eq(clips.id, clipId));
+        .where(eq(clips.id, clipId)),
+    ]);
 
-      return updated[0];
-    });
+    const row = (updated as { freeDownloadsRemaining: number; balance: number }[])[0];
+    if (!row) {
+      throw Errors.forbidden('Insufficient credits');
+    }
 
     return {
       alreadyDownloaded: false,
       creditCost: 1,
-      creditsRemaining: result.balance,
-      freeDownloadsRemaining: result.freeDownloadsRemaining,
+      creditsRemaining: row.balance,
+      freeDownloadsRemaining: row.freeDownloadsRemaining,
       r2Key,
     };
   }
 
   if (balance >= clipCost) {
-    // Use paid credits — all operations in a transaction for atomicity
-    const result = await db.transaction(async (tx) => {
+    // Use paid credits — db.batch() for D1-native atomic execution
+    const [updated] = await db.batch([
       // Atomic decrement with WHERE guard
-      const updated = await tx.update(credits)
+      db.update(credits)
         .set({
           balance: sql`${credits.balance} - ${clipCost}`,
           updatedAt: sql`(unixepoch())`,
@@ -197,36 +194,32 @@ export async function processDownload(
           eq(credits.userId, userId),
           sql`${credits.balance} >= ${clipCost}`,
         ))
-        .returning({ balance: credits.balance, freeDownloadsRemaining: credits.freeDownloadsRemaining });
-
-      if (!updated[0]) {
-        throw Errors.forbidden('Insufficient credits');
-      }
-
+        .returning({ balance: credits.balance, freeDownloadsRemaining: credits.freeDownloadsRemaining }),
       // Insert credit transaction ledger entry
-      await tx.insert(creditTransactions).values({
+      db.insert(creditTransactions).values({
         userId,
         amount: -clipCost,
         type: 'download',
         clipId,
-      });
-
+      }),
       // Insert download record
-      await tx.insert(downloads).values({ userId, clipId, creditCost: clipCost });
-
+      db.insert(downloads).values({ userId, clipId, creditCost: clipCost }),
       // Increment download count
-      await tx.update(clips)
+      db.update(clips)
         .set({ downloadCount: sql`${clips.downloadCount} + 1` })
-        .where(eq(clips.id, clipId));
+        .where(eq(clips.id, clipId)),
+    ]);
 
-      return updated[0];
-    });
+    const row = (updated as { balance: number; freeDownloadsRemaining: number }[])[0];
+    if (!row) {
+      throw Errors.forbidden('Insufficient credits');
+    }
 
     return {
       alreadyDownloaded: false,
       creditCost: clipCost,
-      creditsRemaining: result.balance,
-      freeDownloadsRemaining: result.freeDownloadsRemaining,
+      creditsRemaining: row.balance,
+      freeDownloadsRemaining: row.freeDownloadsRemaining,
       r2Key,
     };
   }

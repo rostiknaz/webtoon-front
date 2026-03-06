@@ -69,7 +69,7 @@ export function DownloadButton({ clipId, className }: DownloadButtonProps) {
           <Lock className="absolute -bottom-0.5 -right-0.5 w-3 h-3 text-white/50" strokeWidth={2} />
         )}
       </div>
-      <PricingDrawer open={pricingOpen} onOpenChange={setPricingOpen} />
+      <PricingDrawer open={pricingOpen} onOpenChange={setPricingOpen} clipId={clipId} />
     </>
   );
 }

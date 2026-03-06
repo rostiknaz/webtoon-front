@@ -171,19 +171,26 @@ function BrowsePage() {
 
         {/* Sort toggle */}
         <div className="px-4 pb-1">
-          <div className="flex gap-1 p-0.5 rounded-lg bg-white/4 w-fit">
+          <div className="relative flex gap-1 p-0.5 rounded-lg bg-white/4 w-fit">
             {sortOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => handleSortChange(option.value)}
-                className={`cursor-pointer px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                className={`cursor-pointer relative z-10 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
                   sort === option.value
-                    ? 'bg-white/12 text-white/90 shadow-sm'
+                    ? 'text-white/90'
                     : 'text-white/35 hover:text-white/60'
                 }`}
               >
-                {option.label}
+                {sort === option.value && (
+                  <motion.span
+                    layoutId="sort-tab-indicator"
+                    className="absolute inset-0 rounded-md bg-white/12 shadow-sm"
+                    transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+                  />
+                )}
+                <span className="relative z-10">{option.label}</span>
               </button>
             ))}
           </div>

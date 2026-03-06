@@ -161,7 +161,7 @@ export const FeedOverlay = memo(function FeedOverlay({
         )}
       </div>
 
-      <PricingDrawer open={pricingOpen} onOpenChange={setPricingOpen} />
+      <PricingDrawer open={pricingOpen} onOpenChange={setPricingOpen} clipId={clipId} />
     </>
   );
 });

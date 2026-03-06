@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Drawer,
   DrawerContent,
@@ -11,7 +11,25 @@ import {
 import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { Crown, Check, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { getSubscriptionPlans, subscribeToPlan } from '@/api';
+import { subscriptionQueryKey } from '@/services/subscription.service';
 import type { Plan } from '@/types';
+
+function formatPrice(price: number, currency: string) {
+  if (price === 0) return 'Free';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+  }).format(price);
+}
+
+function getFeaturesList(features: Plan['features']) {
+  const list = [];
+  if (features.episodeAccess === 'all') list.push('Unlimited access to all episodes');
+  if (features.adFree) list.push('Ad-free viewing experience');
+  if (features.downloadable) list.push('Download episodes for offline viewing');
+  if (features.earlyAccess) list.push('Early access to new episodes');
+  return list;
+}
 
 interface SubscriptionDrawerProps {
   open: boolean;
@@ -20,6 +38,7 @@ interface SubscriptionDrawerProps {
 }
 
 export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: SubscriptionDrawerProps) {
+  const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   // Fetch subscription plans using React Query
@@ -40,9 +59,12 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
   const subscribeMutation = useMutation({
     mutationFn: subscribeToPlan,
     onSuccess: () => {
+      // Invalidate subscription cache so useSubscription picks up the new state immediately
+      queryClient.invalidateQueries({ queryKey: subscriptionQueryKey });
+
       onOpenChange(false);
 
-      const plan = plansData?.plans.find(p => p.id === selectedPlan);
+      const plan = plansData?.plans.find((p) => p.id === selectedPlan);
       toast.success('Subscription Activated!', {
         description: plan?.trialDays
           ? `Your ${plan.trialDays}-day free trial has started. Enjoy unlimited access!`
@@ -79,29 +101,8 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
     subscribeMutation.mutate(selectedPlan);
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    if (price === 0) return 'Free';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(price);
-  };
-
-  const getFeaturesList = (features: Plan['features']) => {
-    const list = [];
-    if (features.episodeAccess === 'all') list.push('Unlimited access to all episodes');
-    if (features.adFree) list.push('Ad-free viewing experience');
-    if (features.downloadable) list.push('Download episodes for offline viewing');
-    if (features.earlyAccess) list.push('Early access to new episodes');
-    return list;
-  };
-
-  const getRecommendedPlan = () => {
-    // Recommend 4-week plan (monthly billing period)
-    return plans.find(p => p.billingPeriod === 'monthly');
-  };
-
-  const recommendedPlanId = getRecommendedPlan()?.id;
+  const selectedPlanData = plans.find(p => p.id === selectedPlan);
+  const recommendedPlanId = plans.find(p => p.billingPeriod === 'monthly')?.id;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -201,13 +202,13 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                 ) : (
                   <>
                     <Crown className="mr-2 h-5 w-5" />
-                    Start My {plans.find(p => p.id === selectedPlan)?.trialDays ? 'Free Trial' : 'Subscription'}
+                    Start My {selectedPlanData?.trialDays ? 'Free Trial' : 'Subscription'}
                   </>
                 )}
               </MotionButton>
 
               <p className="text-center text-xs text-muted-foreground mt-4">
-                {plans.find(p => p.id === selectedPlan)?.trialDays
+                {selectedPlanData?.trialDays
                   ? `Start your free trial today. Cancel anytime during the trial period.`
                   : `Your subscription will start immediately. Cancel anytime from your account settings.`}
               </p>

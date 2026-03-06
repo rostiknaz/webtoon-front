@@ -16,8 +16,13 @@ import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { formatRelativeDate } from '@/lib/date-utils';
 import type { DownloadHistoryItem } from '@/types';
 
-function DownloadHistoryRow({ item }: { item: DownloadHistoryItem }) {
-  const { download, isDownloading } = useDownload();
+interface DownloadHistoryRowProps {
+  item: DownloadHistoryItem;
+  download: (clipId: string) => void;
+  isDownloading: (clipId: string) => boolean;
+}
+
+function DownloadHistoryRow({ item, download, isDownloading }: DownloadHistoryRowProps) {
   const [licenseOpen, setLicenseOpen] = useState(false);
 
   return (
@@ -57,7 +62,7 @@ function DownloadHistoryRow({ item }: { item: DownloadHistoryItem }) {
           <button
             type="button"
             onClick={() => setLicenseOpen(true)}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="View license"
           >
             <FileText className="h-4 w-4" />
@@ -66,7 +71,7 @@ function DownloadHistoryRow({ item }: { item: DownloadHistoryItem }) {
             type="button"
             onClick={() => download(item.clipId)}
             disabled={isDownloading(item.clipId)}
-            className="p-2 text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+            className="p-2 text-primary hover:text-primary/80 transition-colors disabled:opacity-50 cursor-pointer"
             aria-label="Re-download clip"
           >
             {isDownloading(item.clipId) ? (
@@ -96,6 +101,7 @@ export function DownloadHistory() {
     isFetchingNextPage,
     isPending,
   } = useDownloadHistory();
+  const { download, isDownloading } = useDownload();
 
   const allDownloads = data?.pages.flatMap((page) => page.downloads) ?? [];
 
@@ -122,7 +128,7 @@ export function DownloadHistory() {
         <p className="text-sm text-muted-foreground mb-3">No downloads yet</p>
         <Link
           to="/browse"
-          className="text-sm text-primary hover:underline"
+          className="text-sm text-primary hover:underline cursor-pointer"
         >
           Browse clips
         </Link>
@@ -134,7 +140,7 @@ export function DownloadHistory() {
     <div>
       <div className="divide-y divide-border/50">
         {allDownloads.map((item) => (
-          <DownloadHistoryRow key={item.clipId} item={item} />
+          <DownloadHistoryRow key={item.clipId} item={item} download={download} isDownloading={isDownloading} />
         ))}
       </div>
 

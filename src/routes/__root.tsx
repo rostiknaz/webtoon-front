@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import type { QueryClient } from '@tanstack/react-query'
 import NotFound from "@/pages/NotFound.tsx";
 import { useAuthToast } from "@/hooks/useAuthToast"
+import { usePurchaseReturn } from "@/hooks/usePurchaseReturn"
 import { AgeGate } from "@/components/AgeGate"
 import { AppShell } from "@/components/AppShell"
 import { usePreferencesStore } from "@/stores/usePreferencesStore"
@@ -34,6 +35,8 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
     // Handle OAuth success/error toast notifications
     useAuthToast()
+    // Handle return from Solidgate payment page (credit pack purchase)
+    usePurchaseReturn()
     const ageGateConfirmed = usePreferencesStore((s) => s.ageGateConfirmed)
 
     return (

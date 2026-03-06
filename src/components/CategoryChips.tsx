@@ -2,10 +2,11 @@
  * CategoryChips — horizontal scrollable category pill selector
  *
  * Single-select mode for feed filtering. Tapping active chip clears filter.
- * Glass background variant for feed overlay, keyboard accessible.
+ * Uses motion layoutId for sliding indicator animation.
  */
 
 import { useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import type { CategoryItem } from '../types';
 
 interface CategoryChipsProps {
@@ -62,13 +63,20 @@ export function CategoryChips({
         aria-pressed={isAllActive}
         onClick={() => handleChipClick(undefined)}
         onKeyDown={handleKeyDown}
-        className={`cursor-pointer shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+        className={`cursor-pointer relative shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${
           isAllActive
-            ? 'bg-white/20 text-white border border-white/30 backdrop-blur-sm'
-            : 'bg-transparent text-white/50 hover:text-white/80'
+            ? 'text-white'
+            : 'text-white/50 hover:text-white/80'
         }`}
       >
-        All
+        {isAllActive && (
+          <motion.span
+            layoutId="category-chip-indicator"
+            className="absolute inset-0 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm"
+            transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+          />
+        )}
+        <span className="relative z-10">All</span>
       </button>
 
       {categories.map((category) => {
@@ -80,13 +88,20 @@ export function CategoryChips({
             aria-pressed={isActive}
             onClick={() => handleChipClick(category.id)}
             onKeyDown={handleKeyDown}
-            className={`cursor-pointer shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap ${
+            className={`cursor-pointer relative shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors whitespace-nowrap ${
               isActive
-                ? 'bg-white/20 text-white border border-white/30 backdrop-blur-sm'
-                : 'bg-transparent text-white/50 hover:text-white/80'
+                ? 'text-white'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
-            {category.name}
+            {isActive && (
+              <motion.span
+                layoutId="category-chip-indicator"
+                className="absolute inset-0 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm"
+                transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+              />
+            )}
+            <span className="relative z-10">{category.name}</span>
           </button>
         );
       })}

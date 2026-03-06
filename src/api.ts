@@ -308,6 +308,21 @@ export const getCreditsBalance = async () => {
     return creditsBalanceResponseSchema.parse(data);
 };
 
+/**
+ * Purchase a credit pack — returns Solidgate payment page URL
+ */
+export const purchaseCreditPack = async (
+  packId: string,
+  clipId?: string,
+): Promise<{ paymentUrl: string }> => {
+  return fetchJson('/api/credits/purchase', {
+    method: 'POST',
+    body: JSON.stringify({ packId, clipId }),
+    credentials: 'include',
+    errorMessage: 'Failed to initiate credit pack purchase',
+  });
+};
+
 // ==================== Download API ====================
 
 /**

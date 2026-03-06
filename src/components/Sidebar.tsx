@@ -3,11 +3,12 @@
  *
  * Desktop always-visible sidebar navigation (~220px).
  * Contains: brand, nav items, categories, NSFW toggle.
- * Matches the desktop mockup layout exactly.
+ * Uses motion layoutId for sliding selection indicator.
  */
 
 import { memo, useCallback } from 'react';
 import { useRouterState, useNavigate, useSearch } from '@tanstack/react-router';
+import { motion } from 'framer-motion';
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { useCategories } from '@/hooks/useCategories';
 import { NsfwToggle } from './NsfwToggle';
@@ -38,6 +39,8 @@ const isNavItemActive = (currentPath: string, activePath: string): boolean => {
   return currentPath === activePath || currentPath.startsWith(activePath + '/');
 };
 
+const SPRING_TRANSITION = { type: 'spring' as const, duration: 0.35, bounce: 0.15 };
+
 const SidebarNavLink = memo(function SidebarNavLink({
   item,
   isActive,
@@ -60,17 +63,24 @@ const SidebarNavLink = memo(function SidebarNavLink({
       href={item.to}
       onClick={handleClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`cursor-pointer flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+      className={`cursor-pointer relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
         isActive
-          ? 'bg-white/8 text-white/90 border-r-2 border-r-primary'
-          : 'text-white/40 hover:bg-white/4 hover:text-white/60'
+          ? 'text-white/90'
+          : 'text-white/40 hover:text-white/60'
       }`}
     >
-      <span className="w-5 h-5 shrink-0">
+      {isActive && (
+        <motion.span
+          layoutId="sidebar-nav-indicator"
+          className="absolute inset-0 rounded-lg bg-white/8 border-r-2 border-r-primary"
+          transition={SPRING_TRANSITION}
+        />
+      )}
+      <span className="relative z-10 w-5 h-5 shrink-0">
         <NavIcon icon={item.icon} />
       </span>
-      <span className="text-[13px] font-medium tracking-[0.01em]">{item.label}</span>
-      {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+      <span className="relative z-10 text-[13px] font-medium tracking-[0.01em]">{item.label}</span>
+      {isActive && <span className="relative z-10 ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
     </a>
   );
 });
@@ -88,11 +98,18 @@ const SidebarCategoryItem = memo(function SidebarCategoryItem({
     <button
       type="button"
       onClick={onClick}
-      className={`cursor-pointer text-left px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+      className={`cursor-pointer relative text-left px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
         active ? 'text-white/85' : 'text-white/35 hover:text-white/55'
       }`}
     >
-      {name}
+      {active && (
+        <motion.span
+          layoutId="sidebar-category-indicator"
+          className="absolute inset-0 rounded-md bg-white/8"
+          transition={SPRING_TRANSITION}
+        />
+      )}
+      <span className="relative z-10">{name}</span>
     </button>
   );
 });

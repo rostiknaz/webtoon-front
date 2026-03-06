@@ -1,17 +1,16 @@
 /**
  * LicenseDrawer Component
  *
- * Vaul drawer displaying commercial-use license terms for a downloaded clip.
- * Follows PricingDrawer pattern.
+ * Animated dialog displaying commercial-use license terms for a downloaded clip.
  */
 
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from '@/components/ui/drawer';
+  AnimatedDialog,
+  AnimatedDialogContent,
+  AnimatedDialogHeader,
+  AnimatedDialogTitle,
+  AnimatedDialogDescription,
+} from '@/components/ui/animated-dialog';
 
 interface LicenseDrawerProps {
   open: boolean;
@@ -28,16 +27,16 @@ export function LicenseDrawer({ open, onOpenChange, clipTitle, downloadDate }: L
   });
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader className="text-center pb-2">
-          <DrawerTitle className="text-lg font-semibold">Commercial Use License</DrawerTitle>
-          <DrawerDescription>
+    <AnimatedDialog open={open} onOpenChange={onOpenChange}>
+      <AnimatedDialogContent open={open}>
+        <AnimatedDialogHeader className="pb-2">
+          <AnimatedDialogTitle>Commercial Use License</AnimatedDialogTitle>
+          <AnimatedDialogDescription>
             {clipTitle} &middot; Downloaded {formattedDate}
-          </DrawerDescription>
-        </DrawerHeader>
+          </AnimatedDialogDescription>
+        </AnimatedDialogHeader>
 
-        <div className="px-6 pb-8 space-y-4 text-sm">
+        <div className="space-y-4 text-sm pt-2">
           <p className="text-muted-foreground">
             This download grants you a royalty-free, non-exclusive, worldwide,
             perpetual license to use this clip for commercial and personal purposes.
@@ -68,12 +67,12 @@ export function LicenseDrawer({ open, onOpenChange, clipTitle, downloadDate }: L
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+            className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2 cursor-pointer"
           >
             Close
           </button>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </AnimatedDialogContent>
+    </AnimatedDialog>
   );
 }
