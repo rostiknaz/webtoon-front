@@ -8,6 +8,7 @@ import {
     subscriptionStatusResponseSchema,
     subscribeResponseSchema,
     feedResponseSchema,
+    feedClipSchema,
     categoriesResponseSchema,
     creatorClipsResponseSchema,
     creatorSeriesListResponseSchema,
@@ -30,6 +31,13 @@ import {
     type CreatorSeriesListResponse,
     type CreatorSeriesDetailResponse,
     type CreatorSeriesCreateResponse,
+    uploadInitResponseSchema,
+    uploadCompleteResponseSchema,
+    uploadRetryResponseSchema,
+    type UploadInitResponse,
+    type UploadCompleteResponse,
+    type UploadRetryResponse,
+    type UploadInitInput,
 } from './types';
 
 // ==================== Fetch Helper ====================
@@ -281,6 +289,17 @@ export const getFeed = async (params: FeedParams = {}): Promise<FeedResponse> =>
     return feedResponseSchema.parse(data);
 };
 
+/**
+ * Fetch a single clip by ID in feed format
+ * Public endpoint — no auth required
+ */
+export const getClip = async (clipId: string): Promise<FeedClip> => {
+    const data = await fetchJson(`/api/feed/${clipId}`, {
+        errorMessage: 'Failed to fetch clip',
+    });
+    return feedClipSchema.parse(data.clip);
+};
+
 // ==================== Categories API ====================
 
 /**
@@ -367,6 +386,21 @@ export const downloadClip = async (clipId: string): Promise<DownloadClipResponse
 };
 
 // ==================== Creator Clips API ====================
+
+/**
+ * Lightweight clip status check for moderation polling.
+ * Returns only { _id, status, reason } instead of all clips.
+ */
+export const getClipStatus = async (clipId: string): Promise<{
+    _id: string;
+    status: 'processing' | 'published' | 'rejected' | 'review';
+    reason: string | null;
+}> => {
+    return fetchJson(`/api/clips/${clipId}/status`, {
+        credentials: 'include',
+        errorMessage: 'Failed to fetch clip status',
+    });
+};
 
 /**
  * Fetch authenticated creator's clips with status and moderation reasons
@@ -457,4 +491,34 @@ export const completeSeriesCoverUpload = async (seriesId: string, contentType = 
         credentials: 'include',
         errorMessage: 'Failed to complete cover upload',
     });
+};
+
+// ==================== Upload API ====================
+
+export const initClipUpload = async (data: UploadInitInput): Promise<UploadInitResponse> => {
+    const raw = await fetchJson('/api/upload/init', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+        errorMessage: 'Failed to initialize upload',
+    });
+    return uploadInitResponseSchema.parse(raw);
+};
+
+export const completeClipUpload = async (clipId: string): Promise<UploadCompleteResponse> => {
+    const raw = await fetchJson(`/api/upload/complete/${clipId}`, {
+        method: 'POST',
+        credentials: 'include',
+        errorMessage: 'Failed to complete upload',
+    });
+    return uploadCompleteResponseSchema.parse(raw);
+};
+
+export const retryClipUpload = async (clipId: string): Promise<UploadRetryResponse> => {
+    const raw = await fetchJson(`/api/upload/retry/${clipId}`, {
+        method: 'POST',
+        credentials: 'include',
+        errorMessage: 'Failed to retry upload',
+    });
+    return uploadRetryResponseSchema.parse(raw);
 };

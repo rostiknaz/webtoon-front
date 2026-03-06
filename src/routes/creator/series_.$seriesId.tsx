@@ -10,8 +10,9 @@ import { useState, useCallback } from 'react';
 import { sessionQueryKey, fetchSession } from '@/hooks/useOptimizedSession';
 import { useCreatorSeriesDetail, useDeleteSeries, creatorSeriesDetailQueryOptions } from '@/hooks/useCreatorSeries';
 import { UploadStatusBadge } from '@/components/UploadStatusBadge';
-import { ArrowLeft, Pencil, Trash2, BookOpen, Film, Eye } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, BookOpen, Film, Eye, Plus } from 'lucide-react';
 import type { SeriesEpisodeItem } from '@/types';
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 
 export const Route = createFileRoute('/creator/series_/$seriesId')({
   loader: async ({ context, params }) => {
@@ -104,7 +105,7 @@ function SeriesDetailPage() {
         {/* Series Header */}
         <div className="flex gap-4 mb-6">
           {/* Cover */}
-          <div className="w-40 aspect-video rounded-xl overflow-hidden bg-muted border border-border shrink-0">
+          <div className="w-40 aspect-video rounded-xl overflow-hidden bg-muted border border-border shrink-0 relative">
             {series.coverUrl ? (
               <img src={series.coverUrl} alt={series.title} className="w-full h-full object-cover" />
             ) : (
@@ -141,7 +142,23 @@ function SeriesDetailPage() {
 
         {/* Episode List */}
         <div>
-          <h3 className="text-[14px] font-semibold mb-3">Episodes</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[14px] font-semibold">Episodes</h3>
+            <MotionButton
+              size="sm"
+              onClick={() => navigate({
+                to: '/creator/upload',
+                search: {
+                  seriesId,
+                  episodeNumber: Math.max(...series.episodes.map((e) => e.episodeNumber ?? 0), 0) + 1,
+                },
+              })}
+              {...buttonAnimations.press}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add Episode
+            </MotionButton>
+          </div>
           {series.episodes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Film className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -197,7 +214,7 @@ function EpisodeRow({ episode }: { episode: SeriesEpisodeItem }) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-card border border-border p-3">
       {/* Thumbnail */}
-      <div className="w-16 h-10 rounded-md overflow-hidden bg-muted shrink-0">
+      <div className="w-16 h-10 rounded-md overflow-hidden bg-muted shrink-0 relative">
         {episode.thumbnailUrl ? (
           <img src={episode.thumbnailUrl} alt={episode.title} className="w-full h-full object-cover" />
         ) : (

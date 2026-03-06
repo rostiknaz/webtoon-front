@@ -18,7 +18,9 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
 import { Route as CreatorUploadsRouteImport } from './routes/creator/uploads'
+import { Route as CreatorUploadRouteImport } from './routes/creator/upload'
 import { Route as CreatorSeriesRouteImport } from './routes/creator/series'
+import { Route as ClipClipIdRouteImport } from './routes/clip.$clipId'
 import { Route as CreatorSeriesNewRouteImport } from './routes/creator/series_.new'
 import { Route as CreatorSeriesSeriesIdRouteImport } from './routes/creator/series_.$seriesId'
 import { Route as CreatorSeriesSeriesIdEditRouteImport } from './routes/creator/series_.$seriesId.edit'
@@ -68,9 +70,19 @@ const CreatorUploadsRoute = CreatorUploadsRouteImport.update({
   path: '/creator/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorUploadRoute = CreatorUploadRouteImport.update({
+  id: '/creator/upload',
+  path: '/creator/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreatorSeriesRoute = CreatorSeriesRouteImport.update({
   id: '/creator/series',
   path: '/creator/series',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClipClipIdRoute = ClipClipIdRouteImport.update({
+  id: '/clip/$clipId',
+  path: '/clip/$clipId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatorSeriesNewRoute = CreatorSeriesNewRouteImport.update({
@@ -98,7 +110,9 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
+  '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
   '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
@@ -113,7 +127,9 @@ export interface FileRoutesByTo {
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
+  '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
   '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
@@ -129,7 +145,9 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
+  '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
   '/creator/series_/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
@@ -146,7 +164,9 @@ export interface FileRouteTypes {
     | '/browse'
     | '/feed'
     | '/profile'
+    | '/clip/$clipId'
     | '/creator/series'
+    | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
     | '/creator/series/$seriesId'
@@ -161,7 +181,9 @@ export interface FileRouteTypes {
     | '/browse'
     | '/feed'
     | '/profile'
+    | '/clip/$clipId'
     | '/creator/series'
+    | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
     | '/creator/series/$seriesId'
@@ -176,7 +198,9 @@ export interface FileRouteTypes {
     | '/browse'
     | '/feed'
     | '/profile'
+    | '/clip/$clipId'
     | '/creator/series'
+    | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
     | '/creator/series_/$seriesId'
@@ -192,7 +216,9 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   FeedRoute: typeof FeedRoute
   ProfileRoute: typeof ProfileRoute
+  ClipClipIdRoute: typeof ClipClipIdRoute
   CreatorSeriesRoute: typeof CreatorSeriesRoute
+  CreatorUploadRoute: typeof CreatorUploadRoute
   CreatorUploadsRoute: typeof CreatorUploadsRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
   CreatorSeriesSeriesIdRoute: typeof CreatorSeriesSeriesIdRouteWithChildren
@@ -264,11 +290,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreatorUploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creator/upload': {
+      id: '/creator/upload'
+      path: '/creator/upload'
+      fullPath: '/creator/upload'
+      preLoaderRoute: typeof CreatorUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/creator/series': {
       id: '/creator/series'
       path: '/creator/series'
       fullPath: '/creator/series'
       preLoaderRoute: typeof CreatorSeriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clip/$clipId': {
+      id: '/clip/$clipId'
+      path: '/clip/$clipId'
+      fullPath: '/clip/$clipId'
+      preLoaderRoute: typeof ClipClipIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/creator/series_/new': {
@@ -316,7 +356,9 @@ const rootRouteChildren: RootRouteChildren = {
   BrowseRoute: BrowseRoute,
   FeedRoute: FeedRoute,
   ProfileRoute: ProfileRoute,
+  ClipClipIdRoute: ClipClipIdRoute,
   CreatorSeriesRoute: CreatorSeriesRoute,
+  CreatorUploadRoute: CreatorUploadRoute,
   CreatorUploadsRoute: CreatorUploadsRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,
   CreatorSeriesSeriesIdRoute: CreatorSeriesSeriesIdRouteWithChildren,

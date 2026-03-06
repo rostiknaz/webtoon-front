@@ -6,14 +6,16 @@
  * Redirects non-creators to home.
  */
 
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { sessionQueryKey, fetchSession } from '@/hooks/useOptimizedSession';
 import { useCreatorClips, creatorClipsQueryOptions } from '@/hooks/useCreatorClips';
 import { UploadStatusBadge } from '@/components/UploadStatusBadge';
-import { ArrowLeft, Film, Eye, Download, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Film, Eye, Download, ChevronDown, Plus } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import type { CreatorClip } from '@/types';
+import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
+import { formatCompact } from '@/lib/format';
 
 export const Route = createFileRoute('/creator/uploads')({
   loader: async ({ context }) => {
@@ -34,6 +36,7 @@ export const Route = createFileRoute('/creator/uploads')({
 });
 
 function CreatorUploadsPage() {
+  const navigate = useNavigate();
   const { data, isLoading } = useCreatorClips();
   const clips = data?.clips ?? [];
 
@@ -41,16 +44,27 @@ function CreatorUploadsPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link to="/">
-            <button type="button" className="p-2 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          </Link>
-          <div>
-            <h1 className="text-lg font-semibold">My Uploads</h1>
-            <p className="text-[13px] text-muted-foreground">{clips.length} clips</p>
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/">
+              <button type="button" className="p-2 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            </Link>
+            <div>
+              <h1 className="text-lg font-semibold">My Uploads</h1>
+              <p className="text-[13px] text-muted-foreground">{clips.length} clips</p>
+            </div>
           </div>
+
+          <MotionButton
+            size="sm"
+            onClick={() => navigate({ to: '/creator/upload' })}
+            {...buttonAnimations.press}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Upload Clip
+          </MotionButton>
         </div>
       </div>
 
@@ -59,7 +73,7 @@ function CreatorUploadsPage() {
         {isLoading ? (
           <LoadingSkeleton />
         ) : clips.length === 0 ? (
-          <EmptyState />
+          <EmptyState onUpload={() => navigate({ to: '/creator/upload' })} />
         ) : (
           <div className="flex flex-col gap-3">
             {clips.map((clip) => (
@@ -72,22 +86,31 @@ function CreatorUploadsPage() {
   );
 }
 
-function formatNumber(num: number) {
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  return num.toString();
-}
-
 function ClipCard({ clip }: { clip: CreatorClip }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const hasReason = clip.moderationReason && (clip.status === 'rejected' || clip.status === 'review');
+  const isViewable = clip.status === 'published' || clip.status === 'review';
 
   const toggleExpanded = useCallback(() => setExpanded((prev) => !prev), []);
 
+  const handleCardClick = useCallback(() => {
+    if (isViewable) {
+      navigate({ to: '/clip/$clipId', params: { clipId: clip._id } });
+    }
+  }, [isViewable, navigate, clip._id]);
+
   return (
-    <div className="rounded-xl bg-card border border-border p-4">
+    <div
+      className={`rounded-xl bg-card border border-border p-4 ${isViewable ? 'cursor-pointer hover:bg-card/80 transition-colors' : ''}`}
+      onClick={handleCardClick}
+      role={isViewable ? 'button' : undefined}
+      tabIndex={isViewable ? 0 : undefined}
+      onKeyDown={isViewable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } } : undefined}
+    >
       <div className="flex gap-4">
         {/* Thumbnail */}
-        <div className="w-20 h-28 rounded-lg overflow-hidden bg-muted shrink-0">
+        <div className="w-20 h-28 rounded-lg overflow-hidden bg-muted shrink-0 relative">
           {clip.thumbnailUrl ? (
             <img src={clip.thumbnailUrl} alt={clip.title} className="w-full h-full object-cover" />
           ) : (
@@ -107,10 +130,10 @@ function ClipCard({ clip }: { clip: CreatorClip }) {
           <div className="flex items-center gap-3 text-[12px] text-muted-foreground mb-2">
             {clip.duration && <span>{clip.duration}s</span>}
             <span className="flex items-center gap-1">
-              <Eye className="w-3 h-3" /> {formatNumber(clip.views)}
+              <Eye className="w-3 h-3" /> {formatCompact(clip.views)}
             </span>
             <span className="flex items-center gap-1">
-              <Download className="w-3 h-3" /> {formatNumber(clip.downloadCount)}
+              <Download className="w-3 h-3" /> {formatCompact(clip.downloadCount)}
             </span>
           </div>
 
@@ -143,12 +166,16 @@ function ClipCard({ clip }: { clip: CreatorClip }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onUpload }: { onUpload: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <Film className="w-12 h-12 text-muted-foreground/30 mb-4" />
       <h3 className="text-lg font-medium mb-1">No uploads yet</h3>
-      <p className="text-[13px] text-muted-foreground mb-6">Start creating to see your clips here.</p>
+      <p className="text-[13px] text-muted-foreground mb-6">Upload your first clip to get started.</p>
+      <MotionButton onClick={onUpload} {...buttonAnimations.press}>
+        <Plus className="w-4 h-4 mr-1.5" />
+        Upload Clip
+      </MotionButton>
     </div>
   );
 }

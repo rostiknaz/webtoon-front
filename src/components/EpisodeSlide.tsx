@@ -14,14 +14,7 @@ import { useState, useRef, useCallback, memo } from "react";
 import { useDoubleTap } from "@/hooks/useDoubleTap";
 import { useHaptic } from "@/hooks/useHaptic";
 import { HeartAnimation } from "./HeartAnimation";
-
-// Utility functions - outside component to avoid recreation
-const formatNumber = (num?: number) => {
-  if (!num) return "0";
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  return num.toString();
-};
+import { formatCompact } from "@/lib/format";
 
 // Stable event handler to stop propagation (prevents click bubbling to video)
 const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
@@ -165,7 +158,7 @@ export const EpisodeSlide = memo(function EpisodeSlide({
             <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
           </MotionButton>
           <span className="text-white text-xs font-semibold drop-shadow-lg">
-            {formatNumber(episode.views ? Math.floor(episode.views / 10) : 4500)}
+            {formatCompact(episode.views ? Math.floor(episode.views / 10) : 4500)}
           </span>
         </div>
 

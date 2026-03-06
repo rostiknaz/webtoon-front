@@ -329,3 +329,39 @@ export type SeriesEpisodeItem = z.infer<typeof seriesEpisodeSchema>;
 export type CreatorSeriesListResponse = z.infer<typeof creatorSeriesListResponseSchema>;
 export type CreatorSeriesDetailResponse = z.infer<typeof creatorSeriesDetailResponseSchema>;
 export type CreatorSeriesCreateResponse = z.infer<typeof creatorSeriesCreateResponseSchema>;
+
+// ==================== Upload Schemas ====================
+
+export const uploadInitResponseSchema = z.object({
+    _id: z.string(),
+    presignedUrl: z.string().url(),
+    expiresIn: z.number(),
+});
+
+export const uploadCompleteResponseSchema = z.object({
+    _id: z.string(),
+    status: z.enum(['processing', 'published', 'rejected', 'review']),
+    reason: z.string().nullable(),
+});
+
+export const uploadRetryResponseSchema = z.object({
+    _id: z.string(),
+    presignedUrl: z.string().url(),
+    expiresIn: z.number(),
+});
+
+export type UploadInitResponse = z.infer<typeof uploadInitResponseSchema>;
+export type UploadCompleteResponse = z.infer<typeof uploadCompleteResponseSchema>;
+export type UploadRetryResponse = z.infer<typeof uploadRetryResponseSchema>;
+
+export interface UploadInitInput {
+    title: string;
+    categoryIds: string[];
+    aiToolUsed: string;
+    nsfwRating: 'safe' | 'suggestive' | 'explicit';
+    fileSize: number;
+    duration: number;
+    resolution: string;
+    seriesId?: string;
+    episodeNumber?: number;
+}

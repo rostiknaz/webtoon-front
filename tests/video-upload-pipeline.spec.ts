@@ -81,13 +81,6 @@ test.describe('Video Upload Pipeline (Story 1.2)', () => {
         data: validUploadBody,
       });
 
-      // R2 credentials not configured locally → 500 is expected
-      if (response.status() === 500) {
-        const body = await response.json();
-        expect(body.error?.message).toContain('R2 credentials');
-        return;
-      }
-
       expect(response.ok()).toBeTruthy();
       const data = await response.json();
       expect(data._id).toBeTruthy();
@@ -108,12 +101,12 @@ test.describe('Video Upload Pipeline (Story 1.2)', () => {
       expect(data.error.code).toBe('VALIDATION_ERROR');
     });
 
-    test('AC3: rejects resolution below 1080x1920', async ({ page }) => {
+    test('AC3: rejects resolution below 720x1280', async ({ page }) => {
       await signInUser(page, CREATOR_EMAIL);
 
       const response = await page.request.post('/api/upload/init', {
         headers: AUTH_HEADERS,
-        data: { ...validUploadBody, resolution: '480x720' },
+        data: { ...validUploadBody, resolution: '480x640' },
       });
 
       expect(response.status()).toBe(400);

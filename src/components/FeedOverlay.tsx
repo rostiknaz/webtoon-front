@@ -19,12 +19,7 @@ const BUTTON_BASE = 'flex items-center justify-center w-10 h-10 rounded-full tra
 const BUTTON_GLASS = `${BUTTON_BASE} bg-white/8 backdrop-blur-2xl border border-white/5 text-white/75 hover:bg-white/12 hover:text-white/90`;
 const AVATAR_BASE = 'flex items-center justify-center w-9 h-9 rounded-full bg-white/8 border-[1.5px] border-white/12 text-[13px] font-semibold text-white/70 mb-1';
 
-// Helper functions - extracted outside component to avoid recreation on every render
-function formatCount(num: number): string {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-  return num.toString();
-}
+import { formatCompact } from '@/lib/format';
 
 function stopPropagation(e: React.MouseEvent): void {
   e.stopPropagation();
@@ -112,7 +107,7 @@ export const FeedOverlay = memo(function FeedOverlay({
             <Heart className="w-[18px] h-[18px]" strokeWidth={1.5} />
           </button>
           <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
-            {formatCount(likeCount)}
+            {formatCompact(likeCount)}
           </span>
         </div>
 
@@ -132,7 +127,7 @@ export const FeedOverlay = memo(function FeedOverlay({
             )}
           </div>
           <span className="text-[10px] font-medium text-white/45 tracking-[0.01em]">
-            {formatCount(downloadCount)}
+            {formatCompact(downloadCount)}
           </span>
         </div>
 

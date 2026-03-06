@@ -12,7 +12,8 @@ import { zValidator } from '@hono/zod-validator';
 import type { AppEnvWithDB } from '../db/types';
 import { feedQuerySchema, validationHook } from '../lib/schemas';
 import { kvCache, buildCacheKey } from '../middleware/cache';
-import { getFeedClips, getClipCategoryIds } from '../db/services/clips.service';
+import { getFeedClips, getClipCategoryIds, getClipForFeed } from '../db/services/clips.service';
+import { Errors } from '../lib/errors';
 import { CACHE_TTL } from '../../lib/cache';
 
 const feed = new Hono<AppEnvWithDB>();
@@ -58,5 +59,21 @@ feed.get(
     });
   },
 );
+
+/**
+ * GET /:clipId — Single clip in feed format
+ */
+feed.get('/:clipId', async (c) => {
+  const clipId = c.req.param('clipId');
+  const db = c.get('db');
+
+  const clip = await getClipForFeed(db, clipId);
+  if (!clip) throw Errors.notFound('Clip', clipId);
+
+  const categoryMap = await getClipCategoryIds(db, [clip._id]);
+  clip.categoryIds = categoryMap.get(clip._id) || [];
+
+  return c.json({ clip });
+});
 
 export default feed;

@@ -228,6 +228,41 @@ export async function getClipCategoryIds(db: DB, clipIds: string[]): Promise<Map
   return map;
 }
 
+/**
+ * Get a single clip by ID in feed format (with creator name, series info)
+ */
+export async function getClipForFeed(db: DB, clipId: string): Promise<ClipFeedItem | null> {
+  const results = await db
+    .select(feedSelectColumns)
+    .from(clips)
+    .leftJoin(users, eq(clips.creatorId, users.id))
+    .leftJoin(creatorSeries, eq(clips.seriesId, creatorSeries.id))
+    .where(and(eq(clips.id, clipId), eq(clips.status, 'published')))
+    .limit(1);
+
+  if (results.length === 0) return null;
+
+  const row = results[0];
+  return {
+    _id: row.id,
+    title: row.title,
+    creatorId: row.creatorId,
+    creatorName: row.creatorDisplayName || row.creatorName || 'Unknown',
+    videoUrl: row.videoUrl,
+    thumbnailUrl: row.thumbnailUrl,
+    duration: row.duration,
+    downloadCount: row.downloadCount,
+    views: row.views,
+    likes: row.likes,
+    nsfwRating: row.nsfwRating,
+    seriesId: row.seriesId,
+    episodeNumber: row.episodeNumber,
+    seriesTotalEpisodes: row.seriesTotalEpisodes,
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
+    categoryIds: [],
+  };
+}
+
 // ==================== Clip CRUD (Upload Pipeline) ====================
 
 export interface CreateClipInput {
@@ -355,6 +390,39 @@ export async function verifySeriesOwnership(
     .limit(1);
 
   return result.length > 0;
+}
+
+/**
+ * Lightweight status check for a single clip owned by a creator.
+ * Returns only status and moderation reason — used for polling during upload.
+ */
+export async function getClipStatus(db: DB, clipId: string, creatorId: string) {
+  const result = await db
+    .select({
+      id: clips.id,
+      status: clips.status,
+    })
+    .from(clips)
+    .where(and(eq(clips.id, clipId), eq(clips.creatorId, creatorId)))
+    .limit(1);
+
+  if (result.length === 0) return null;
+
+  const clip = result[0];
+
+  // Only fetch moderation reason if clip was moderated
+  let reason: string | null = null;
+  if (clip.status === 'rejected' || clip.status === 'review') {
+    const logs = await db
+      .select({ reason: moderationLogs.reason })
+      .from(moderationLogs)
+      .where(eq(moderationLogs.clipId, clipId))
+      .orderBy(desc(moderationLogs.createdAt))
+      .limit(1);
+    reason = logs[0]?.reason ?? null;
+  }
+
+  return { _id: clip.id, status: clip.status, reason };
 }
 
 // ==================== Creator Clips (Upload Status Tracking) ====================

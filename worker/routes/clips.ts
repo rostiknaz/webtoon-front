@@ -2,12 +2,13 @@
  * Clips Routes
  *
  * GET /api/clips/mine — Creator's own clips with status and moderation reasons
+ * GET /api/clips/:clipId/status — Lightweight status check for polling during upload
  */
 
 import { Hono } from 'hono';
 import type { AppEnvWithDB } from '../db/types';
 import { requireCreator } from '../middleware/auth-guard';
-import { getCreatorClips, getClipModerationLogs } from '../db/services/clips.service';
+import { getCreatorClips, getClipModerationLogs, getClipStatus } from '../db/services/clips.service';
 
 const clipsRouter = new Hono<AppEnvWithDB>();
 
@@ -55,6 +56,29 @@ clipsRouter.get(
     });
 
     return c.json({ clips: response });
+  },
+);
+
+/**
+ * GET /api/clips/:clipId/status
+ *
+ * Lightweight endpoint for polling clip moderation status during upload.
+ * Returns only { _id, status, reason } instead of the full clips list.
+ */
+clipsRouter.get(
+  '/:clipId/status',
+  requireCreator(),
+  async (c) => {
+    const clipId = c.req.param('clipId');
+    const userId = c.get('userId')!;
+    const db = c.get('db');
+
+    const result = await getClipStatus(db, clipId, userId);
+    if (!result) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Clip not found' } }, 404);
+    }
+
+    return c.json(result);
   },
 );
 

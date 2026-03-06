@@ -83,16 +83,16 @@ export const feedQuerySchema = z.object({
 
 // ==================== Upload Schemas ====================
 
-/** Resolution string validator: "WIDTHxHEIGHT", min 1080x1920 */
+/** Resolution string validator: "WIDTHxHEIGHT", min 720x1280 */
 const resolutionSchema = z.string().refine(
   (val) => {
     const match = val.match(/^(\d+)x(\d+)$/);
     if (!match) return false;
     const w = parseInt(match[1], 10);
     const h = parseInt(match[2], 10);
-    return w >= 1080 && h >= 1920;
+    return w >= 720 && h >= 1280;
   },
-  { message: 'Resolution too low: minimum 1080x1920 required' },
+  { message: 'Resolution too low: minimum 720x1280 required' },
 );
 
 /**

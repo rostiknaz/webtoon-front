@@ -12,31 +12,8 @@ import { motion } from 'framer-motion';
 import { DownloadButton } from './DownloadButton';
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import type { FeedClip } from '../types';
-
-const GRADIENT_COUNT = 5;
-
-/** Stable hash → gradient index from clip ID. Same clip always gets same color. */
-const getGradientIndex = (id: string): number => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % GRADIENT_COUNT;
-};
-
-/** Format count to compact notation (1234 → 1.2K) */
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-/** Format seconds to display string (125 → "2:05") */
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+import { getGradientIndex } from '@/lib/gradient';
+import { formatCompact, formatDuration } from '@/lib/format';
 
 export const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -63,10 +40,11 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
       style={{ borderRadius: '0.5rem' }}
     >
       <Link
-        to="/"
+        to="/clip/$clipId"
+        params={{ clipId: clip._id }}
         className="group block"
       >
-        {/* Thumbnail */}
+        {/* Thumbnail — 16:9 landscape ratio for browse grid cards */}
         <div className="relative aspect-video rounded-lg overflow-hidden">
           {clip.thumbnailUrl ? (
             <img
@@ -118,7 +96,7 @@ export const ClipCard = memo(function ClipCard({ clip, showNsfwIndicator }: Clip
           <div className="flex items-center justify-between mt-1">
             <span className="flex items-center gap-0.5 text-[11px] text-white/30">
               <Eye className="w-3 h-3" strokeWidth={1.5} />
-              {formatCount(clip.views)}
+              {formatCompact(clip.views)}
             </span>
             {isAuthenticated && (
               <DownloadButton clipId={clip._id} className="!p-1.5 !w-[26px] !h-[26px] !rounded-full" />

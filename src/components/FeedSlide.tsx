@@ -9,23 +9,8 @@
 import { memo } from 'react';
 import { Eye } from 'lucide-react';
 import type { FeedClip } from '../types';
-
-const formatCount = (num: number) => {
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toString();
-};
-
-const GRADIENT_COUNT = 5;
-
-/** Stable hash → gradient index from clip ID. Same clip always gets same color. */
-const getGradientIndex = (id: string): number => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % GRADIENT_COUNT;
-};
+import { getGradientClass } from '@/lib/gradient';
+import { formatCompact } from '@/lib/format';
 
 export interface FeedSlideProps {
   clip: FeedClip;
@@ -40,7 +25,7 @@ export const FeedSlide = memo(function FeedSlide({
   categoryName,
   showNsfwIndicator,
 }: FeedSlideProps) {
-  const gradientClass = `brand-gradient-${getGradientIndex(clip._id)}`;
+  const gradientClass = getGradientClass(clip._id);
 
   return (
     <div className="relative w-full h-full">
@@ -95,7 +80,7 @@ export const FeedSlide = memo(function FeedSlide({
           <span className="mx-1.5">·</span>
           <span className="inline-flex items-center gap-0.5">
             <Eye className="w-3 h-3" strokeWidth={1.5} />
-            {formatCount(clip.views)}
+            {formatCompact(clip.views)}
           </span>
         </div>
       </div>
