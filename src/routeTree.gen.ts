@@ -17,12 +17,15 @@ import { Route as AuthErrorRouteImport } from './routes/auth-error'
 import { Route as AgeRestrictedRouteImport } from './routes/age-restricted'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as SerialsSerialSlugRouteImport } from './routes/serials/$serialSlug'
 import { Route as CreatorUploadsRouteImport } from './routes/creator/uploads'
 import { Route as CreatorUploadRouteImport } from './routes/creator/upload'
 import { Route as CreatorSeriesRouteImport } from './routes/creator/series'
 import { Route as ClipClipIdRouteImport } from './routes/clip.$clipId'
 import { Route as AdminPayoutsRouteImport } from './routes/admin/payouts'
+import { Route as AdminModerationRouteImport } from './routes/admin/moderation'
+import { Route as AdminCreatorsRouteImport } from './routes/admin/creators'
 import { Route as CreatorSeriesNewRouteImport } from './routes/creator/series_.new'
 import { Route as CreatorSeriesSeriesIdRouteImport } from './routes/creator/series_.$seriesId'
 import { Route as CreatorSeriesSeriesIdEditRouteImport } from './routes/creator/series_.$seriesId.edit'
@@ -67,6 +70,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SerialsSerialSlugRoute = SerialsSerialSlugRouteImport.update({
   id: '/serials/$serialSlug',
   path: '/serials/$serialSlug',
@@ -97,6 +105,16 @@ const AdminPayoutsRoute = AdminPayoutsRouteImport.update({
   path: '/admin/payouts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminModerationRoute = AdminModerationRouteImport.update({
+  id: '/admin/moderation',
+  path: '/admin/moderation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCreatorsRoute = AdminCreatorsRouteImport.update({
+  id: '/admin/creators',
+  path: '/admin/creators',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreatorSeriesNewRoute = CreatorSeriesNewRouteImport.update({
   id: '/creator/series_/new',
   path: '/creator/series/new',
@@ -123,12 +141,15 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/creators': typeof AdminCreatorsRoute
+  '/admin/moderation': typeof AdminModerationRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
   '/creator/series/new': typeof CreatorSeriesNewRoute
   '/creator/series/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
@@ -142,12 +163,15 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/creators': typeof AdminCreatorsRoute
+  '/admin/moderation': typeof AdminModerationRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/creator/series/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
   '/creator/series/new': typeof CreatorSeriesNewRoute
   '/creator/series/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
@@ -162,12 +186,15 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/creators': typeof AdminCreatorsRoute
+  '/admin/moderation': typeof AdminModerationRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
   '/creator/uploads': typeof CreatorUploadsRoute
   '/serials/$serialSlug': typeof SerialsSerialSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/creator/series_/$seriesId': typeof CreatorSeriesSeriesIdRouteWithChildren
   '/creator/series_/new': typeof CreatorSeriesNewRoute
   '/creator/series_/$seriesId/edit': typeof CreatorSeriesSeriesIdEditRoute
@@ -183,12 +210,15 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/creators'
+    | '/admin/moderation'
     | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/admin'
     | '/creator/series/$seriesId'
     | '/creator/series/new'
     | '/creator/series/$seriesId/edit'
@@ -202,12 +232,15 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/creators'
+    | '/admin/moderation'
     | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/admin'
     | '/creator/series/$seriesId'
     | '/creator/series/new'
     | '/creator/series/$seriesId/edit'
@@ -221,12 +254,15 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/creators'
+    | '/admin/moderation'
     | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
     | '/creator/uploads'
     | '/serials/$serialSlug'
+    | '/admin/'
     | '/creator/series_/$seriesId'
     | '/creator/series_/new'
     | '/creator/series_/$seriesId/edit'
@@ -241,12 +277,15 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FeedRoute: typeof FeedRoute
   ProfileRoute: typeof ProfileRoute
+  AdminCreatorsRoute: typeof AdminCreatorsRoute
+  AdminModerationRoute: typeof AdminModerationRoute
   AdminPayoutsRoute: typeof AdminPayoutsRoute
   ClipClipIdRoute: typeof ClipClipIdRoute
   CreatorSeriesRoute: typeof CreatorSeriesRoute
   CreatorUploadRoute: typeof CreatorUploadRoute
   CreatorUploadsRoute: typeof CreatorUploadsRoute
   SerialsSerialSlugRoute: typeof SerialsSerialSlugRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   CreatorSeriesSeriesIdRoute: typeof CreatorSeriesSeriesIdRouteWithChildren
   CreatorSeriesNewRoute: typeof CreatorSeriesNewRoute
 }
@@ -309,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/serials/$serialSlug': {
       id: '/serials/$serialSlug'
       path: '/serials/$serialSlug'
@@ -349,6 +395,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/payouts'
       fullPath: '/admin/payouts'
       preLoaderRoute: typeof AdminPayoutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/moderation': {
+      id: '/admin/moderation'
+      path: '/admin/moderation'
+      fullPath: '/admin/moderation'
+      preLoaderRoute: typeof AdminModerationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/creators': {
+      id: '/admin/creators'
+      path: '/admin/creators'
+      fullPath: '/admin/creators'
+      preLoaderRoute: typeof AdminCreatorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/creator/series_/new': {
@@ -397,12 +457,15 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FeedRoute: FeedRoute,
   ProfileRoute: ProfileRoute,
+  AdminCreatorsRoute: AdminCreatorsRoute,
+  AdminModerationRoute: AdminModerationRoute,
   AdminPayoutsRoute: AdminPayoutsRoute,
   ClipClipIdRoute: ClipClipIdRoute,
   CreatorSeriesRoute: CreatorSeriesRoute,
   CreatorUploadRoute: CreatorUploadRoute,
   CreatorUploadsRoute: CreatorUploadsRoute,
   SerialsSerialSlugRoute: SerialsSerialSlugRoute,
+  AdminIndexRoute: AdminIndexRoute,
   CreatorSeriesSeriesIdRoute: CreatorSeriesSeriesIdRouteWithChildren,
   CreatorSeriesNewRoute: CreatorSeriesNewRoute,
 }

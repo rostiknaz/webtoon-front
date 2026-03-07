@@ -17,7 +17,7 @@ import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { NavIcon } from './NavIcon';
-import { CONSUMER_NAV_ITEMS, CREATOR_NAV_ITEMS, isNavItemActive, type NavItem } from './nav-config';
+import { getNavItemsForRole, isNavItemActive, type NavItem } from './nav-config';
 
 // Stable transition object — avoids allocation per render
 const SPRING_TRANSITION = { type: 'spring' as const, stiffness: 400, damping: 30 };
@@ -74,13 +74,12 @@ const NavLink = memo(function NavLink({
 /**
  * Mobile bottom navigation bar
  */
-export function BottomNav({ isCreator }: { isCreator?: boolean } = {}) {
+export function BottomNav() {
   const { data: session } = useOptimizedSession();
-  const creatorMode = isCreator ?? session?.user?.role === 'creator';
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion() ?? false;
-  const navItems = creatorMode ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
+  const navItems = getNavItemsForRole(session?.user?.role);
 
   const handleNavigate = useCallback((to: string) => {
     navigate({ to });
@@ -144,12 +143,11 @@ const SideNavLink = memo(function SideNavLink({
 /**
  * Desktop side navigation items
  */
-export function SideNavItems({ isCreator }: { isCreator?: boolean } = {}) {
+export function SideNavItems() {
   const { data: session } = useOptimizedSession();
-  const creatorMode = isCreator ?? session?.user?.role === 'creator';
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const navItems = creatorMode ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
+  const navItems = getNavItemsForRole(session?.user?.role);
 
   const handleNavigate = useCallback((to: string) => {
     navigate({ to });

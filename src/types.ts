@@ -398,6 +398,26 @@ export interface UploadInitInput {
     episodeNumber?: number;
 }
 
+// ==================== Admin Metrics Schemas ====================
+
+const metricWithTrendSchema = z.object({
+    value: z.number(),
+    trend: z.number().nullable(),
+});
+
+export const adminMetricsResponseSchema = z.object({
+    metrics: z.object({
+        totalVideos: metricWithTrendSchema,
+        registeredUsers: metricWithTrendSchema,
+        activeSubscribers: metricWithTrendSchema,
+        totalDownloads: metricWithTrendSchema,
+        monthlyRevenue: metricWithTrendSchema,
+        creatorPoolBalance: metricWithTrendSchema,
+    }),
+});
+
+export type AdminMetricsResponse = z.infer<typeof adminMetricsResponseSchema>;
+
 // ==================== Admin Payout Schemas ====================
 
 export const payoutMonthSchema = z.object({
@@ -449,3 +469,51 @@ export type PayoutEntry = z.infer<typeof payoutEntrySchema>;
 export type PayoutsResponse = z.infer<typeof payoutsResponseSchema>;
 export type ApprovePayoutResponse = z.infer<typeof approvePayoutResponseSchema>;
 export type MarkPaidResponse = z.infer<typeof markPaidResponseSchema>;
+
+// ==================== Admin Moderation Queue Schemas ====================
+
+export const moderationQueueItemSchema = z.object({
+    _id: z.string(),
+    title: z.string(),
+    creatorId: z.string(),
+    creatorName: z.string(),
+    nsfwRating: z.string(),
+    thumbnailUrl: z.string().nullable(),
+    createdAt: z.string().nullable(),
+    moderationReason: z.string().nullable(),
+    moderationConfidence: z.number().nullable(),
+});
+
+export const moderationQueueResponseSchema = z.object({
+    clips: z.array(moderationQueueItemSchema),
+});
+
+export const moderationActionResponseSchema = z.object({
+    _id: z.string(),
+    status: z.enum(['published', 'rejected']),
+    action: z.enum(['approve', 'reject']),
+});
+
+export type ModerationQueueItem = z.infer<typeof moderationQueueItemSchema>;
+export type ModerationQueueResponse = z.infer<typeof moderationQueueResponseSchema>;
+export type ModerationActionResponse = z.infer<typeof moderationActionResponseSchema>;
+
+// ==================== Admin Creator Activity Schemas ====================
+
+export const creatorActivityItemSchema = z.object({
+    creatorId: z.string(),
+    creatorName: z.string().nullable(),
+    creatorEmail: z.string(),
+    totalUploads: z.number(),
+    uploadsLast24h: z.number(),
+    uploadsLast7d: z.number(),
+    lastUploadAt: z.string().nullable(),
+    isFlagged: z.boolean(),
+});
+
+export const creatorActivityResponseSchema = z.object({
+    creators: z.array(creatorActivityItemSchema),
+});
+
+export type CreatorActivityItem = z.infer<typeof creatorActivityItemSchema>;
+export type CreatorActivityResponse = z.infer<typeof creatorActivityResponseSchema>;

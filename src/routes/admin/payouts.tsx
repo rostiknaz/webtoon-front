@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatNumber } from '@/lib/utils'
 
 export const Route = createFileRoute('/admin/payouts')({
   loader: async ({ context }) => {
@@ -39,7 +39,11 @@ export const Route = createFileRoute('/admin/payouts')({
       staleTime: 5 * 60 * 1000,
     })
 
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
+      throw redirect({ to: '/profile' })
+    }
+
+    if (session.user.role !== 'admin') {
       throw redirect({ to: '/' })
     }
 
@@ -59,8 +63,6 @@ const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   approved: { label: 'Approved', className: 'border-blue-500/30 bg-blue-500/10 text-blue-600' },
   paid: { label: 'Paid', className: 'border-green-500/30 bg-green-500/10 text-green-600' },
 }
-
-const NUMBER_FORMATTER = new Intl.NumberFormat()
 
 const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
   const variant = STATUS_VARIANTS[status] ?? STATUS_VARIANTS.pending
@@ -317,7 +319,7 @@ const PayoutTable = memo(function PayoutTable({ month }: { month: string }) {
                       </div>
                     </td>
                     <td className="py-2.5 tabular-nums">
-                      {NUMBER_FORMATTER.format(entry.totalDownloads)}
+                      {formatNumber.format(entry.totalDownloads)}
                     </td>
                     <td className="py-2.5">{entry.revenueShare}%</td>
                     <td className="py-2.5 tabular-nums">{formatCurrency(entry.earningsAmount)}</td>
@@ -330,7 +332,7 @@ const PayoutTable = memo(function PayoutTable({ month }: { month: string }) {
               <tfoot>
                 <tr className="border-t font-medium">
                   <td className="pt-3">{payouts.length} creator{payouts.length !== 1 ? 's' : ''}</td>
-                  <td className="pt-3 tabular-nums">{NUMBER_FORMATTER.format(totalDownloads)}</td>
+                  <td className="pt-3 tabular-nums">{formatNumber.format(totalDownloads)}</td>
                   <td className="pt-3" />
                   <td className="pt-3 tabular-nums">{formatCurrency(totalPayout)}</td>
                   <td className="pt-3" />

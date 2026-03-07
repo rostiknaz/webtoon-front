@@ -1,9 +1,16 @@
 /**
  * Admin Routes
  *
- * GET /api/admin/moderation — List clips in review queue
+ * GET  /api/admin/metrics — Platform business metrics dashboard
+ * GET  /api/admin/moderation — List clips in review queue
  * POST /api/admin/moderation/:clipId — Approve or reject a clip
+ * GET  /api/admin/creators/activity — Creator upload activity with flagging
  * POST /api/admin/payouts/calculate — Calculate monthly creator earnings
+ * GET  /api/admin/payouts/months — List payout months
+ * GET  /api/admin/payouts/:month — List payouts for a month
+ * POST /api/admin/payouts/approve — Approve pending payouts
+ * POST /api/admin/payouts/mark-paid — Mark approved payouts as paid
+ * GET  /api/admin/payouts/:month/export — Export payouts as CSV
  */
 
 import { Hono } from 'hono';
@@ -21,6 +28,7 @@ import {
   markPayoutBatchPaid,
   generatePayoutCsv,
 } from '../db/services/earnings.service';
+import { getPlatformMetrics, getCreatorActivity } from '../db/services/metrics.service';
 
 const admin = new Hono<AppEnvWithDB>();
 
@@ -44,6 +52,10 @@ const payoutMonthBodySchema = z.object({
   month: monthSchema,
 });
 
+const creatorActivitySortSchema = z.object({
+  sort: z.enum(['recent', 'total', 'flagged']).default('recent'),
+});
+
 // ==================== Logging Helper ====================
 
 /**
@@ -64,6 +76,23 @@ function validateMonthParam(month: string) {
   }
   return null;
 }
+
+// ==================== Metrics Route ====================
+
+/**
+ * GET /api/admin/metrics
+ *
+ * Platform business metrics with period-over-period trends.
+ */
+admin.get(
+  '/metrics',
+  requireAdmin(),
+  async (c) => {
+    const db = c.get('db');
+    const metrics = await getPlatformMetrics(db);
+    return c.json({ metrics });
+  },
+);
 
 // ==================== Moderation Routes ====================
 
@@ -238,6 +267,26 @@ admin.get(
     c.header('Content-Type', 'text/csv');
     c.header('Content-Disposition', `attachment; filename="payouts-${month}.csv"`);
     return c.body(csv);
+  },
+);
+
+// ==================== Creator Activity Routes ====================
+
+/**
+ * GET /api/admin/creators/activity
+ *
+ * List creator upload activity with flagging for abuse patterns.
+ * Query param: sort = 'recent' | 'total' | 'flagged'
+ */
+admin.get(
+  '/creators/activity',
+  requireAdmin(),
+  zValidator('query', creatorActivitySortSchema, validationHook),
+  async (c) => {
+    const db = c.get('db');
+    const { sort } = c.req.valid('query');
+    const creators = await getCreatorActivity(db, sort);
+    return c.json({ creators });
   },
 );
 

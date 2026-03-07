@@ -13,7 +13,7 @@ import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { useCategories } from '@/hooks/useCategories';
 import { NsfwToggle } from './NsfwToggle';
 import { NavIcon } from './NavIcon';
-import { CONSUMER_NAV_ITEMS, CREATOR_NAV_ITEMS, isNavItemActive, type NavItem } from './nav-config';
+import { getNavItemsForRole, isNavItemActive, type NavItem } from './nav-config';
 
 const SPRING_TRANSITION = { type: 'spring' as const, duration: 0.35, bounce: 0.15 };
 
@@ -92,10 +92,9 @@ const SidebarCategoryItem = memo(function SidebarCategoryItem({
 
 export function Sidebar() {
   const { data: session } = useOptimizedSession();
-  const creatorMode = session?.user?.role === 'creator';
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const navItems = creatorMode ? CREATOR_NAV_ITEMS : CONSUMER_NAV_ITEMS;
+  const navItems = getNavItemsForRole(session?.user?.role);
 
   // Categories from API
   const { data: categoriesData } = useCategories();

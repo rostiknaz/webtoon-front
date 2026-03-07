@@ -5,7 +5,7 @@
  * All icons: thin-stroke (1.5px), no fill, currentColor.
  */
 
-import { Search, User, Upload, LayoutDashboard, Film } from 'lucide-react';
+import { Search, User, Upload, LayoutDashboard, Film, Banknote, Shield, Users } from 'lucide-react';
 import type { NavIconType } from './nav-config';
 
 interface NavIconProps {
@@ -39,6 +39,9 @@ const ICON_MAP: Record<NavIconType, React.ComponentType<{ className: string; str
   upload: Upload,
   dashboard: LayoutDashboard,
   series: Film,
+  payouts: Banknote,
+  moderation: Shield,
+  creators: Users,
 };
 
 export function NavIcon({ icon, className = 'w-5 h-5' }: NavIconProps) {

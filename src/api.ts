@@ -27,6 +27,10 @@ import {
     payoutsResponseSchema,
     approvePayoutResponseSchema,
     markPaidResponseSchema,
+    adminMetricsResponseSchema,
+    moderationQueueResponseSchema,
+    moderationActionResponseSchema,
+    creatorActivityResponseSchema,
     // Types
     type DownloadClipResponse,
     type DownloadHistoryResponse,
@@ -51,6 +55,10 @@ import {
     type PayoutsResponse,
     type ApprovePayoutResponse,
     type MarkPaidResponse,
+    type AdminMetricsResponse,
+    type ModerationQueueResponse,
+    type ModerationActionResponse,
+    type CreatorActivityResponse,
     // Errors
     SerialNotFoundError,
 } from './types';
@@ -61,6 +69,9 @@ export const creatorStatsQueryKey = ['creator-stats'] as const;
 export const creatorEarningsQueryKey = ['creator-earnings'] as const;
 export const payoutMonthsQueryKey = ['admin-payout-months'] as const;
 export const payoutsByMonthQueryKey = (month: string) => ['admin-payouts', month] as const;
+export const adminMetricsQueryKey = ['admin-metrics'] as const;
+export const moderationQueueQueryKey = ['admin-moderation-queue'] as const;
+export const creatorActivityQueryKey = (sort: string) => ['admin-creator-activity', sort] as const;
 
 // ==================== Fetch Helpers ====================
 
@@ -568,6 +579,47 @@ export const markPayoutBatchPaid = async (month: string): Promise<MarkPaidRespon
  */
 export const exportPayoutCsv = (month: string): void => {
     window.open(`/api/admin/payouts/${month}/export`, '_blank');
+};
+
+// ==================== Admin Metrics API ====================
+
+export const getAdminMetrics = async (): Promise<AdminMetricsResponse> => {
+    const data = await fetchJsonAuth('/api/admin/metrics', {
+        errorMessage: 'Failed to fetch admin metrics',
+    });
+    return adminMetricsResponseSchema.parse(data);
+};
+
+// ==================== Admin Moderation API ====================
+
+export const getModerationQueue = async (): Promise<ModerationQueueResponse> => {
+    const data = await fetchJsonAuth('/api/admin/moderation', {
+        errorMessage: 'Failed to fetch moderation queue',
+    });
+    return moderationQueueResponseSchema.parse(data);
+};
+
+export const moderateClip = async (
+    clipId: string,
+    action: 'approve' | 'reject',
+    reason?: string,
+): Promise<ModerationActionResponse> => {
+    const data = await fetchJsonAuth(`/api/admin/moderation/${clipId}`, {
+        method: 'POST',
+        body: JSON.stringify({ action, reason }),
+        errorMessage: `Failed to ${action} clip`,
+    });
+    return moderationActionResponseSchema.parse(data);
+};
+
+// ==================== Admin Creator Activity API ====================
+
+export const getCreatorActivity = async (sort: 'recent' | 'total' | 'flagged' = 'recent'): Promise<CreatorActivityResponse> => {
+    const url = buildUrl('/api/admin/creators/activity', { sort });
+    const data = await fetchJsonAuth(url, {
+        errorMessage: 'Failed to fetch creator activity',
+    });
+    return creatorActivityResponseSchema.parse(data);
 };
 
 // ==================== Upload API ====================
