@@ -54,6 +54,7 @@ export const UploadMetadataStep = memo(function UploadMetadataStep({
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message;
 
@@ -82,6 +83,25 @@ export const UploadMetadataStep = memo(function UploadMetadataStep({
     setFile(selectedFile);
     analyzeVideo(selectedFile);
   }, [analyzeVideo]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (!droppedFile || !droppedFile.type.startsWith('video/')) return;
+    setFile(droppedFile);
+    analyzeVideo(droppedFile);
+  }, [analyzeVideo]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
   const validate = useCallback((): boolean => {
     const newErrors: FieldError[] = [];
@@ -225,8 +245,13 @@ export const UploadMetadataStep = memo(function UploadMetadataStep({
           <motion.button
             type="button"
             onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-            className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/50 p-8 flex flex-col items-center gap-3 transition-colors"
+            className={`w-full rounded-xl border-2 border-dashed p-8 flex flex-col items-center gap-3 transition-colors ${
+              isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+            }`}
           >
             <UploadIcon className="w-8 h-8 text-muted-foreground" />
             <div className="text-[13px] text-muted-foreground">

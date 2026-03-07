@@ -1,0 +1,1 @@
+CREATE INDEX `idx_payment_transactions_solidgate_order_id` ON `payment_transactions` (`solidgate_order_id`);

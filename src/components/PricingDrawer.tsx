@@ -17,6 +17,7 @@ import {
 import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { SubscriptionDrawer } from './SubscriptionDrawer';
 import { purchaseCreditPack } from '@/api';
+import { formatPriceFromCents } from '@/lib/format';
 import { Crown, Coins, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,12 +30,8 @@ const CREDIT_PACKS = [
   { id: 'pack_30', credits: 30, price: 1499 },
 ] as const;
 
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 function perCreditPrice(pack: (typeof CREDIT_PACKS)[number]): string {
-  return formatPrice(Math.round(pack.price / pack.credits));
+  return formatPriceFromCents(Math.round(pack.price / pack.credits));
 }
 
 interface PricingDrawerProps {
@@ -52,7 +49,8 @@ export function PricingDrawer({ open, onOpenChange, clipId }: PricingDrawerProps
     try {
       const { paymentUrl } = await purchaseCreditPack(packId, clipId);
       window.location.assign(paymentUrl);
-    } catch {
+    } catch (error) {
+      console.error('Credit pack purchase failed:', error);
       toast.error('Failed to start purchase. Please try again.');
       setLoadingPackId(null);
     }
@@ -101,7 +99,7 @@ export function PricingDrawer({ open, onOpenChange, clipId }: PricingDrawerProps
                     ) : (
                       <Coins className="mr-2 h-5 w-5" />
                     )}
-                    {pack.credits} Credits — {formatPrice(pack.price)}
+                    {pack.credits} Credits — {formatPriceFromCents(pack.price)}
                   </span>
                   <span className="text-xs text-muted-foreground">{perCreditPrice(pack)}/credit</span>
                 </MotionButton>
@@ -123,6 +121,7 @@ export function PricingDrawer({ open, onOpenChange, clipId }: PricingDrawerProps
       <SubscriptionDrawer
         open={subscriptionOpen}
         onOpenChange={setSubscriptionOpen}
+        clipId={clipId}
       />
     </>
   );

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Drawer,
   DrawerContent,
@@ -11,16 +11,8 @@ import {
 import { MotionButton, buttonAnimations } from '@/components/ui/motion-button';
 import { Crown, Check, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { getSubscriptionPlans, subscribeToPlan } from '@/api';
-import { subscriptionQueryKey } from '@/services/subscription.service';
+import { formatPrice } from '@/lib/format';
 import type { Plan } from '@/types';
-
-function formatPrice(price: number, currency: string) {
-  if (price === 0) return 'Free';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(price);
-}
 
 function getFeaturesList(features: Plan['features']) {
   const list = [];
@@ -34,11 +26,10 @@ function getFeaturesList(features: Plan['features']) {
 interface SubscriptionDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  clipId?: string;
 }
 
-export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: SubscriptionDrawerProps) {
-  const queryClient = useQueryClient();
+export function SubscriptionDrawer({ open, onOpenChange, clipId }: SubscriptionDrawerProps) {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   // Fetch subscription plans using React Query
@@ -55,23 +46,11 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
     retry: 1,
   });
 
-  // Subscribe mutation
+  // Subscribe mutation — redirects to Solidgate payment page
   const subscribeMutation = useMutation({
-    mutationFn: subscribeToPlan,
-    onSuccess: () => {
-      // Invalidate subscription cache so useSubscription picks up the new state immediately
-      queryClient.invalidateQueries({ queryKey: subscriptionQueryKey });
-
-      onOpenChange(false);
-
-      const plan = plansData?.plans.find((p) => p.id === selectedPlan);
-      toast.success('Subscription Activated!', {
-        description: plan?.trialDays
-          ? `Your ${plan.trialDays}-day free trial has started. Enjoy unlimited access!`
-          : 'You now have access to all premium content!',
-      });
-
-      onSuccess?.();
+    mutationFn: (planId: string) => subscribeToPlan(planId, clipId),
+    onSuccess: ({ paymentUrl }) => {
+      window.location.assign(paymentUrl);
     },
     onError: (error: Error) => {
       toast.error('Subscription Failed', {
@@ -101,8 +80,21 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
     subscribeMutation.mutate(selectedPlan);
   };
 
-  const selectedPlanData = plans.find(p => p.id === selectedPlan);
-  const recommendedPlanId = plans.find(p => p.billingPeriod === 'monthly')?.id;
+  // Memoize derived data to prevent O(n) recalculation on every render
+  const { selectedPlanData, recommendedPlanId, plansWithFeatures } = useMemo(() => {
+    const recommended = plans.find(p => p.billingPeriod === 'monthly')?.id;
+    const selected = plans.find(p => p.id === selectedPlan);
+    const withFeatures = plans.map(plan => ({
+      ...plan,
+      featureList: getFeaturesList(plan.features),
+    }));
+
+    return {
+      selectedPlanData: selected,
+      recommendedPlanId: recommended,
+      plansWithFeatures: withFeatures,
+    };
+  }, [plans, selectedPlan]);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -131,10 +123,9 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
             </div>
           ) : (
             <div className="space-y-4 max-w-2xl mx-auto">
-              {plans.map((plan) => {
+              {plansWithFeatures.map((plan) => {
                 const isSelected = selectedPlan === plan.id;
                 const isRecommended = plan.id === recommendedPlanId;
-                const features = getFeaturesList(plan.features);
 
                 return (
                   <button
@@ -176,7 +167,7 @@ export function SubscriptionDrawer({ open, onOpenChange, onSuccess }: Subscripti
                     </div>
 
                     <ul className="space-y-2 mb-4">
-                      {features.map((feature, idx) => (
+                      {plan.featureList.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm">
                           <Check className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                           <span>{feature}</span>

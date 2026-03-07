@@ -213,6 +213,8 @@ export const paymentTransactions = sqliteTable('payment_transactions', {
 }, (table) => [
   // Payment transactions by user (for payment history)
   index('idx_payment_transactions_user_id').on(table.userId),
+  // CRITICAL: Webhook refund lookups by Solidgate order ID
+  index('idx_payment_transactions_solidgate_order_id').on(table.solidgateOrderId),
 ]);
 
 // ============================================

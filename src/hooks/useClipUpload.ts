@@ -8,7 +8,7 @@
  * Polls clip status during moderation step until AI scan completes.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { initClipUpload, completeClipUpload, retryClipUpload, getClipStatus } from '@/api';
 import type { UploadInitInput, UploadCompleteResponse } from '@/types';
@@ -38,11 +38,14 @@ const INITIAL_STATE: UploadState = {
 };
 
 const MODERATION_POLL_INTERVAL = 3000;
+const MODERATION_POLL_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 export function useClipUpload() {
   const [state, setState] = useState<UploadState>(INITIAL_STATE);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartRef = useRef<number>(0);
+  const seriesIdRef = useRef<string | undefined>(undefined);
   const queryClient = useQueryClient();
 
   const cleanup = useCallback(() => {
@@ -51,6 +54,9 @@ export function useClipUpload() {
       pollRef.current = null;
     }
   }, []);
+
+  // Clean up polling on unmount
+  useEffect(() => cleanup, [cleanup]);
 
   const reset = useCallback(() => {
     if (xhrRef.current) {
@@ -109,8 +115,16 @@ export function useClipUpload() {
 
   const pollModeration = useCallback((clipId: string, seriesId?: string) => {
     setState((prev) => ({ ...prev, step: 'moderating', moderationStatus: 'processing' }));
+    pollStartRef.current = Date.now();
 
     pollRef.current = setInterval(async () => {
+      // Timeout after 5 minutes to prevent infinite polling
+      if (Date.now() - pollStartRef.current > MODERATION_POLL_TIMEOUT) {
+        cleanup();
+        setState((prev) => ({ ...prev, step: 'error', error: 'Moderation timed out. Check your uploads page for status.' }));
+        return;
+      }
+
       try {
         const clip = await getClipStatus(clipId);
 
@@ -141,6 +155,7 @@ export function useClipUpload() {
   const start = useCallback(async (input: UploadInitInput, file: File) => {
     try {
       // Step 1: Init
+      seriesIdRef.current = input.seriesId;
       setState((prev) => ({ ...prev, step: 'validating', error: null }));
       const initResult = await initClipUpload(input);
       const clipId = initResult._id;
@@ -216,10 +231,13 @@ export function useClipUpload() {
           moderationStatus: completeResult.status,
         }));
         queryClient.invalidateQueries({ queryKey: ['clips', 'mine'] });
+        if (seriesIdRef.current) {
+          queryClient.invalidateQueries({ queryKey: ['creator-series', seriesIdRef.current] });
+        }
         return;
       }
 
-      pollModeration(clipId);
+      pollModeration(clipId, seriesIdRef.current);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Retry failed';
       setState((prev) => ({ ...prev, step: 'error', error: message }));
@@ -230,9 +248,8 @@ export function useClipUpload() {
     if (xhrRef.current) {
       xhrRef.current.abort();
     }
-    cleanup();
-    reset();
-  }, [cleanup, reset]);
+    reset(); // reset() already calls cleanup()
+  }, [reset]);
 
   return { state, start, retry, cancel, reset };
 }

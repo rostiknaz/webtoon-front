@@ -155,7 +155,7 @@ export const subscriptionStatusResponseSchema = z.object({
 });
 
 export const subscribeResponseSchema = z.object({
-    success: z.boolean(),
+    paymentUrl: z.string(),
 });
 
 // ==================== Type Exports ====================

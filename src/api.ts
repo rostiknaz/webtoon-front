@@ -221,12 +221,12 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatusRespons
 };
 
 /**
- * Subscribe to a plan
+ * Subscribe to a plan — returns Solidgate payment URL for redirect
  */
-export const subscribeToPlan = async (planId: string): Promise<SubscribeResponse> => {
+export const subscribeToPlan = async (planId: string, clipId?: string): Promise<SubscribeResponse> => {
     const data = await fetchJson('/api/subscription/subscribe', {
         method: 'POST',
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, ...(clipId && { clipId }) }),
         credentials: 'include',
         errorMessage: 'Failed to create subscription',
     });

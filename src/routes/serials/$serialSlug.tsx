@@ -134,14 +134,7 @@ function SerialPage() {
     }
   }, [subscription]);
 
-  const handleSubscriptionSuccess = useCallback(() => {
-    // Close the subscription drawer first for immediate feedback
-    setIsSubscriptionDrawerOpen(false);
-
-    // Refresh subscription status from cookie (server sets it on subscribe)
-    // This triggers re-render which updates episode lock status via useMemo
-    void subscription.refresh();
-  }, [subscription]);
+  // Subscription success is now handled by usePurchaseReturn after Solidgate redirect
 
   if (!data) return null;
 
@@ -208,7 +201,6 @@ function SerialPage() {
               <SubscriptionDrawer
                   open={isSubscriptionDrawerOpen}
                   onOpenChange={setIsSubscriptionDrawerOpen}
-                  onSuccess={handleSubscriptionSuccess}
               />
           </Suspense>
       </div>

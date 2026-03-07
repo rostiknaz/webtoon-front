@@ -47,16 +47,23 @@ export function analyzeVideoFile(
 
     const cleanup = () => URL.revokeObjectURL(objectUrl);
 
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject('Video analysis timed out. The file may be corrupted.');
+    }, 10_000);
+
     video.onloadedmetadata = () => {
       const { duration, videoWidth: width, videoHeight: height } = video;
 
       if (duration < constraints.minDuration || duration > constraints.maxDuration) {
+        clearTimeout(timeout);
         cleanup();
         reject(`Duration ${duration.toFixed(0)}s — must be ${constraints.minDuration}s to ${constraints.maxDuration / 60}min`);
         return;
       }
 
       if (width < constraints.minWidth || height < constraints.minHeight) {
+        clearTimeout(timeout);
         cleanup();
         reject(`Resolution ${width}x${height} — minimum ${constraints.minWidth}x${constraints.minHeight}`);
         return;
@@ -66,6 +73,7 @@ export function analyzeVideoFile(
     };
 
     video.onseeked = () => {
+      clearTimeout(timeout);
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -87,6 +95,7 @@ export function analyzeVideoFile(
     };
 
     video.onerror = () => {
+      clearTimeout(timeout);
       cleanup();
       reject('Unable to read video file. Please use a valid MP4.');
     };

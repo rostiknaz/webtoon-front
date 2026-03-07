@@ -1,21 +1,22 @@
 /**
  * Subscription API Routes
  *
- * Handles user subscription checking and status endpoints
+ * Handles user subscription checking, status, and Solidgate subscription purchase.
  */
 
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { getActivePlans, getPlanById } from '../db/services/plans.service';
-import { subscriptions } from '../../db/schema';
 import type { AppEnvWithDB } from '../db/types';
 import { Errors } from '../lib/errors';
 import { subscribeBodySchema, validationHook } from '../lib/schemas';
+import { createPaymentLink } from '../lib/solidgate';
 import {
   getCachedSubscription,
   createSubCookie,
   parsePlanFeatures,
 } from '../lib/subscription-helpers';
+
 
 const subscription = new Hono<AppEnvWithDB>();
 
@@ -79,7 +80,8 @@ subscription.get('/plans', async (c) => {
 /**
  * POST /api/subscription/subscribe
  *
- * Subscribe user to a plan (mock payment - skips actual payment processing)
+ * Creates a Solidgate payment link for recurring subscription billing.
+ * Does NOT create subscription directly — that happens via subscription.created webhook.
  */
 subscription.post(
   '/subscribe',
@@ -90,7 +92,7 @@ subscription.post(
       throw Errors.unauthorized();
     }
 
-    const { planId } = c.req.valid('json');
+    const { planId, clipId } = c.req.valid('json');
     const db = c.get('db');
     const cache = c.get('cache');
 
@@ -106,73 +108,35 @@ subscription.post(
       throw Errors.conflict('User already has an active subscription');
     }
 
-    // Calculate subscription dates
-    const now = new Date();
-    const hasTrial = plan.trialDays > 0;
-    const trialEnd = hasTrial
-      ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
-      : null;
+    const session = c.get('session');
+    const email = session?.user?.email;
+    if (!email) {
+      throw Errors.unauthorized();
+    }
 
-    const periodDays =
-      plan.billingPeriod === 'yearly' ? 365 :
-      plan.billingPeriod === 'weekly' ? 7 : 30;
-    const periodStart = trialEnd || now;
-    const periodEnd = new Date(periodStart.getTime() + periodDays * 24 * 60 * 60 * 1000);
-    const status = hasTrial ? 'trial' : 'active';
+    const baseUrl = c.env.BETTER_AUTH_URL;
+    const clipParam = clipId ? `&clipId=${encodeURIComponent(clipId)}` : '';
+    const successUrl = `${baseUrl}/?purchase=subscription-success${clipParam}`;
+    const failUrl = `${baseUrl}/?purchase=failed`;
 
-    // Create subscription in D1
-    const subscriptionId = crypto.randomUUID();
-    await db.insert(subscriptions).values({
-      id: subscriptionId,
-      userId,
-      planId,
-      status,
-      solidgateOrderId: null,
-      solidgateSubscriptionId: null,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      trialStart: hasTrial ? now : null,
-      trialEnd,
-      canceledAt: null,
-      endedAt: null,
+    const paymentUrl = await createPaymentLink(c.env, {
+      orderId: crypto.randomUUID(),
+      amount: Math.round(plan.price * 100), // Convert dollars to cents
+      currency: plan.currency,
+      customerEmail: email,
+      orderDescription: `${plan.name} Subscription`,
+      orderMetadata: {
+        type: 'subscription',
+        plan_id: planId,
+        user_id: userId,
+        clip_id: clipId ?? '',
+      },
+      successUrl,
+      failUrl,
+      subscription: { product_id: plan.solidgateProductId },
     });
 
-    // Update cache
-    const expiresAt = Math.floor(periodEnd.getTime() / 1000);
-    const ttlSeconds = expiresAt - Math.floor(Date.now() / 1000);
-    await cache.subscriptions.setUserSubscription(userId, {
-      status,
-      planId,
-      planFeatures: parsePlanFeatures(plan.features),
-      currentPeriodEnd: expiresAt,
-      hasAccess: true,
-    }, ttlSeconds);
-
-    await cache.userProfiles.invalidateUserProfile(userId);
-
-    // Create cookie
-    const subCookie = await createSubCookie(
-      expiresAt,
-      planId,
-      c.env.BETTER_AUTH_SECRET,
-      c.env.BETTER_AUTH_URL
-    );
-
-    return c.json(
-      {
-        success: true,
-        subscription: {
-          id: subscriptionId,
-          planId,
-          status,
-          currentPeriodStart: Math.floor(periodStart.getTime() / 1000),
-          currentPeriodEnd: expiresAt,
-          trialDays: plan.trialDays,
-        },
-      },
-      200,
-      { 'Set-Cookie': subCookie }
-    );
+    return c.json({ paymentUrl });
   }
 );
 

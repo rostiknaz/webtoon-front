@@ -17,32 +17,7 @@ import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useOptimizedSession } from '@/hooks/useOptimizedSession';
 import { NavIcon } from './NavIcon';
-
-type NavItem = {
-  icon: 'feed' | 'browse' | 'profile' | 'upload';
-  label: string;
-  to: string;
-  activePath: string;
-};
-
-// Pre-built arrays — no allocation on render
-const CONSUMER_NAV_ITEMS: NavItem[] = [
-  { icon: 'feed', label: 'Feed', to: '/', activePath: '/' },
-  { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
-  { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
-];
-
-const CREATOR_NAV_ITEMS: NavItem[] = [
-  { icon: 'feed', label: 'Feed', to: '/', activePath: '/' },
-  { icon: 'browse', label: 'Browse', to: '/browse', activePath: '/browse' },
-  { icon: 'upload', label: 'Upload', to: '/creator/uploads', activePath: '/creator/upload' },
-  { icon: 'profile', label: 'Profile', to: '/profile', activePath: '/profile' },
-];
-
-const isNavItemActive = (currentPath: string, activePath: string): boolean => {
-  if (activePath === '/') return currentPath === '/';
-  return currentPath === activePath || currentPath.startsWith(activePath + '/');
-};
+import { CONSUMER_NAV_ITEMS, CREATOR_NAV_ITEMS, isNavItemActive, type NavItem } from './nav-config';
 
 // Stable transition object — avoids allocation per render
 const SPRING_TRANSITION = { type: 'spring' as const, stiffness: 400, damping: 30 };

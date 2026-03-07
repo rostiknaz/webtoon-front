@@ -52,6 +52,7 @@ export const idParamSchema = z.object({
  */
 export const subscribeBodySchema = z.object({
   planId: z.string().min(1, 'Plan ID is required'),
+  clipId: z.string().optional(),
 });
 
 // ==================== Creator Schemas ====================

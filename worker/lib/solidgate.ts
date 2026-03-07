@@ -18,6 +18,7 @@ interface CreatePaymentLinkParams {
   orderMetadata: Record<string, string | number>;
   successUrl: string;
   failUrl: string;
+  subscription?: { product_id: string };
 }
 
 async function signRequest(body: string, secretKey: string): Promise<string> {
@@ -40,14 +41,20 @@ export async function createPaymentLink(
   env: Bindings,
   params: CreatePaymentLinkParams,
 ): Promise<string> {
+  const order: Record<string, unknown> = {
+    order_id: params.orderId,
+    amount: params.amount,
+    currency: params.currency,
+    order_description: params.orderDescription,
+    order_metadata: params.orderMetadata,
+  };
+
+  if (params.subscription) {
+    order.subscription = params.subscription;
+  }
+
   const body = {
-    order: {
-      order_id: params.orderId,
-      amount: params.amount,
-      currency: params.currency,
-      order_description: params.orderDescription,
-      order_metadata: params.orderMetadata,
-    },
+    order,
     customer: {
       email: params.customerEmail,
     },

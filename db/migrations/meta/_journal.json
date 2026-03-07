@@ -64,6 +64,13 @@
       "when": 1772834647051,
       "tag": "0008_orange_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1772882905732,
+      "tag": "0009_tough_vindicator",
+      "breakpoints": true
     }
   ]
 }
