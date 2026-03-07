@@ -13,14 +13,59 @@ import type { AppEnvWithDB } from '../db/types';
 import { requireAdmin } from '../middleware/auth-guard';
 import { validationHook } from '../lib/schemas';
 import { getModerationQueue, adminModerateClip } from '../db/services/moderation.service';
-import { calculateMonthlyEarnings } from '../db/services/earnings.service';
+import {
+  calculateMonthlyEarnings,
+  getPayoutMonths,
+  getPayoutsByMonth,
+  approvePayoutBatch,
+  markPayoutBatchPaid,
+  generatePayoutCsv,
+} from '../db/services/earnings.service';
 
 const admin = new Hono<AppEnvWithDB>();
+
+// ==================== Validation Schemas ====================
+
+const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+const MONTH_ERROR_MESSAGE = 'Month must be in YYYY-MM format (01-12)';
+
+const monthSchema = z.string().regex(MONTH_REGEX, MONTH_ERROR_MESSAGE);
 
 const moderationActionSchema = z.object({
   action: z.enum(['approve', 'reject']),
   reason: z.string().optional(),
 });
+
+const payoutCalculateSchema = z.object({
+  month: monthSchema,
+});
+
+const payoutMonthBodySchema = z.object({
+  month: monthSchema,
+});
+
+// ==================== Logging Helper ====================
+
+/**
+ * Structured logging for admin actions
+ * Logs to stdout in JSON format for observability tools
+ */
+function logAdminAction(event: string, data: Record<string, unknown>): void {
+  console.log(JSON.stringify({ event, ...data, timestamp: Date.now() }));
+}
+
+/**
+ * Validate month parameter and return error response if invalid
+ */
+function validateMonthParam(month: string) {
+  const result = monthSchema.safeParse(month);
+  if (!result.success) {
+    return { error: { code: 'VALIDATION_ERROR', message: MONTH_ERROR_MESSAGE } };
+  }
+  return null;
+}
+
+// ==================== Moderation Routes ====================
 
 /**
  * GET /api/admin/moderation
@@ -64,10 +109,6 @@ admin.post(
 
 // ==================== Payout Calculation ====================
 
-const payoutCalculateSchema = z.object({
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Month must be in YYYY-MM format (01-12)'),
-});
-
 /**
  * POST /api/admin/payouts/calculate
  *
@@ -84,14 +125,119 @@ admin.post(
 
     const summary = await calculateMonthlyEarnings(db, month);
 
-    console.log(JSON.stringify({
-      event: 'payout_calculation',
+    logAdminAction('payout_calculation', {
       month: summary.month,
       totalRevenue: summary.totalRevenue,
       creatorsProcessed: summary.creatorsProcessed,
-    }));
+    });
 
     return c.json(summary);
+  },
+);
+
+// ==================== Payout Management ====================
+
+/**
+ * GET /api/admin/payouts/months
+ *
+ * List available payout months with summary stats.
+ */
+admin.get(
+  '/payouts/months',
+  requireAdmin(),
+  async (c) => {
+    const db = c.get('db');
+    const months = await getPayoutMonths(db);
+    return c.json({ months });
+  },
+);
+
+/**
+ * GET /api/admin/payouts/:month
+ *
+ * List all creator payouts for a specific month.
+ */
+admin.get(
+  '/payouts/:month',
+  requireAdmin(),
+  async (c) => {
+    const db = c.get('db');
+    const month = c.req.param('month');
+
+    const validationError = validateMonthParam(month);
+    if (validationError) {
+      return c.json(validationError, 400);
+    }
+
+    const payouts = await getPayoutsByMonth(db, month);
+    return c.json({ payouts });
+  },
+);
+
+/**
+ * POST /api/admin/payouts/approve
+ *
+ * Approve all pending payouts for a given month.
+ */
+admin.post(
+  '/payouts/approve',
+  requireAdmin(),
+  zValidator('json', payoutMonthBodySchema, validationHook),
+  async (c) => {
+    const db = c.get('db');
+    const { month } = c.req.valid('json');
+
+    const approved = await approvePayoutBatch(db, month);
+
+    logAdminAction('payout_batch_approved', { month, approved });
+
+    return c.json({ approved, month });
+  },
+);
+
+/**
+ * POST /api/admin/payouts/mark-paid
+ *
+ * Mark all approved payouts for a given month as paid.
+ */
+admin.post(
+  '/payouts/mark-paid',
+  requireAdmin(),
+  zValidator('json', payoutMonthBodySchema, validationHook),
+  async (c) => {
+    const db = c.get('db');
+    const { month } = c.req.valid('json');
+
+    const paid = await markPayoutBatchPaid(db, month);
+
+    logAdminAction('payout_batch_paid', { month, paid });
+
+    return c.json({ paid, month });
+  },
+);
+
+/**
+ * GET /api/admin/payouts/:month/export
+ *
+ * Export payouts for a month as CSV file download.
+ */
+admin.get(
+  '/payouts/:month/export',
+  requireAdmin(),
+  async (c) => {
+    const db = c.get('db');
+    const month = c.req.param('month');
+
+    const validationError = validateMonthParam(month);
+    if (validationError) {
+      return c.json(validationError, 400);
+    }
+
+    const csv = await generatePayoutCsv(db, month);
+
+    c.header('Content-Type', 'text/csv');
+    c.header('Content-Disposition', `attachment; filename="payouts-${month}.csv"`);
+    return c.body(csv);
   },
 );
 

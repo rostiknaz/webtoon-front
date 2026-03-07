@@ -22,6 +22,7 @@ import { Route as CreatorUploadsRouteImport } from './routes/creator/uploads'
 import { Route as CreatorUploadRouteImport } from './routes/creator/upload'
 import { Route as CreatorSeriesRouteImport } from './routes/creator/series'
 import { Route as ClipClipIdRouteImport } from './routes/clip.$clipId'
+import { Route as AdminPayoutsRouteImport } from './routes/admin/payouts'
 import { Route as CreatorSeriesNewRouteImport } from './routes/creator/series_.new'
 import { Route as CreatorSeriesSeriesIdRouteImport } from './routes/creator/series_.$seriesId'
 import { Route as CreatorSeriesSeriesIdEditRouteImport } from './routes/creator/series_.$seriesId.edit'
@@ -91,6 +92,11 @@ const ClipClipIdRoute = ClipClipIdRouteImport.update({
   path: '/clip/$clipId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPayoutsRoute = AdminPayoutsRouteImport.update({
+  id: '/admin/payouts',
+  path: '/admin/payouts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreatorSeriesNewRoute = CreatorSeriesNewRouteImport.update({
   id: '/creator/series_/new',
   path: '/creator/series/new',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
+  '/admin/payouts': typeof AdminPayoutsRoute
   '/clip/$clipId': typeof ClipClipIdRoute
   '/creator/series': typeof CreatorSeriesRoute
   '/creator/upload': typeof CreatorUploadRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/feed'
     | '/profile'
+    | '/admin/payouts'
     | '/clip/$clipId'
     | '/creator/series'
     | '/creator/upload'
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FeedRoute: typeof FeedRoute
   ProfileRoute: typeof ProfileRoute
+  AdminPayoutsRoute: typeof AdminPayoutsRoute
   ClipClipIdRoute: typeof ClipClipIdRoute
   CreatorSeriesRoute: typeof CreatorSeriesRoute
   CreatorUploadRoute: typeof CreatorUploadRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClipClipIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payouts': {
+      id: '/admin/payouts'
+      path: '/admin/payouts'
+      fullPath: '/admin/payouts'
+      preLoaderRoute: typeof AdminPayoutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/creator/series_/new': {
       id: '/creator/series_/new'
       path: '/creator/series/new'
@@ -377,6 +397,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FeedRoute: FeedRoute,
   ProfileRoute: ProfileRoute,
+  AdminPayoutsRoute: AdminPayoutsRoute,
   ClipClipIdRoute: ClipClipIdRoute,
   CreatorSeriesRoute: CreatorSeriesRoute,
   CreatorUploadRoute: CreatorUploadRoute,

@@ -1,5 +1,6 @@
 // src/api.ts
 import {
+    // Schemas
     seriesCoreMetadataSchema,
     seriesStatsSchema,
     seriesMetadataSchema,
@@ -17,9 +18,18 @@ import {
     creditsBalanceResponseSchema,
     downloadClipResponseSchema,
     downloadHistoryResponseSchema,
+    uploadInitResponseSchema,
+    uploadCompleteResponseSchema,
+    uploadRetryResponseSchema,
+    creatorStatsResponseSchema,
+    creatorEarningsResponseSchema,
+    payoutMonthsResponseSchema,
+    payoutsResponseSchema,
+    approvePayoutResponseSchema,
+    markPaidResponseSchema,
+    // Types
     type DownloadClipResponse,
     type DownloadHistoryResponse,
-    SerialNotFoundError,
     type SeriesMetadata,
     type SubscriptionPlansResponse,
     type SubscriptionCheckResponse,
@@ -31,20 +41,28 @@ import {
     type CreatorSeriesListResponse,
     type CreatorSeriesDetailResponse,
     type CreatorSeriesCreateResponse,
-    uploadInitResponseSchema,
-    uploadCompleteResponseSchema,
-    uploadRetryResponseSchema,
     type UploadInitResponse,
     type UploadCompleteResponse,
     type UploadRetryResponse,
     type UploadInitInput,
-    creatorStatsResponseSchema,
     type CreatorStatsResponse,
-    creatorEarningsResponseSchema,
     type CreatorEarningsResponse,
+    type PayoutMonthsResponse,
+    type PayoutsResponse,
+    type ApprovePayoutResponse,
+    type MarkPaidResponse,
+    // Errors
+    SerialNotFoundError,
 } from './types';
 
-// ==================== Fetch Helper ====================
+// ==================== Query Keys ====================
+
+export const creatorStatsQueryKey = ['creator-stats'] as const;
+export const creatorEarningsQueryKey = ['creator-earnings'] as const;
+export const payoutMonthsQueryKey = ['admin-payout-months'] as const;
+export const payoutsByMonthQueryKey = (month: string) => ['admin-payouts', month] as const;
+
+// ==================== Fetch Helpers ====================
 
 interface FetchOptions extends RequestInit {
     /** Custom error message prefix */
@@ -80,6 +98,33 @@ async function fetchJson<T>(url: string, options: FetchOptions = {}): Promise<T>
     }
 
     return response.json();
+}
+
+/**
+ * Authenticated fetch wrapper — automatically includes credentials
+ */
+async function fetchJsonAuth<T>(url: string, options: FetchOptions = {}): Promise<T> {
+    return fetchJson<T>(url, {
+        ...options,
+        credentials: 'include',
+    });
+}
+
+/**
+ * Build URL with query parameters from an object
+ */
+function buildUrl(base: string, params?: Record<string, string | number | undefined>): string {
+    if (!params) return base;
+
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+            searchParams.set(key, String(value));
+        }
+    });
+
+    const query = searchParams.toString();
+    return query ? `${base}?${query}` : base;
 }
 
 // ==================== Series API ====================
@@ -201,8 +246,7 @@ export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse>
  * Check if user has an active subscription (simple boolean check)
  */
 export const checkSubscription = async (): Promise<SubscriptionCheckResponse> => {
-    const data = await fetchJson('/api/subscription/check', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/subscription/check', {
         errorMessage: 'Failed to check subscription',
     });
     return subscriptionCheckResponseSchema.parse(data);
@@ -213,8 +257,7 @@ export const checkSubscription = async (): Promise<SubscriptionCheckResponse> =>
  * Used by hybrid cookie/API subscription checking
  */
 export const getSubscriptionStatus = async (): Promise<SubscriptionStatusResponse> => {
-    const data = await fetchJson('/api/subscription/status', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/subscription/status', {
         errorMessage: 'Failed to get subscription status',
     });
     return subscriptionStatusResponseSchema.parse(data);
@@ -224,10 +267,9 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatusRespons
  * Subscribe to a plan — returns Solidgate payment URL for redirect
  */
 export const subscribeToPlan = async (planId: string, clipId?: string): Promise<SubscribeResponse> => {
-    const data = await fetchJson('/api/subscription/subscribe', {
+    const data = await fetchJsonAuth('/api/subscription/subscribe', {
         method: 'POST',
         body: JSON.stringify({ planId, ...(clipId && { clipId }) }),
-        credentials: 'include',
         errorMessage: 'Failed to create subscription',
     });
     return subscribeResponseSchema.parse(data);
@@ -276,17 +318,7 @@ interface FeedParams {
  * Public endpoint — no auth required
  */
 export const getFeed = async (params: FeedParams = {}): Promise<FeedResponse> => {
-    const searchParams = new URLSearchParams();
-    if (params.cursor) searchParams.set('cursor', params.cursor);
-    if (params.limit) searchParams.set('limit', String(params.limit));
-    if (params.category) searchParams.set('category', params.category);
-    if (params.nsfw) searchParams.set('nsfw', params.nsfw);
-    if (params.sort) searchParams.set('sort', params.sort);
-    if (params.search) searchParams.set('search', params.search);
-
-    const query = searchParams.toString();
-    const url = `/api/feed${query ? `?${query}` : ''}`;
-
+    const url = buildUrl('/api/feed', params);
     const data = await fetchJson(url, {
         errorMessage: 'Failed to fetch feed',
     });
@@ -324,8 +356,7 @@ export const getCategories = async (): Promise<CategoriesResponse> => {
  * Also refreshes the credit cookie server-side
  */
 export const getCreditsBalance = async () => {
-    const data = await fetchJson('/api/credits/balance', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/credits/balance', {
         errorMessage: 'Failed to fetch credits',
     });
     return creditsBalanceResponseSchema.parse(data);
@@ -338,10 +369,9 @@ export const purchaseCreditPack = async (
   packId: string,
   clipId?: string,
 ): Promise<{ paymentUrl: string }> => {
-  return fetchJson('/api/credits/purchase', {
+  return fetchJsonAuth('/api/credits/purchase', {
     method: 'POST',
     body: JSON.stringify({ packId, clipId }),
-    credentials: 'include',
     errorMessage: 'Failed to initiate credit pack purchase',
   });
 };
@@ -352,8 +382,7 @@ export const purchaseCreditPack = async (
  * Fetch clip IDs the current user has downloaded
  */
 export const getMyDownloadIds = async (): Promise<string[]> => {
-    const data = await fetchJson<{ clipIds: string[] }>('/api/download/mine', {
-        credentials: 'include',
+    const data = await fetchJsonAuth<{ clipIds: string[] }>('/api/download/mine', {
         errorMessage: 'Failed to fetch downloads',
     });
     return data.clipIds;
@@ -363,14 +392,8 @@ export const getMyDownloadIds = async (): Promise<string[]> => {
  * Fetch paginated download history with clip metadata
  */
 export const getDownloadHistory = async (cursor?: string, limit?: number): Promise<DownloadHistoryResponse> => {
-    const params = new URLSearchParams();
-    if (cursor) params.set('cursor', cursor);
-    if (limit) params.set('limit', String(limit));
-    const query = params.toString();
-    const url = `/api/download/history${query ? `?${query}` : ''}`;
-
-    const data = await fetchJson(url, {
-        credentials: 'include',
+    const url = buildUrl('/api/download/history', { cursor, limit });
+    const data = await fetchJsonAuth(url, {
         errorMessage: 'Failed to fetch download history',
     });
     return downloadHistoryResponseSchema.parse(data);
@@ -381,9 +404,8 @@ export const getDownloadHistory = async (cursor?: string, limit?: number): Promi
  * Returns presigned R2 URL for direct download
  */
 export const downloadClip = async (clipId: string): Promise<DownloadClipResponse> => {
-    const data = await fetchJson(`/api/download/${clipId}`, {
+    const data = await fetchJsonAuth(`/api/download/${clipId}`, {
         method: 'POST',
-        credentials: 'include',
         errorMessage: 'Failed to download clip',
     });
     return downloadClipResponseSchema.parse(data);
@@ -400,8 +422,7 @@ export const getClipStatus = async (clipId: string): Promise<{
     status: 'processing' | 'published' | 'rejected' | 'review';
     reason: string | null;
 }> => {
-    return fetchJson(`/api/clips/${clipId}/status`, {
-        credentials: 'include',
+    return fetchJsonAuth(`/api/clips/${clipId}/status`, {
         errorMessage: 'Failed to fetch clip status',
     });
 };
@@ -411,8 +432,7 @@ export const getClipStatus = async (clipId: string): Promise<{
  * Auth required — creator role
  */
 export const getCreatorClips = async (): Promise<CreatorClipsResponse> => {
-    const data = await fetchJson('/api/clips/mine', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/clips/mine', {
         errorMessage: 'Failed to fetch creator clips',
     });
     return creatorClipsResponseSchema.parse(data);
@@ -421,16 +441,14 @@ export const getCreatorClips = async (): Promise<CreatorClipsResponse> => {
 // ==================== Creator Series API ====================
 
 export const getCreatorSeriesList = async (): Promise<CreatorSeriesListResponse> => {
-    const data = await fetchJson('/api/creator-series', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/creator-series', {
         errorMessage: 'Failed to fetch series list',
     });
     return creatorSeriesListResponseSchema.parse(data);
 };
 
 export const getCreatorSeriesDetail = async (seriesId: string): Promise<CreatorSeriesDetailResponse> => {
-    const data = await fetchJson(`/api/creator-series/${seriesId}`, {
-        credentials: 'include',
+    const data = await fetchJsonAuth(`/api/creator-series/${seriesId}`, {
         errorMessage: 'Failed to fetch series detail',
     });
     return creatorSeriesDetailResponseSchema.parse(data);
@@ -445,10 +463,9 @@ interface CreateSeriesInput {
 }
 
 export const createCreatorSeries = async (input: CreateSeriesInput): Promise<CreatorSeriesCreateResponse> => {
-    const data = await fetchJson('/api/creator-series', {
+    const data = await fetchJsonAuth('/api/creator-series', {
         method: 'POST',
         body: JSON.stringify(input),
-        credentials: 'include',
         errorMessage: 'Failed to create series',
     });
     return creatorSeriesCreateResponseSchema.parse(data);
@@ -463,47 +480,40 @@ interface UpdateSeriesInput {
 }
 
 export const updateCreatorSeries = async (seriesId: string, input: UpdateSeriesInput): Promise<void> => {
-    await fetchJson(`/api/creator-series/${seriesId}`, {
+    await fetchJsonAuth(`/api/creator-series/${seriesId}`, {
         method: 'PUT',
         body: JSON.stringify(input),
-        credentials: 'include',
         errorMessage: 'Failed to update series',
     });
 };
 
 export const deleteCreatorSeries = async (seriesId: string): Promise<void> => {
-    await fetchJson(`/api/creator-series/${seriesId}`, {
+    await fetchJsonAuth(`/api/creator-series/${seriesId}`, {
         method: 'DELETE',
-        credentials: 'include',
         errorMessage: 'Failed to delete series',
     });
 };
 
 export const getSeriesCoverUploadUrl = async (seriesId: string, contentType = 'image/jpeg'): Promise<{ presignedUrl: string; key: string; expiresIn: number }> => {
-    return fetchJson(`/api/creator-series/${seriesId}/cover`, {
+    return fetchJsonAuth(`/api/creator-series/${seriesId}/cover`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-content-type': contentType },
         errorMessage: 'Failed to get cover upload URL',
     });
 };
 
 export const completeSeriesCoverUpload = async (seriesId: string, contentType = 'image/jpeg'): Promise<{ _id: string; coverUrl: string }> => {
-    return fetchJson(`/api/creator-series/${seriesId}/cover/complete`, {
+    return fetchJsonAuth(`/api/creator-series/${seriesId}/cover/complete`, {
         method: 'POST',
         body: JSON.stringify({ contentType }),
-        credentials: 'include',
         errorMessage: 'Failed to complete cover upload',
     });
 };
 
 // ==================== Creator Stats API ====================
 
-export const creatorStatsQueryKey = ['creator-stats'] as const;
-
 export const getCreatorStats = async (): Promise<CreatorStatsResponse> => {
-    const data = await fetchJson('/api/creators/me/stats', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/creators/me/stats', {
         errorMessage: 'Failed to fetch creator stats',
     });
     return creatorStatsResponseSchema.parse(data);
@@ -511,41 +521,77 @@ export const getCreatorStats = async (): Promise<CreatorStatsResponse> => {
 
 // ==================== Creator Earnings API ====================
 
-export const creatorEarningsQueryKey = ['creator-earnings'] as const;
-
 export const getCreatorEarnings = async (): Promise<CreatorEarningsResponse> => {
-    const data = await fetchJson('/api/creators/me/earnings', {
-        credentials: 'include',
+    const data = await fetchJsonAuth('/api/creators/me/earnings', {
         errorMessage: 'Failed to fetch creator earnings',
     });
     return creatorEarningsResponseSchema.parse(data);
 };
 
+// ==================== Admin Payout API ====================
+
+export const getPayoutMonths = async (): Promise<PayoutMonthsResponse> => {
+    const data = await fetchJsonAuth('/api/admin/payouts/months', {
+        errorMessage: 'Failed to fetch payout months',
+    });
+    return payoutMonthsResponseSchema.parse(data);
+};
+
+export const getPayoutsByMonth = async (month: string): Promise<PayoutsResponse> => {
+    const data = await fetchJsonAuth(`/api/admin/payouts/${month}`, {
+        errorMessage: 'Failed to fetch payouts',
+    });
+    return payoutsResponseSchema.parse(data);
+};
+
+export const approvePayoutBatch = async (month: string): Promise<ApprovePayoutResponse> => {
+    const data = await fetchJsonAuth('/api/admin/payouts/approve', {
+        method: 'POST',
+        body: JSON.stringify({ month }),
+        errorMessage: 'Failed to approve payouts',
+    });
+    return approvePayoutResponseSchema.parse(data);
+};
+
+export const markPayoutBatchPaid = async (month: string): Promise<MarkPaidResponse> => {
+    const data = await fetchJsonAuth('/api/admin/payouts/mark-paid', {
+        method: 'POST',
+        body: JSON.stringify({ month }),
+        errorMessage: 'Failed to mark payouts as paid',
+    });
+    return markPaidResponseSchema.parse(data);
+};
+
+/**
+ * Export payouts for a month as CSV
+ * Opens download in new tab (same-origin, session cookie sent automatically)
+ */
+export const exportPayoutCsv = (month: string): void => {
+    window.open(`/api/admin/payouts/${month}/export`, '_blank');
+};
+
 // ==================== Upload API ====================
 
 export const initClipUpload = async (data: UploadInitInput): Promise<UploadInitResponse> => {
-    const raw = await fetchJson('/api/upload/init', {
+    const raw = await fetchJsonAuth('/api/upload/init', {
         method: 'POST',
         body: JSON.stringify(data),
-        credentials: 'include',
         errorMessage: 'Failed to initialize upload',
     });
     return uploadInitResponseSchema.parse(raw);
 };
 
 export const completeClipUpload = async (clipId: string): Promise<UploadCompleteResponse> => {
-    const raw = await fetchJson(`/api/upload/complete/${clipId}`, {
+    const raw = await fetchJsonAuth(`/api/upload/complete/${clipId}`, {
         method: 'POST',
-        credentials: 'include',
         errorMessage: 'Failed to complete upload',
     });
     return uploadCompleteResponseSchema.parse(raw);
 };
 
 export const retryClipUpload = async (clipId: string): Promise<UploadRetryResponse> => {
-    const raw = await fetchJson(`/api/upload/retry/${clipId}`, {
+    const raw = await fetchJsonAuth(`/api/upload/retry/${clipId}`, {
         method: 'POST',
-        credentials: 'include',
         errorMessage: 'Failed to retry upload',
     });
     return uploadRetryResponseSchema.parse(raw);

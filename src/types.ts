@@ -351,7 +351,7 @@ export const creatorEarningsEntrySchema = z.object({
     totalDownloads: z.number(),
     earningsAmount: z.number(),
     revenueShare: z.number(),
-    status: z.string(),
+    status: z.enum(['pending', 'approved', 'paid']),
     paidAt: z.string().nullable(),
 });
 
@@ -397,3 +397,55 @@ export interface UploadInitInput {
     seriesId?: string;
     episodeNumber?: number;
 }
+
+// ==================== Admin Payout Schemas ====================
+
+export const payoutMonthSchema = z.object({
+    month: z.string(),
+    creatorCount: z.number(),
+    totalPayout: z.number(),
+    pendingCount: z.number(),
+    approvedCount: z.number(),
+    paidCount: z.number(),
+});
+
+export const payoutMonthsResponseSchema = z.object({
+    months: z.array(payoutMonthSchema),
+});
+
+export const payoutEntrySchema = z.object({
+    id: z.string(),
+    creatorId: z.string(),
+    creatorName: z.string().nullable(),
+    creatorEmail: z.string(),
+    month: z.string(),
+    totalDownloads: z.number(),
+    platformRevenue: z.number(),
+    totalPlatformDownloads: z.number(),
+    earningsAmount: z.number(),
+    revenueShare: z.number(),
+    status: z.enum(['pending', 'approved', 'paid']),
+    paidAt: z.string().nullable(),
+    createdAt: z.string(),
+});
+
+export const payoutsResponseSchema = z.object({
+    payouts: z.array(payoutEntrySchema),
+});
+
+export const approvePayoutResponseSchema = z.object({
+    approved: z.number(),
+    month: z.string(),
+});
+
+export const markPaidResponseSchema = z.object({
+    paid: z.number(),
+    month: z.string(),
+});
+
+export type PayoutMonth = z.infer<typeof payoutMonthSchema>;
+export type PayoutMonthsResponse = z.infer<typeof payoutMonthsResponseSchema>;
+export type PayoutEntry = z.infer<typeof payoutEntrySchema>;
+export type PayoutsResponse = z.infer<typeof payoutsResponseSchema>;
+export type ApprovePayoutResponse = z.infer<typeof approvePayoutResponseSchema>;
+export type MarkPaidResponse = z.infer<typeof markPaidResponseSchema>;
